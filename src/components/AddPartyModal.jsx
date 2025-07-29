@@ -56,6 +56,12 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
     const handleQuizComplete = () => {
         console.log("✅ Quiz terminé, fermeture du modal");
         setShowQuiz(false);
+        
+        // Maintenant on peut informer le parent que tout est terminé
+        if (onPartySaved) {
+            onPartySaved();
+        }
+        
         onClose();
     };
 
@@ -118,10 +124,19 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
             
             console.log("✅ Quiz simple préparé avec les données:", { partyData, id: docRef.id });
             
-            // Informer le parent que la soirée a été sauvegardée
-            if (onPartySaved) {
-                onPartySaved();
-            }
+            // Log de vérification des états
+            setTimeout(() => {
+                console.log("🔍 États après setShowQuiz:", { 
+                    showQuiz: true, // On sait qu'on vient de le set à true
+                    hasLastPartyData: !!partyData,
+                    hasLastPartyId: !!docRef.id
+                });
+            }, 100);
+            
+            // NE PAS informer le parent maintenant - on attend que le quiz soit terminé
+            // if (onPartySaved) {
+            //     onPartySaved();
+            // }
             
             // NE PAS fermer le modal - on attend que le quiz soit terminé
             
@@ -732,7 +747,10 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
             </div>
             
             {/* Quiz simple qui s'affiche après la soumission */}
-            {showQuiz && lastPartyData && lastPartyId && (
+            {(() => {
+                console.log("🔍 Condition Quiz:", { showQuiz, hasLastPartyData: !!lastPartyData, hasLastPartyId: !!lastPartyId });
+                return showQuiz && lastPartyData && lastPartyId;
+            })() && (
                 <QuizManagerSimple
                     partyData={lastPartyData}
                     partyId={lastPartyId}

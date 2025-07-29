@@ -78,41 +78,51 @@ const AppContent = () => {
                 <AuthPage />
             ) : (
                 <div 
-                    className="min-h-screen font-sans flex flex-col text-white relative w-full h-screen" 
+                    className="min-h-screen font-sans flex flex-col text-white relative w-full" 
                     style={{ 
                         ...mainBgStyle, 
                         backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)), url(${backgroundUrl})`,
                         margin: 0,
-                        padding: 0
+                        padding: 0,
+                        minHeight: '100vh', // Force la hauteur minimum à 100vh
+                        backgroundAttachment: 'fixed', // Fond fixe pour toujours couvrir
+                        backgroundSize: 'cover',
+                        backgroundPosition: 'center'
                     }}
                 >
-                    <header className="relative z-10 p-4 bg-black/20 shadow-lg text-center backdrop-blur-sm">
+                    <header className="relative z-10 p-4 bg-black/20 shadow-lg text-center backdrop-blur-sm flex-shrink-0">
                         <ThemedText style={{ fontSize: '1.875rem', fontWeight: 'bold' }}>DrinkWise</ThemedText>
                     </header>
-                    <main className="relative z-10 flex-grow flex flex-col w-full">
-                        <div className="w-full h-full">
+                    <main className="relative z-10 flex-grow flex flex-col w-full min-h-0">
+                        <div className="w-full flex-grow flex flex-col">
                             {renderPage()}
                         </div>
                     </main>
-                    <footer className="relative z-10 bg-black/30 backdrop-blur-sm border-t border-white/10">
+                    <footer className="relative z-10 bg-black/50 backdrop-blur-sm border-t border-white/20 flex-shrink-0 mt-auto">
                         <div className="flex justify-around items-center p-2">
                             {navItems.map((item) => (
                                 <button
                                     key={item.id}
                                     onClick={() => setCurrentPage(item.id)}
-                                    className="flex flex-col items-center p-2 rounded-lg hover:bg-white/10 transition-colors duration-200"
+                                    className="flex flex-col items-center p-2 transition-colors duration-200"
                                     style={{
                                         minWidth: '60px',
-                                        backgroundColor: currentPage === item.id ? 'rgba(168, 85, 247, 0.2)' : 'transparent'
+                                        backgroundColor: 'transparent' // Pas de background
                                     }}
                                 >
                                     <item.icon 
                                         size={20} 
-                                        style={{ color: currentPage === item.id ? '#a855f7' : '#ffffff' }}
+                                        style={{ 
+                                            color: currentPage === item.id ? '#a855f7' : '#ffffff',
+                                            filter: 'drop-shadow(0 1px 2px rgba(0, 0, 0, 0.8))' // Ombre pour meilleure visibilité
+                                        }}
                                     />
                                     <span 
                                         className="text-[10px] mt-0.5"
-                                        style={{ color: currentPage === item.id ? '#a855f7' : '#ffffff' }}
+                                        style={{ 
+                                            color: currentPage === item.id ? '#a855f7' : '#ffffff',
+                                            textShadow: '0 1px 2px rgba(0, 0, 0, 0.8)' // Ombre pour le texte aussi
+                                        }}
                                     >
                                         {item.label}
                                     </span>
