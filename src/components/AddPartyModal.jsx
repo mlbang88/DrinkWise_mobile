@@ -6,6 +6,7 @@ import { drinkOptions, partyCategories, gameplayConfig } from '../utils/data';
 import { badgeService } from '../services/badgeService';
 import LoadingSpinner from './LoadingSpinner';
 import DrinkAnalyzer from './DrinkAnalyzer';
+import QuizManagerSimple from './QuizManagerSimple';
 import { PlusCircle, Trash2, XCircle } from 'lucide-react';
 
 const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
@@ -48,7 +49,15 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
     const [category, setCategory] = useState(initialData.category);
     const [lastPartyData, setLastPartyData] = useState(null);
     const [lastPartyId, setLastPartyId] = useState(null);
+    const [showQuiz, setShowQuiz] = useState(false);
     const [loadingSummary, setLoadingSummary] = useState(false);
+
+    // Fonction pour gérer la fin du quiz
+    const handleQuizComplete = () => {
+        console.log("✅ Quiz terminé, fermeture du modal");
+        setShowQuiz(false);
+        onClose();
+    };
 
     const handleStatChange = (field, value) => setStats(prev => ({ ...prev, [field]: Math.max(0, Number(value)) }));
     const handleDrinkChange = (index, field, value) => {
@@ -101,70 +110,20 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
             // Générer le résumé de la soirée
             generatePartySummary(partyData, docRef.id);
             
-            // Déclencher le quiz via événement personnalisé (système unifié)
-            console.log("🎯 Déclenchement du quiz depuis formulaire normal");
+            // Stocker les données pour le quiz simple
+            console.log("🎯 Soirée sauvegardée, déclenchement du quiz simple");
+            setLastPartyData(partyData);
+            setLastPartyId(docRef.id);
+            setShowQuiz(true);
             
-            // Nettoyer localStorage d'abord pour éviter les conflits
-            localStorage.removeItem('showQuiz');
-            localStorage.removeItem('lastPartyData');
-            localStorage.removeItem('lastPartyId');
-            localStorage.removeItem('currentQuiz');
-            
-            // IMPORTANT: Stocker le quiz AVANT de fermer le modal pour éviter les problèmes de timing
-            try {
-                // Plus de mode soirée - on stocke directement
-                console.log("🔍 Stockage quiz formulaire normal");
-                
-                localStorage.setItem('drinkwise_quiz_data', JSON.stringify(partyData));
-                localStorage.setItem('drinkwise_quiz_id', docRef.id);
-                localStorage.setItem('drinkwise_quiz_active', 'true');
-                localStorage.setItem('drinkwise_quiz_from_party', 'false'); // Pas du mode soirée
-                localStorage.setItem('drinkwise_quiz_trigger', Date.now().toString());
-                console.log("💾 Quiz (formulaire normal) stocké dans localStorage AVANT fermeture modal");
-                
-                // Vérification immédiate du stockage
-                const verification = {
-                    active: localStorage.getItem('drinkwise_quiz_active'),
-                    data: localStorage.getItem('drinkwise_quiz_data'),
-                    id: localStorage.getItem('drinkwise_quiz_id')
-                };
-                console.log("🔍 Vérification immédiate après stockage:", verification);
-                
-                // Forcer le re-rendu pour que le QuizManager détecte le changement
-                window.dispatchEvent(new Event('storage'));
-                
-                // AJOUT: Délai pour s'assurer que localStorage est bien écrit avant événement
-                setTimeout(() => {
-                    window.dispatchEvent(new Event('storage'));
-                    console.log("🔄 Événement storage re-déclenché avec délai");
-                    
-                    // BONUS: Event personnalisé pour forcer la détection
-                    const quizTriggerEvent = new CustomEvent('quizTrigger', {
-                        detail: { source: 'formulaire_normal' }
-                    });
-                    window.dispatchEvent(quizTriggerEvent);
-                    console.log("📤 Événement quizTrigger personnalisé envoyé");
-                    
-                    // BONUS: Vérification post-événements
-                    const verification2 = {
-                        active: localStorage.getItem('drinkwise_quiz_active'),
-                        data: localStorage.getItem('drinkwise_quiz_data'),
-                        id: localStorage.getItem('drinkwise_quiz_id')
-                    };
-                    console.log("🔍 Vérification après événements:", verification2);
-                }, 50);
-                
-            } catch (error) {
-                console.error("❌ Erreur stockage quiz formulaire normal:", error);
-            }
+            console.log("✅ Quiz simple préparé avec les données:", { partyData, id: docRef.id });
             
             // Informer le parent que la soirée a été sauvegardée
             if (onPartySaved) {
                 onPartySaved();
             }
             
-            // Fermer le modal APRÈS avoir stocké le quiz
-            onClose();
+            // NE PAS fermer le modal - on attend que le quiz soit terminé
             
         } catch (error) {
             console.error("❌ Erreur enregistrement soirée:", error);
@@ -771,6 +730,15 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
                     </form>
                 </div>
             </div>
+            
+            {/* Quiz simple qui s'affiche après la soumission */}
+            {showQuiz && lastPartyData && lastPartyId && (
+                <QuizManagerSimple
+                    partyData={lastPartyData}
+                    partyId={lastPartyId}
+                    onQuizComplete={handleQuizComplete}
+                />
+            )}
         </div>
     );
 };

@@ -9,7 +9,6 @@ import AddPartyModal from '../components/AddPartyModal';
 import LoadingIcon from '../components/LoadingIcon';
 import RewardNotification from '../components/RewardNotification';
 import { PlusCircle } from 'lucide-react';
-import QuizManager from '../components/QuizManagerClean';
 
 const HomePage = () => {
     const { db, user, appId, userProfile } = useContext(FirebaseContext);
@@ -177,8 +176,6 @@ const HomePage = () => {
                     onClose={() => setShowRewardNotification(false)}
                 />
             )}
-            
-            <QuizManager />
         </div>
     );
 };

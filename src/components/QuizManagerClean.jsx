@@ -67,15 +67,12 @@ const QuizManager = () => {
                 const quizData = localStorage.getItem('drinkwise_quiz_data');
                 const quizId = localStorage.getItem('drinkwise_quiz_id');
 
-                // Log réduit - seulement si détection importante
-                if (quizActive && quizData && quizId) {
-                    console.log("🔍 QuizManager - Quiz disponible dans localStorage:", { 
-                        quizActive, 
-                        hasQuizData: !!quizData, 
-                        hasQuizId: !!quizId, 
-                        currentShowQuiz: showQuiz 
-                    });
-                }
+                console.log("🔍 QuizManager - Vérification localStorage:", { 
+                    quizActive, 
+                    hasQuizData: !!quizData, 
+                    hasQuizId: !!quizId, 
+                    currentShowQuiz: showQuiz 
+                });
 
                 // Si le quiz est actif et qu'on a des données, mais que showQuiz est false, l'activer
                 if (quizActive && quizData && quizId && !showQuiz) {
@@ -89,6 +86,15 @@ const QuizManager = () => {
                     console.log("✅ Quiz activé avec les données:", { parsedData, quizId });
 
                     return true;
+                } else if (quizActive && quizData && quizId && showQuiz) {
+                    console.log("ℹ️ Quiz déjà affiché, pas de changement nécessaire");
+                } else {
+                    console.log("ℹ️ Conditions non remplies pour afficher le quiz:", {
+                        quizActive,
+                        hasData: !!quizData,
+                        hasId: !!quizId,
+                        showQuiz
+                    });
                 }
 
                 return false;
@@ -285,9 +291,8 @@ const QuizManager = () => {
         <QuizModal
             partyData={partyData}
             partyId={partyId}
-            onComplete={finalizeQuizAndRewards}
+            onQuizComplete={finalizeQuizAndRewards}
             onClose={closeQuizManually}
-            onSubmit={closeQuizAfterCompletion}
         />,
         document.body
     );
