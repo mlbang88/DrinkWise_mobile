@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">DrinkWise</string>
+    <string name="title_activity_main">DrinkWise</string>
+    <string name="package_name">com.mlb.drinkwise</string>
+    <string name="custom_url_scheme">com.mlb.drinkwise</string>
+</resources>
