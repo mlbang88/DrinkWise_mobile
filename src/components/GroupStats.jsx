@@ -6,6 +6,7 @@ import { groupService } from '../services/groupService';
 import { badgeList, gameplayConfig } from '../utils/data';
 import LoadingSpinner from './LoadingSpinner';
 import GroupGoals from './GroupGoals';
+import GroupMemories from './GroupMemories';
 
 export default function GroupStats({ groupId }) {
     const { db, appId, setMessageBox } = useContext(FirebaseContext);
@@ -318,6 +319,12 @@ export default function GroupStats({ groupId }) {
                     // Recharger les données du groupe après création d'un objectif
                     // Le onSnapshot se chargera automatiquement de mettre à jour les données
                 }}
+            />
+
+            {/* Souvenirs du groupe */}
+            <GroupMemories 
+                groupId={groupId}
+                groupMembers={groupData?.members || []}
             />
         </div>
     );

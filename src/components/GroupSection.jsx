@@ -29,7 +29,7 @@ const GroupSection = () => {
         for (const memberId of memberIds) {
             if (!memberProfiles[memberId]) {
                 try {
-                    const userDoc = await getDoc(doc(db, 'users', memberId));
+                    const userDoc = await getDoc(doc(db, `artifacts/${appId}/public_user_stats`, memberId));
                     if (userDoc.exists()) {
                         profiles[memberId] = {
                             id: memberId,

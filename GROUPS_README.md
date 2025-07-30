@@ -16,6 +16,12 @@
 - **Comparaison visuelle** : Interface claire pour comparer les performances
 - **Mise à jour automatique** : Stats mises à jour quand un membre ajoute une soirée
 
+### ✅ **Souvenirs de groupe**
+- **Timeline des soirées** : Historique des activités récentes des membres
+- **Exploits collectifs** : Achievements débloqués par le groupe
+- **Interface multi-vues** : Récents, exploits, timeline
+- **Avatars contextuels** : Photos des membres avec détails des soirées
+- **Intégration native** : Directement dans les stats pour une navigation fluide
 ### ✅ **Objectifs de groupe**
 - **Création d'objectifs** : Définir des défis collectifs
 - **Types d'objectifs** : Verres bus, soirées, volume, défis complétés, badges
@@ -29,6 +35,7 @@
 - **Feedback visuel** : Indicateurs de progression et états
 - **Avatars des membres** : Photos de profil avec chargement automatique des noms d'utilisateur
 - **Interface améliorée** : Affichage premium avec avatars, noms réels et badges de rôle
+- **Souvenirs intégrés** : Section souvenirs directement dans les statistiques pour une UX optimisée
 
 ## Architecture technique
 
@@ -38,8 +45,9 @@
 
 ### **Composants**
 - `GroupSection.jsx` : Section intégrée dans la page Amis pour la gestion des groupes
-- `GroupStats.jsx` : Affichage des statistiques détaillées
+- `GroupStats.jsx` : Affichage des statistiques détaillées avec souvenirs intégrés
 - `GroupGoals.jsx` : Création et suivi des objectifs
+- `GroupMemories.jsx` : Composant de souvenirs avec vues multiples (récents, exploits, timeline)
 - `GroupsPage.jsx` : Page principale des groupes (maintenant obsolète)
 - `UserAvatar.jsx` : Composant d'affichage des avatars utilisateur avec fallback
 - `ProfilePhotoManager.jsx` : Gestionnaire de photos de profil avec upload Firebase Storage
@@ -102,6 +110,13 @@ match /artifacts/{appId}/groups/{groupId} {
 3. **Gérer les membres** : Voir la liste complète et exclure des membres
 4. **Supprimer le groupe** : Utiliser le bouton "🗑️ Supprimer le groupe"
 5. **Protections** : Le créateur ne peut pas être supprimé, confirmations obligatoires
+
+### **6. Explorer les souvenirs**
+1. Sélectionner un groupe dans la liste
+2. Faire défiler jusqu'à la section "📸 Souvenirs du Groupe"
+3. **Vue Récents** : Voir les dernières soirées des membres avec avatars
+4. **Vue Exploits** : Découvrir les achievements débloqués par le groupe
+5. **Vue Timeline** : Explorer l'historique chronologique (à venir)
 
 ## Améliorations futures possibles
 
