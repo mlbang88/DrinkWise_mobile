@@ -8,6 +8,7 @@
 - **Gestion des admins** : Le créateur devient automatiquement admin
 - **Administration avancée** : Les admins peuvent supprimer des membres et le groupe entier
 - **Statistiques cumulées** : Voir les stats combinées de tous les membres
+- **Photos de profil** : Avatars des membres avec chargement automatique des profils utilisateur
 
 ### ✅ **Statistiques de groupe**
 - **Stats globales** : Verres bus, soirées, volume total, défis complétés, etc.
@@ -26,6 +27,8 @@
 - **Design cohérent** : Style consistent avec l'app
 - **Navigation intuitive** : Sélection facile des groupes
 - **Feedback visuel** : Indicateurs de progression et états
+- **Avatars des membres** : Photos de profil avec chargement automatique des noms d'utilisateur
+- **Interface améliorée** : Affichage premium avec avatars, noms réels et badges de rôle
 
 ## Architecture technique
 
@@ -38,6 +41,8 @@
 - `GroupStats.jsx` : Affichage des statistiques détaillées
 - `GroupGoals.jsx` : Création et suivi des objectifs
 - `GroupsPage.jsx` : Page principale des groupes (maintenant obsolète)
+- `UserAvatar.jsx` : Composant d'affichage des avatars utilisateur avec fallback
+- `ProfilePhotoManager.jsx` : Gestionnaire de photos de profil avec upload Firebase Storage
 
 ### **Base de données**
 ```
@@ -121,6 +126,13 @@ match /artifacts/{appId}/groups/{groupId} {
 - **Tournois** : Compétitions entre groupes
 
 ## Support et maintenance
+
+### **Configuration Firebase Storage requise**
+⚠️ **IMPORTANT** : Pour que les avatars fonctionnent pleinement, activez Firebase Storage :
+1. Allez sur [Firebase Console](https://console.firebase.google.com/project/drinkwise-31d3a/storage)
+2. Cliquez sur "Commencer" pour activer Storage
+3. Déployez les règles de sécurité avec `firebase deploy --only storage`
+4. Les avatars personnalisés seront alors fonctionnels
 
 ### **Surveillance**
 - Logs automatiques pour les opérations critiques

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
+import UserAvatar from './UserAvatar';
 
 const FriendItem = ({ friendId, onRemove, onViewStats, appId, db }) => {
     const [friendProfile, setFriendProfile] = useState(null);
@@ -41,13 +42,24 @@ const FriendItem = ({ friendId, onRemove, onViewStats, appId, db }) => {
             border: '1px solid rgba(255, 255, 255, 0.1)',
             marginBottom: '12px'
         }}>
-            <span style={{
-                color: 'white',
-                fontSize: '18px',
-                fontWeight: '500'
+            <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '15px'
             }}>
-                {friendProfile.username}
-            </span>
+                <UserAvatar 
+                    user={friendProfile}
+                    size={45}
+                    onClick={() => onViewStats(friendId)}
+                />
+                <span style={{
+                    color: 'white',
+                    fontSize: '18px',
+                    fontWeight: '500'
+                }}>
+                    {friendProfile.username}
+                </span>
+            </div>
             
             <div style={{
                 display: 'flex',

@@ -5,6 +5,7 @@ import { FirebaseContext } from '../contexts/FirebaseContext.jsx';
 import { gameplayConfig } from '../utils/data';
 import { validateUsername, isUsernameAvailable } from '../utils/usernameUtils';
 import LoadingIcon from '../components/LoadingIcon';
+import ProfilePhotoManager from '../components/ProfilePhotoManager';
 
 const ProfilePage = () => {
     const { auth, user, userProfile, db, appId, setMessageBox } = useContext(FirebaseContext);
@@ -12,6 +13,7 @@ const ProfilePage = () => {
     const [loading, setLoading] = useState(false);
     const [usernameValidation, setUsernameValidation] = useState({ isValid: true, error: null });
     const [checkingUsername, setCheckingUsername] = useState(false);
+    const [currentProfilePhoto, setCurrentProfilePhoto] = useState(userProfile?.profilePhoto || null);
 
     // XP uniformisé : soirées, verres, défis, badges
     const parties = userProfile?.publicStats?.totalParties || userProfile?.parties || 0;
@@ -137,6 +139,10 @@ const ProfilePage = () => {
         }
     };
 
+    const handlePhotoUpdate = (photoData) => {
+        setCurrentProfilePhoto(photoData);
+    };
+
     const handleSignOut = () => signOut(auth).catch(e => setMessageBox({ message: "Erreur déconnexion.", type: "error" }));
 
     return (
@@ -164,6 +170,18 @@ const ProfilePage = () => {
                 }}>
                     Mon Profil
                 </h1>
+
+                {/* Photo de profil */}
+                <div style={{ 
+                    display: 'flex', 
+                    justifyContent: 'center', 
+                    marginBottom: '30px' 
+                }}>
+                    <ProfilePhotoManager
+                        currentPhoto={currentProfilePhoto}
+                        onPhotoUpdate={handlePhotoUpdate}
+                    />
+                </div>
 
                 {/* Section XP et niveau */}
                 {userProfile && (
