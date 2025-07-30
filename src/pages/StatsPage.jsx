@@ -139,165 +139,104 @@ const StatsPage = () => {
     if (loading) return <LoadingSpinner />;
 
     return (
-        <div style={{
-            minHeight: '100vh',
-            background: 'linear-gradient(rgba(0,0,0,0.75), rgba(0,0,0,0.75)), url("https://images.unsplash.com/photo-1543007629-5c4e8a83ba4c?q=80&w=1171&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D") center/cover',
-            padding: '20px 20px 20px 20px',
-            display: 'flex',
-            flexDirection: 'column'
-        }}>
-
-
-            {/* Titre principal */}
-            <h2 style={{
-                color: 'white',
-                fontSize: '28px',
-                fontWeight: '600',
-                margin: '0 0 32px 0',
-                textAlign: 'left'
-            }}>
-                Statistiques & Outils
-            </h2>
-
-            {/* Filtres de période */}
-            <div style={{
-                display: 'flex',
-                gap: '12px',
-                marginBottom: '32px'
-            }}>
-                {['week', 'month', 'year', 'all'].map(filter => (
-                    <button 
-                        key={filter} 
-                        onClick={() => setTimeFilter(filter)}
-                        style={{
-                            padding: '12px 20px',
-                            borderRadius: '12px',
-                            border: 'none',
-                            fontSize: '16px',
-                            fontWeight: '600',
-                            cursor: 'pointer',
-                            transition: 'all 0.2s ease',
-                            backgroundColor: timeFilter === filter ? '#8b45ff' : '#2d3748',
-                            color: 'white'
-                        }}
-                        onMouseEnter={(e) => {
-                            if (timeFilter !== filter) {
-                                e.target.style.backgroundColor = '#374151';
-                            }
-                        }}
-                        onMouseLeave={(e) => {
-                            if (timeFilter !== filter) {
-                                e.target.style.backgroundColor = '#2d3748';
-                            }
-                        }}
-                    >
-                        {filter === 'week' ? 'Semaine' : filter === 'month' ? 'Mois' : filter === 'year' ? 'Année' : 'Tout'}
-                    </button>
-                ))}
+        <div className="mobile-container">
+            {/* Header mobile */}
+            <div className="mobile-header">
+                <h2 className="mobile-title">
+                    Statistiques & Outils
+                </h2>
             </div>
 
-            {filteredParties.length === 0 ? (
-                <div style={{
-                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                    borderRadius: '16px',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                    padding: '32px',
-                    textAlign: 'center',
-                    color: 'white',
-                    fontSize: '16px'
-                }}>
-                    Aucune soirée enregistrée pour cette période.
+            <div className="mobile-main">
+                {/* Filtres de période */}
+                <div className="flex flex-wrap gap-3 mb-8">
+                    {['week', 'month', 'year', 'all'].map(filter => (
+                        <button 
+                            key={filter} 
+                            onClick={() => setTimeFilter(filter)}
+                            className={`px-4 py-3 rounded-xl border-none font-semibold cursor-pointer transition-all duration-200 ${
+                                timeFilter === filter ? 'bg-purple-600 text-white' : 'bg-gray-600 bg-opacity-50 text-white hover:bg-gray-600 hover:bg-opacity-80'
+                            }`}
+                        >
+                            {filter === 'week' ? 'Semaine' : filter === 'month' ? 'Mois' : filter === 'year' ? 'Année' : 'Tout'}
+                        </button>
+                    ))}
                 </div>
-            ) : (
-                <>
-                    {/* Graphique Répartition des Boissons */}
-                    <div style={{
-                        backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                        borderRadius: '20px',
-                        border: '1px solid rgba(255, 255, 255, 0.1)',
-                        padding: '24px',
-                        marginBottom: '24px'
-                    }}>
-                        <h3 style={{
-                            color: 'white',
-                            fontSize: '20px',
-                            fontWeight: '600',
-                            margin: '0 0 24px 0'
-                        }}>
-                            Répartition des Boissons
-                        </h3>
-                        <div style={{ height: '300px' }}>
-                            <ResponsiveContainer width="100%" height="100%">
-                                <PieChart>
-                                    <Pie 
-                                        data={drinkChartData} 
-                                        dataKey="value" 
-                                        nameKey="name" 
-                                        cx="50%" 
-                                        cy="50%" 
-                                        outerRadius={100} 
-                                        fill="#8884d8" 
-                                        label
-                                    >
-                                        {drinkChartData.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                        ))}
-                                    </Pie>
-                                    <Tooltip 
-                                        contentStyle={{ 
-                                            backgroundColor: '#1a1a2e', 
-                                            border: '1px solid rgba(255, 255, 255, 0.1)',
-                                            borderRadius: '8px',
-                                            color: 'white'
-                                        }} 
-                                    />
-                                    <Legend />
-                                </PieChart>
-                            </ResponsiveContainer>
-                        </div>
-                    </div>
 
-                    {/* Graphique Soirées par Mois */}
-                    <div style={{
-                        backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                        borderRadius: '20px',
-                        border: '1px solid rgba(255, 255, 255, 0.1)',
-                        padding: '24px',
-                        marginBottom: '24px'
-                    }}>
-                        <h3 style={{
-                            color: 'white',
-                            fontSize: '20px',
-                            fontWeight: '600',
-                            margin: '0 0 24px 0'
-                        }}>
-                            Soirées par Mois
-                        </h3>
-                        <div style={{ height: '300px' }}>
-                            <ResponsiveContainer width="100%" height="100%">
-                                <ReBarChart data={partyChartData}>
-                                    <XAxis 
-                                        dataKey="name" 
-                                        stroke="#9ca3af" 
-                                        fontSize={12}
-                                    />
-                                    <YAxis 
-                                        stroke="#9ca3af" 
-                                        fontSize={12}
-                                    />
-                                    <Tooltip 
-                                        contentStyle={{ 
-                                            backgroundColor: '#1a1a2e', 
-                                            border: '1px solid rgba(255, 255, 255, 0.1)',
-                                            borderRadius: '8px',
-                                            color: 'white'
-                                        }} 
-                                    />
-                                    <Bar dataKey="soirées" fill="#82ca9d" radius={[4, 4, 0, 0]} />
-                                </ReBarChart>
-                            </ResponsiveContainer>
-                        </div>
+                {filteredParties.length === 0 ? (
+                    <div className="mobile-card text-center">
+                        <p className="text-white text-base">
+                            Aucune soirée enregistrée pour cette période.
+                        </p>
                     </div>
+                ) : (
+                    <>
+                        {/* Graphique Répartition des Boissons */}
+                        <div className="mobile-card mb-6">
+                            <h3 className="text-white text-xl font-semibold mb-6">
+                                Répartition des Boissons
+                            </h3>
+                            <div className="h-80">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <PieChart>
+                                        <Pie 
+                                            data={drinkChartData} 
+                                            dataKey="value" 
+                                            nameKey="name" 
+                                            cx="50%" 
+                                            cy="50%" 
+                                            outerRadius={100} 
+                                            fill="#8884d8" 
+                                            label
+                                        >
+                                            {drinkChartData.map((entry, index) => (
+                                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                            ))}
+                                        </Pie>
+                                        <Tooltip 
+                                            contentStyle={{ 
+                                                backgroundColor: '#1a1a2e', 
+                                                border: '1px solid rgba(255, 255, 255, 0.1)',
+                                                borderRadius: '8px',
+                                                color: 'white'
+                                            }} 
+                                        />
+                                        <Legend />
+                                    </PieChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+
+                        {/* Graphique Soirées par Mois */}
+                        <div className="mobile-card mb-6">
+                            <h3 className="text-white text-xl font-semibold mb-6">
+                                Soirées par Mois
+                            </h3>
+                            <div className="h-80">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <ReBarChart data={partyChartData}>
+                                        <XAxis 
+                                            dataKey="name" 
+                                            stroke="#9ca3af" 
+                                            fontSize={12}
+                                        />
+                                        <YAxis 
+                                            stroke="#9ca3af" 
+                                            fontSize={12}
+                                        />
+                                        <Tooltip 
+                                            contentStyle={{ 
+                                                backgroundColor: '#1a1a2e', 
+                                                border: '1px solid rgba(255, 255, 255, 0.1)',
+                                                borderRadius: '8px',
+                                                color: 'white'
+                                            }} 
+                                        />
+                                        <Bar dataKey="soirées" fill="#82ca9d" radius={[4, 4, 0, 0]} />
+                                    </ReBarChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
 
                     {/* Stats de la Période */}
                     {displayStats && (
@@ -719,6 +658,7 @@ const StatsPage = () => {
                         )}
                     </>
                 )}
+            </div>
             </div>
         </div>
     );
