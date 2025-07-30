@@ -39,6 +39,12 @@ const HomePage = () => {
             return;
         }
 
+        // Mettre à jour les stats publiques si elles n'existent pas
+        if (userProfile) {
+            console.log("🏠 HomePage - Mise à jour des stats publiques");
+            badgeService.updatePublicStats(db, user, appId, userProfile);
+        }
+
         const q = query(collection(db, `artifacts/${appId}/users/${user.uid}/parties`));
         const unsubscribe = onSnapshot(q, (snap) => {
             const partiesData = snap.docs.map(d => d.data());
@@ -120,7 +126,10 @@ const HomePage = () => {
                                 <span>🍻 Verres bus :</span> <span style={{ fontWeight: 'bold' }}>{weeklyStats.totalDrinks}</span>
                             </ThemedText>
                             <ThemedText style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.1rem' }}>
-                                <span>🥊 Bagarres :</span> <span style={{ fontWeight: 'bold' }}>{weeklyStats.totalFights}</span>
+                                <span>� Volume total :</span> <span style={{ fontWeight: 'bold' }}>{weeklyStats.totalVolume ? `${(weeklyStats.totalVolume / 100).toFixed(1)}L` : '0L'}</span>
+                            </ThemedText>
+                            <ThemedText style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.1rem' }}>
+                                <span>�🥊 Bagarres :</span> <span style={{ fontWeight: 'bold' }}>{weeklyStats.totalFights}</span>
                             </ThemedText>
                             <ThemedText style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.1rem' }}>
                                 <span>🤢 Vomis :</span> <span style={{ fontWeight: 'bold' }}>{weeklyStats.totalVomi}</span>

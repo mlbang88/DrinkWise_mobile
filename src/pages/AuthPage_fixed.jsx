@@ -2,7 +2,15 @@ import { useState, useContext } from 'react';
 import ThemedText from '../styles/ThemedText.jsx';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { FirebaseContext } from '../contexts/FirebaseContext.jsx';
+import { localImageData } from '../utils/data';
 import LoadingIcon from '../components/LoadingIcon';
+
+const mainBgStyle = {
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+    backgroundAttachment: 'fixed',
+    transition: 'background-image 0.5s ease-in-out',
+};
 
 function AuthPage() {
     const { auth, setMessageBox } = useContext(FirebaseContext);

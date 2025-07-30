@@ -1,11 +1,11 @@
-import { collection, getDocs, updateDoc, doc } from 'firebase/firestore';
-import { badgeList } from '../utils/data';
-import { appId } from '../firebase';
+import { collection, getDocs, updateDoc, doc, getDoc, setDoc } from 'firebase/firestore';
+import { badgeList, calculateDrinkVolume } from '../utils/data';
 
 export const badgeService = {
     calculateGlobalStats: (parties) => {
         const stats = {
             totalDrinks: 0,
+            totalVolume: 0, // Volume total en cl
             totalVomi: 0,
             totalFights: 0,
             totalRecal: 0,
@@ -14,6 +14,7 @@ export const badgeService = {
             totalParties: parties.length,
             uniqueLocations: new Set(),
             drinkTypes: {},
+            drinkVolumes: {}, // Volume par type de boisson
             partyTypes: {},
         };
         const drinkBrandCounts = {};
@@ -22,6 +23,11 @@ export const badgeService = {
             party.drinks.forEach(drink => {
                 stats.totalDrinks += drink.quantity;
                 stats.drinkTypes[drink.type] = (stats.drinkTypes[drink.type] || 0) + drink.quantity;
+
+                // Calculer le volume de cette boisson
+                const volume = calculateDrinkVolume(drink.type, party.category, drink.quantity);
+                stats.totalVolume += volume;
+                stats.drinkVolumes[drink.type] = (stats.drinkVolumes[drink.type] || 0) + volume;
 
                 if (drink.brand) {
                     const brandKey = `${drink.type} - ${drink.brand}`;
@@ -64,6 +70,49 @@ export const badgeService = {
         return stats;
     },
 
+    // Fonction pour mettre à jour les stats publiques (peut être appelée indépendamment)
+    updatePublicStats: async (db, user, appId, userProfile = null) => {
+        if (!user) return;
+
+        const userPartiesRef = collection(db, `artifacts/${appId}/users/${user.uid}/parties`);
+        const userProfileRef = doc(db, `artifacts/${appId}/users/${user.uid}/profile`, 'data');
+
+        try {
+            // Si userProfile n'est pas fourni, on le récupère
+            if (!userProfile) {
+                const userProfileDoc = await getDoc(userProfileRef);
+                userProfile = userProfileDoc.exists() ? userProfileDoc.data() : {};
+            }
+
+            const partiesSnapshot = await getDocs(userPartiesRef);
+            const allParties = partiesSnapshot.docs.map(doc => doc.data());
+            const cumulativeStats = badgeService.calculateGlobalStats(allParties);
+
+            const publicStats = {
+                totalDrinks: cumulativeStats.totalDrinks,
+                totalParties: cumulativeStats.totalParties,
+                totalFights: cumulativeStats.totalFights,
+                totalVomi: cumulativeStats.totalVomi,
+                totalVolume: cumulativeStats.totalVolume,
+                unlockedBadges: userProfile.unlockedBadges || [],
+                username: userProfile.username || 'Utilisateur'
+            };
+
+            // Mettre à jour le profil privé
+            await updateDoc(userProfileRef, { publicStats });
+
+            // Mettre à jour les stats publiques pour les amis
+            const publicStatsRef = doc(db, `artifacts/${appId}/public_user_stats`, user.uid);
+            await setDoc(publicStatsRef, publicStats, { merge: true });
+            
+            console.log("📊 Stats publiques mises à jour:", cumulativeStats);
+            return cumulativeStats;
+        } catch (error) {
+            console.error("❌ Erreur lors de la mise à jour des stats publiques:", error);
+            return null;
+        }
+    },
+
     checkAndAwardBadges: async (db, user, userProfile, appId, newPartyData, setMessageBox) => {
         console.log("🎖️ Début checkAndAwardBadges", { user: !!user, userProfile: !!userProfile, appId, newPartyData });
         
@@ -103,10 +152,46 @@ export const badgeService = {
 
             if (newBadgesAwarded.length > 0) {
                 console.log("💾 Sauvegarde des nouveaux badges:", newBadgesAwarded);
-                await updateDoc(userProfileRef, { unlockedBadges: updatedBadges });
+                
+                const publicStats = {
+                    totalDrinks: cumulativeStats.totalDrinks,
+                    totalParties: cumulativeStats.totalParties,
+                    totalFights: cumulativeStats.totalFights,
+                    totalVomi: cumulativeStats.totalVomi,
+                    totalVolume: cumulativeStats.totalVolume,
+                    unlockedBadges: updatedBadges,
+                    username: userProfile.username || 'Utilisateur'
+                };
+
+                await updateDoc(userProfileRef, { 
+                    unlockedBadges: updatedBadges,
+                    publicStats
+                });
+
+                // Mettre à jour les stats publiques pour les amis
+                const publicStatsRef = doc(db, `artifacts/${appId}/public_user_stats`, user.uid);
+                await setDoc(publicStatsRef, publicStats, { merge: true });
+
                 const badgeNames = newBadgesAwarded.map(id => badgeList[id]?.name).filter(Boolean);
                 setMessageBox({ message: `Nouveaux badges débloqués : ${badgeNames.join(', ')}`, type: 'success' });
                 return { newBadgesCount: newBadgesAwarded.length, newBadges: newBadgesAwarded };
+            } else {
+                // Même sans nouveaux badges, mettre à jour les stats publiques
+                const publicStats = {
+                    totalDrinks: cumulativeStats.totalDrinks,
+                    totalParties: cumulativeStats.totalParties,
+                    totalFights: cumulativeStats.totalFights,
+                    totalVomi: cumulativeStats.totalVomi,
+                    totalVolume: cumulativeStats.totalVolume,
+                    unlockedBadges: userProfile.unlockedBadges || [],
+                    username: userProfile.username || 'Utilisateur'
+                };
+
+                await updateDoc(userProfileRef, { publicStats });
+
+                // Mettre à jour les stats publiques pour les amis
+                const publicStatsRef = doc(db, `artifacts/${appId}/public_user_stats`, user.uid);
+                await setDoc(publicStatsRef, publicStats, { merge: true });
             }
             console.log("📝 Aucun nouveau badge");
             return { newBadgesCount: 0, newBadges: [] };

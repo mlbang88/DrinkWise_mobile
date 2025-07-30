@@ -1,6 +1,5 @@
 // src/utils/data.jsx
 
-import React from 'react'; // <-- LIGNE AJOUTÉE, TRÈS IMPORTANTE
 import { Award, Beer, GlassWater, Bomb, Shield, Heart, Sparkles, HelpCircle, Users, HeartOff, PartyPopper, Wine, MapPin, ShieldCheck, Trophy, Calendar, Star } from 'lucide-react';
 
 export const localImageData = {
@@ -109,4 +108,58 @@ export const gameplayConfig = {
         { name: "Pilier de Bar", xp: 5000 },
         { name: "Légende de la Nuit", xp: 10000 },
     ]
+};
+
+// Configuration des volumes par type de boisson et contexte
+export const drinkVolumes = {
+    // Contextes "publics" (bars, clubs, festivals, etc.)
+    publicContexts: ['Bar', 'Clubbing', 'Concert', 'Festival', 'Événement sportif'],
+    
+    // Contextes "privés" (maison, entre amis, etc.)
+    privateContexts: ['Maison', 'Anniversaire', 'Soirée entre amis', 'Mariage', 'Nouvel An', 'Autre'],
+    
+    volumes: {
+        'Bière': {
+            public: 50,    // 50cl dans les bars, clubs, etc.
+            private: 33    // 33cl à la maison, entre amis
+        },
+        'Spiritueux': {
+            public: 3,     // 3cl dans les bars, clubs
+            private: 5     // 5cl à la maison, entre amis
+        },
+        'Vin': {
+            public: 12,    // 12cl dans les bars, clubs
+            private: 15    // 15cl à la maison, entre amis
+        },
+        'Champagne': {
+            public: 10,    // 10cl dans les bars, clubs
+            private: 12    // 12cl à la maison, entre amis
+        },
+        'Cocktail': {
+            public: 15,    // 15cl dans les bars, clubs
+            private: 20    // 20cl à la maison, entre amis
+        },
+        'Shot': {
+            public: 4,     // 4cl partout
+            private: 4
+        },
+        'Autre': {
+            public: 25,    // Volume par défaut
+            private: 25
+        }
+    }
+};
+
+// Fonction pour calculer le volume d'une boisson
+export const calculateDrinkVolume = (drinkType, partyCategory, quantity = 1) => {
+    const volumes = drinkVolumes.volumes[drinkType];
+    if (!volumes) {
+        // Type de boisson non reconnu, utiliser "Autre"
+        return drinkVolumes.volumes['Autre'].public * quantity;
+    }
+    
+    const isPrivateContext = drinkVolumes.privateContexts.includes(partyCategory);
+    const volumePerDrink = isPrivateContext ? volumes.private : volumes.public;
+    
+    return volumePerDrink * quantity;
 };

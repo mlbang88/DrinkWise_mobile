@@ -47,11 +47,13 @@ const SouvenirsPage = () => {
     };
 
     const generateNarrativeFromTemplate = (stats, period) => {
+        const volumeInLiters = stats.totalVolume ? (stats.totalVolume / 100).toFixed(1) : '0';
+        const favoriteVolume = stats.drinkVolumes[stats.mostConsumedDrink.type] ? (stats.drinkVolumes[stats.mostConsumedDrink.type] / 100).toFixed(1) : '0';
         const templates = [
-            `Ce fut un(e) ${period} mémorable ! Vous avez participé à ${stats.totalParties} soirées, avec une préférence marquée pour le/la ${stats.mostConsumedDrink.brand || stats.mostConsumedDrink.type}, que vous avez savouré ${stats.mostConsumedDrink.quantity} fois.`,
-            `Quel(le) ${period} ! Entre vos ${stats.totalParties} soirées, le/la ${stats.mostConsumedDrink.brand || stats.mostConsumedDrink.type} a été votre fidèle allié, avec ${stats.mostConsumedDrink.quantity} verres au compteur.`,
-            `Bilan de votre ${period} : ${stats.totalParties} soirées endiablées. Votre boisson de prédilection ? Le/la ${stats.mostConsumedDrink.brand || stats.mostConsumedDrink.type}, sans hésitation (${stats.mostConsumedDrink.quantity} verres).`,
-            `Ce ${period}, vous n'avez pas chômé avec ${stats.totalParties} soirées ! Le carburant de vos exploits était clairement le/la ${stats.mostConsumedDrink.brand || stats.mostConsumedDrink.type}, consommé ${stats.mostConsumedDrink.quantity} fois.`
+            `Ce fut un(e) ${period} mémorable ! Vous avez participé à ${stats.totalParties} soirées, consommant ${volumeInLiters}L de liquide, avec une préférence marquée pour le/la ${stats.mostConsumedDrink.brand || stats.mostConsumedDrink.type}, que vous avez savouré ${stats.mostConsumedDrink.quantity} fois (${favoriteVolume}L au total).`,
+            `Quel(le) ${period} ! Entre vos ${stats.totalParties} soirées et ${volumeInLiters}L de boissons, le/la ${stats.mostConsumedDrink.brand || stats.mostConsumedDrink.type} a été votre fidèle allié, avec ${stats.mostConsumedDrink.quantity} verres au compteur soit ${favoriteVolume}L.`,
+            `Bilan de votre ${period} : ${stats.totalParties} soirées endiablées et ${volumeInLiters}L de liquide consommé. Votre boisson de prédilection ? Le/la ${stats.mostConsumedDrink.brand || stats.mostConsumedDrink.type}, sans hésitation (${stats.mostConsumedDrink.quantity} verres = ${favoriteVolume}L).`,
+            `Ce ${period}, vous n'avez pas chômé avec ${stats.totalParties} soirées et ${volumeInLiters}L ingurgités ! Le carburant de vos exploits était clairement le/la ${stats.mostConsumedDrink.brand || stats.mostConsumedDrink.type}, consommé ${stats.mostConsumedDrink.quantity} fois pour un total de ${favoriteVolume}L.`
         ];
         const randomIndex = Math.floor(Math.random() * templates.length);
         return templates[randomIndex];

@@ -2,8 +2,7 @@ import React, { useState, useContext, useCallback } from 'react';
 import { Timestamp, addDoc, collection, doc, updateDoc } from 'firebase/firestore';
 import { httpsCallable } from "firebase/functions";
 import { FirebaseContext } from '../contexts/FirebaseContext.jsx';
-import { drinkOptions, partyCategories, gameplayConfig } from '../utils/data';
-import { badgeService } from '../services/badgeService';
+import { drinkOptions, partyCategories } from '../utils/data';
 import LoadingSpinner from './LoadingSpinner';
 import DrinkAnalyzer from './DrinkAnalyzer';
 import QuizManagerSimple from './QuizManagerSimple';
@@ -165,10 +164,6 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
             setLoadingSummary(false);
         }
     }, [db, user, appId, functions]);
-
-    const modalClassName = "bg-gray-800 text-white";
-    const inputClassName = "bg-gray-700 text-white border-gray-600";
-    const labelClassName = "text-gray-300";
 
     return (
         <div 

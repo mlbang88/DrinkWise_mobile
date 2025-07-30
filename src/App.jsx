@@ -34,14 +34,7 @@ const AppContent = () => {
     const [selectedFriendId, setSelectedFriendId] = useState(null);
     
     // IMPORTANT: useTheme doit être appelé avant tout return conditionnel
-    const { theme } = useTheme();
-
-    // Fonction pour changer l'arrière-plan
-    const changeBackground = useCallback((category) => {
-        if (localImageData[category]) {
-            setBackgroundUrl(localImageData[category]);
-        }
-    }, []);
+    useTheme();
 
     if (loading) {
         return <LoadingSpinner />;

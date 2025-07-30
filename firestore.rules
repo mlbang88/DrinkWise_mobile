@@ -1,0 +1,26 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Règles pour les artefacts utilisateur (données privées)
+    match /artifacts/{appId}/users/{userId}/{document=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Règles pour les statistiques publiques (lisibles par tous les utilisateurs authentifiés)
+    match /artifacts/{appId}/public_user_stats/{userId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Règles pour les données globales publiques
+    match /artifacts/{appId}/global/{document=**} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+    
+    // Refuser tout autre accès
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -320,7 +320,7 @@ const StatsPage = () => {
                                 Stats de la Période
                             </h3>
                             
-                            {/* Grille de stats 2x3 */}
+                            {/* Grille de stats 2x4 */}
                             <div style={{
                                 display: 'grid',
                                 gridTemplateColumns: '1fr 1fr',
@@ -332,6 +332,9 @@ const StatsPage = () => {
                                 </div>
                                 <div style={{ color: 'white' }}>
                                     <span style={{ fontWeight: '600' }}>Boissons:</span> {displayStats.totalDrinks}
+                                </div>
+                                <div style={{ color: 'white' }}>
+                                    <span style={{ fontWeight: '600' }}>Volume total:</span> {displayStats.totalVolume ? `${(displayStats.totalVolume / 100).toFixed(1)}L` : '0L'}
                                 </div>
                                 <div style={{ color: 'white' }}>
                                     <span style={{ fontWeight: '600' }}>Bagarres:</span> {displayStats.totalFights}
@@ -362,7 +365,8 @@ const StatsPage = () => {
                                 borderRadius: '12px',
                                 padding: '16px',
                                 display: 'flex',
-                                alignItems: 'center'
+                                alignItems: 'center',
+                                marginBottom: '24px'
                             }}>
                                 <Trophy size={24} style={{ color: '#ffc107', marginRight: '12px' }} />
                                 <div>
@@ -393,6 +397,39 @@ const StatsPage = () => {
                                     )}
                                 </div>
                             </div>
+
+                            {/* Détail des volumes par type */}
+                            {displayStats.drinkVolumes && Object.keys(displayStats.drinkVolumes).length > 0 && (
+                                <div style={{
+                                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                                    border: '1px solid rgba(59, 130, 246, 0.3)',
+                                    borderRadius: '12px',
+                                    padding: '16px'
+                                }}>
+                                    <h4 style={{
+                                        color: 'white',
+                                        fontSize: '16px',
+                                        fontWeight: '600',
+                                        margin: '0 0 12px 0',
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}>
+                                        <Sparkles size={18} style={{ marginRight: '8px', color: '#3b82f6' }} />
+                                        Volumes par type de boisson
+                                    </h4>
+                                    <div style={{
+                                        display: 'grid',
+                                        gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+                                        gap: '8px'
+                                    }}>
+                                        {Object.entries(displayStats.drinkVolumes).map(([type, volume]) => (
+                                            <div key={type} style={{ color: '#e5e7eb', fontSize: '14px' }}>
+                                                <span style={{ color: '#3b82f6', fontWeight: '600' }}>{type}:</span> {(volume / 100).toFixed(1)}L
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
 
