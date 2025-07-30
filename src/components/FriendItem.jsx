@@ -5,9 +5,12 @@ const FriendItem = ({ friendId, onRemove, onViewStats, appId, db }) => {
     const [friendProfile, setFriendProfile] = useState(null);
     
     useEffect(() => {
-        const profileRef = doc(db, `artifacts/${appId}/profiles`, friendId);
+        const profileRef = doc(db, `artifacts/${appId}/public_user_stats`, friendId);
         const unsub = onSnapshot(profileRef, (doc) => {
             if (doc.exists()) setFriendProfile({ id: doc.id, ...doc.data() });
+        }, (error) => {
+            console.error("❌ Erreur d'accès au profil ami:", error);
+            // Profil ami non accessible, on peut continuer sans
         });
         return () => unsub();
     }, [friendId, appId, db]);
@@ -51,23 +54,21 @@ const FriendItem = ({ friendId, onRemove, onViewStats, appId, db }) => {
                 alignItems: 'center',
                 gap: '16px'
             }}>
-                {friendProfile.isPublic && (
-                    <button 
-                        onClick={() => onViewStats(friendId)}
-                        style={{
-                            padding: '4px 8px',
-                            backgroundColor: 'transparent',
-                            border: 'none',
-                            cursor: 'pointer',
-                            fontSize: '16px',
-                            color: '#60a5fa',
-                            fontWeight: '600'
-                        }}
-                        title="Voir stats"
-                    >
-                        📊
-                    </button>
-                )}
+                <button 
+                    onClick={() => onViewStats(friendId)}
+                    style={{
+                        padding: '4px 8px',
+                        backgroundColor: 'transparent',
+                        border: 'none',
+                        cursor: 'pointer',
+                        fontSize: '16px',
+                        color: friendProfile.isPublic ? '#60a5fa' : '#9ca3af',
+                        fontWeight: '600'
+                    }}
+                    title={friendProfile.isPublic ? "Voir stats" : "Profil privé"}
+                >
+                    📊
+                </button>
                 <button 
                     onClick={() => onRemove(friendId)}
                     style={{

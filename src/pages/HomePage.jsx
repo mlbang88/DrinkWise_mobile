@@ -126,10 +126,10 @@ const HomePage = () => {
                                 <span>🍻 Verres bus :</span> <span style={{ fontWeight: 'bold' }}>{weeklyStats.totalDrinks}</span>
                             </ThemedText>
                             <ThemedText style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.1rem' }}>
-                                <span>� Volume total :</span> <span style={{ fontWeight: 'bold' }}>{weeklyStats.totalVolume ? `${(weeklyStats.totalVolume / 100).toFixed(1)}L` : '0L'}</span>
+                                <span>🍺 Volume total :</span> <span style={{ fontWeight: 'bold' }}>{weeklyStats.totalVolume ? `${(weeklyStats.totalVolume / 100).toFixed(1)}L` : '0L'}</span>
                             </ThemedText>
                             <ThemedText style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.1rem' }}>
-                                <span>�🥊 Bagarres :</span> <span style={{ fontWeight: 'bold' }}>{weeklyStats.totalFights}</span>
+                                <span role="img" aria-label="bagarre">🥊 Bagarres :</span> <span style={{ fontWeight: 'bold' }}>{weeklyStats.totalFights}</span>
                             </ThemedText>
                             <ThemedText style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.1rem' }}>
                                 <span>🤢 Vomis :</span> <span style={{ fontWeight: 'bold' }}>{weeklyStats.totalVomi}</span>

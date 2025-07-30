@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
+import { useParams } from 'react-router-dom';
 import { FirebaseContext } from '../contexts/FirebaseContext';
 import { badgeList, gameplayConfig } from '../utils/data';
 import { badgeService } from '../services/badgeService';
 import LoadingSpinner from '../components/LoadingSpinner';
 
-export default function FriendStatsPage({ friendId, setCurrentPage }) {
+export default function FriendStatsPage() {
+    const { friendId } = useParams();
     const { db, user, appId, userProfile, setMessageBox } = useContext(FirebaseContext);
     const [friendStats, setFriendStats] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -98,21 +100,6 @@ export default function FriendStatsPage({ friendId, setCurrentPage }) {
                 marginBottom: '20px',
                 color: 'white'
             }}>
-                <button
-                    onClick={() => setCurrentPage('friends')}
-                    style={{
-                        background: 'rgba(255, 255, 255, 0.2)',
-                        border: 'none',
-                        borderRadius: '8px',
-                        color: 'white',
-                        padding: '8px 12px',
-                        marginRight: '15px',
-                        cursor: 'pointer',
-                        fontSize: '16px'
-                    }}
-                >
-                    ← Retour
-                </button>
                 <h1 style={{
                     fontSize: '24px',
                     fontWeight: 'bold',

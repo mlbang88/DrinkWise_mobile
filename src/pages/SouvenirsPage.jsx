@@ -29,6 +29,9 @@ const SouvenirsPage = () => {
                 setSelectedYear(years[0]);
             }
             setLoading(false);
+        }, (error) => {
+            console.error("Erreur lecture soirées pour souvenirs:", error);
+            setLoading(false);
         });
         return () => unsubscribe();
     }, [db, user, appId]);

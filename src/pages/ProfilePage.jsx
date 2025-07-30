@@ -23,16 +23,12 @@ const ProfilePage = () => {
         if (!newUsername.trim()) return setMessageBox({ message: "Le nom ne peut pas être vide.", type: "error" });
         setLoading(true);
         const userProfileRef = doc(db, `artifacts/${appId}/users/${user.uid}/profile`, 'data');
-        const publicProfileRef = doc(db, `artifacts/${appId}/profiles`, user.uid);
         try {
             await updateDoc(userProfileRef, {
                 username: newUsername,
                 username_lowercase: newUsername.toLowerCase()
             });
-            await setDoc(publicProfileRef, {
-                username: newUsername,
-                username_lowercase: newUsername.toLowerCase()
-            }, { merge: true });
+            // Les stats publiques seront mises à jour automatiquement par badgeService
             setMessageBox({ message: "Profil mis à jour !", type: "success" });
         } catch (error) {
             setMessageBox({ message: "Erreur mise à jour profil.", type: "error" });
@@ -44,14 +40,9 @@ const ProfilePage = () => {
     const handleTogglePublic = async (isPublic) => {
         setLoading(true);
         const userProfileRef = doc(db, `artifacts/${appId}/users/${user.uid}/profile`, 'data');
-        const publicProfileRef = doc(db, `artifacts/${appId}/profiles`, user.uid);
         try {
             await updateDoc(userProfileRef, { isPublic });
-            await setDoc(publicProfileRef, {
-                isPublic,
-                username: userProfile.username,
-                username_lowercase: userProfile.username.toLowerCase()
-            }, { merge: true });
+            // Les stats publiques seront mises à jour automatiquement par badgeService
             setMessageBox({ message: `Profil rendu ${isPublic ? 'public' : 'privé'}`, type: "success" });
         } catch (error) {
             setMessageBox({ message: "Erreur mise à jour statut.", type: "error" });

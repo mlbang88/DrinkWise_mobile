@@ -95,7 +95,9 @@ export const badgeService = {
                 totalVomi: cumulativeStats.totalVomi,
                 totalVolume: cumulativeStats.totalVolume,
                 unlockedBadges: userProfile.unlockedBadges || [],
-                username: userProfile.username || 'Utilisateur'
+                username: userProfile.username || 'Utilisateur',
+                username_lowercase: (userProfile.username || 'Utilisateur').toLowerCase(),
+                isPublic: true // Forcer public pour le développement
             };
 
             // Mettre à jour le profil privé
@@ -160,7 +162,9 @@ export const badgeService = {
                     totalVomi: cumulativeStats.totalVomi,
                     totalVolume: cumulativeStats.totalVolume,
                     unlockedBadges: updatedBadges,
-                    username: userProfile.username || 'Utilisateur'
+                    username: userProfile.username || 'Utilisateur',
+                    username_lowercase: (userProfile.username || 'Utilisateur').toLowerCase(),
+                    isPublic: true // Forcer public pour le développement
                 };
 
                 await updateDoc(userProfileRef, { 
@@ -184,7 +188,9 @@ export const badgeService = {
                     totalVomi: cumulativeStats.totalVomi,
                     totalVolume: cumulativeStats.totalVolume,
                     unlockedBadges: userProfile.unlockedBadges || [],
-                    username: userProfile.username || 'Utilisateur'
+                    username: userProfile.username || 'Utilisateur',
+                    username_lowercase: (userProfile.username || 'Utilisateur').toLowerCase(),
+                    isPublic: true // Forcer public pour le développement
                 };
 
                 await updateDoc(userProfileRef, { publicStats });

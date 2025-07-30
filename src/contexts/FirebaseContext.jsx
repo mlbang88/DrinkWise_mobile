@@ -50,13 +50,6 @@ export const FirebaseProvider = ({ children }) => {
                         
                         try {
                             await setDoc(userProfileRef, newProfile);
-                            // Créer également le profil public
-                            const publicProfileRef = doc(db, `artifacts/${appId}/profiles`, firebaseUser.uid);
-                            await setDoc(publicProfileRef, {
-                                username: newUsername,
-                                username_lowercase: newUsername.toLowerCase(),
-                                isPublic: false
-                            });
                             setUserProfile(newProfile);
                         } catch (error) {
                             console.error("Erreur lors de la création du profil:", error);
@@ -64,6 +57,10 @@ export const FirebaseProvider = ({ children }) => {
                     } else {
                         setUserProfile(profileSnap.data());
                     }
+                }, (error) => {
+                    console.error("❌ Erreur Firestore onSnapshot:", error);
+                    // En cas d'erreur de permissions, continuer sans bloquer l'app
+                    setLoading(false);
                 });
                 
                 setLoading(false);
