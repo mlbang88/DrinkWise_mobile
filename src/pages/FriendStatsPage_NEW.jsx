@@ -15,10 +15,17 @@ export default function FriendStatsPage() {
     // Fonction pour calculer le niveau et l'XP
     const calculateLevelInfo = (stats) => {
         if (!stats) return { level: 0, levelName: "Novice de la Fête", currentXp: 0, nextLevelXp: 500, progress: 0 };
-        
-        const totalXp = (stats.totalParties || 0) * gameplayConfig.xpPerParty + 
-                       (stats.totalDrinks || 0) * gameplayConfig.xpPerDrink;
-        
+        // XP uniformisé : soirées, verres, défis, badges
+        const parties = stats.totalParties || stats.parties || 0;
+        const drinks = stats.totalDrinks || stats.drinks || 0;
+        const defis = stats.challengesCompleted || stats.defis || 0;
+        const badges = stats.badgesUnlocked || stats.badges || 0;
+        const totalXp =
+            parties * (gameplayConfig.xpParSoiree || gameplayConfig.xpPerParty || 0) +
+            drinks * (gameplayConfig.xpParVerre || gameplayConfig.xpPerDrink || 0) +
+            defis * (gameplayConfig.xpParDefi || 0) +
+            badges * (gameplayConfig.xpParBadge || 0);
+
         let currentLevel = 0;
         for (let i = gameplayConfig.levels.length - 1; i >= 0; i--) {
             if (totalXp >= gameplayConfig.levels[i].xp) {
@@ -26,13 +33,13 @@ export default function FriendStatsPage() {
                 break;
             }
         }
-        
+
         const nextLevel = Math.min(currentLevel + 1, gameplayConfig.levels.length - 1);
         const currentLevelXp = gameplayConfig.levels[currentLevel].xp;
         const nextLevelXp = gameplayConfig.levels[nextLevel].xp;
-        const progress = nextLevel === currentLevel ? 100 : 
+        const progress = nextLevel === currentLevel ? 100 :
             ((totalXp - currentLevelXp) / (nextLevelXp - currentLevelXp)) * 100;
-        
+
         return {
             level: currentLevel,
             levelName: gameplayConfig.levels[currentLevel].name,
@@ -77,14 +84,15 @@ export default function FriendStatsPage() {
 
     if (loading) return <LoadingSpinner />;
 
+    // Fallback si stats absentes
     const userLevelInfo = calculateLevelInfo({
-        totalParties: userProfile?.publicStats?.totalParties || 0,
-        totalDrinks: userProfile?.publicStats?.totalDrinks || 0
+        totalParties: userProfile?.publicStats?.totalParties ?? 0,
+        totalDrinks: userProfile?.publicStats?.totalDrinks ?? 0
     });
 
     const friendLevelInfo = calculateLevelInfo({
-        totalParties: friendStats?.totalParties || 0,
-        totalDrinks: friendStats?.totalDrinks || 0
+        totalParties: friendStats?.totalParties ?? 0,
+        totalDrinks: friendStats?.totalDrinks ?? 0
     });
 
     return (
@@ -97,16 +105,25 @@ export default function FriendStatsPage() {
             <div style={{
                 display: 'flex',
                 alignItems: 'center',
+                justifyContent: 'space-between',
                 marginBottom: '20px',
                 color: 'white'
             }}>
-                <h1 style={{
-                    fontSize: '24px',
-                    fontWeight: 'bold',
-                    margin: 0
-                }}>
+                <div style={{ textAlign: 'left' }}>
+                    <div style={{ fontSize: '1rem', color: '#10b981', fontWeight: 'bold' }}>Moi</div>
+                    <div style={{ fontSize: '1.1rem', color: '#a78bfa', fontWeight: 'bold' }}>
+                        Niveau {userLevelInfo.level + 1} - {userLevelInfo.levelName}
+                    </div>
+                </div>
+                <h1 style={{ fontSize: '24px', fontWeight: 'bold', margin: 0 }}>
                     🏆 Battle vs {friendStats?.username || 'Ami'}
                 </h1>
+                <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: '1rem', color: '#8b5cf6', fontWeight: 'bold' }}>{friendStats?.username}</div>
+                    <div style={{ fontSize: '1.1rem', color: '#a78bfa', fontWeight: 'bold' }}>
+                        Niveau {friendLevelInfo.level + 1} - {friendLevelInfo.levelName}
+                    </div>
+                </div>
             </div>
 
             {friendStats ? (
@@ -137,7 +154,7 @@ export default function FriendStatsPage() {
                             <div style={{ textAlign: 'center' }}>
                                 <div style={{ fontSize: '14px', color: '#10b981', marginBottom: '8px' }}>Vous</div>
                                 <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#10b981', marginBottom: '5px' }}>
-                                    {userLevelInfo.levelName}
+                                    Niveau {userLevelInfo.level + 1} - {userLevelInfo.levelName}
                                 </div>
                                 <div style={{ fontSize: '12px', color: '#9ca3af', marginBottom: '10px' }}>
                                     {userLevelInfo.currentXp} XP
@@ -174,7 +191,7 @@ export default function FriendStatsPage() {
                                     {friendStats.username}
                                 </div>
                                 <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#8b5cf6', marginBottom: '5px' }}>
-                                    {friendLevelInfo.levelName}
+                                    Niveau {friendLevelInfo.level + 1} - {friendLevelInfo.levelName}
                                 </div>
                                 <div style={{ fontSize: '12px', color: '#9ca3af', marginBottom: '10px' }}>
                                     {friendLevelInfo.currentXp} XP
@@ -246,28 +263,30 @@ export default function FriendStatsPage() {
                         gap: '15px',
                         marginBottom: '30px'
                     }}>
-                        <div style={{
-                            backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                            padding: '15px',
-                            borderRadius: '12px',
-                            textAlign: 'center'
-                        }}>
-                            <div style={{ fontSize: '18px', fontWeight: 'bold' }}>
-                                {userProfile?.publicStats?.totalParties || 0} vs {friendStats.totalParties || 0}
-                            </div>
+                        {/* Soirées */}
+                        <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.05)', padding: '15px', borderRadius: '12px', textAlign: 'center' }}>
+                            <div style={{ fontSize: '18px', fontWeight: 'bold' }}>{userProfile?.publicStats?.totalParties || 0} vs {friendStats.totalParties || 0}</div>
                             <div style={{ fontSize: '12px', color: '#9ca3af', marginTop: '5px' }}>Soirées</div>
                         </div>
-                        
-                        <div style={{
-                            backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                            padding: '15px',
-                            borderRadius: '12px',
-                            textAlign: 'center'
-                        }}>
-                            <div style={{ fontSize: '18px', fontWeight: 'bold' }}>
-                                {Math.round((userProfile?.publicStats?.totalVolume || 0) / 100) / 10}L vs {Math.round((friendStats.totalVolume || 0) / 100) / 10}L
-                            </div>
+                        {/* Verres */}
+                        <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.05)', padding: '15px', borderRadius: '12px', textAlign: 'center' }}>
+                            <div style={{ fontSize: '18px', fontWeight: 'bold' }}>{userProfile?.publicStats?.totalDrinks || 0} vs {friendStats.totalDrinks || 0}</div>
+                            <div style={{ fontSize: '12px', color: '#9ca3af', marginTop: '5px' }}>Verres</div>
+                        </div>
+                        {/* Volume */}
+                        <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.05)', padding: '15px', borderRadius: '12px', textAlign: 'center' }}>
+                            <div style={{ fontSize: '18px', fontWeight: 'bold' }}>{Math.round((userProfile?.publicStats?.totalVolume || 0) / 100) / 10}L vs {Math.round((friendStats.totalVolume || 0) / 100) / 10}L</div>
                             <div style={{ fontSize: '12px', color: '#9ca3af', marginTop: '5px' }}>Volume total</div>
+                        </div>
+                        {/* Bagarres */}
+                        <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.05)', padding: '15px', borderRadius: '12px', textAlign: 'center' }}>
+                            <div style={{ fontSize: '18px', fontWeight: 'bold' }}>{userProfile?.publicStats?.totalFights || 0} vs {friendStats.totalFights || 0}</div>
+                            <div style={{ fontSize: '12px', color: '#9ca3af', marginTop: '5px' }}>Bagarres</div>
+                        </div>
+                        {/* Vomis */}
+                        <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.05)', padding: '15px', borderRadius: '12px', textAlign: 'center' }}>
+                            <div style={{ fontSize: '18px', fontWeight: 'bold' }}>{userProfile?.publicStats?.totalVomi || 0} vs {friendStats.totalVomi || 0}</div>
+                            <div style={{ fontSize: '12px', color: '#9ca3af', marginTop: '5px' }}>Vomis</div>
                         </div>
                     </div>
 

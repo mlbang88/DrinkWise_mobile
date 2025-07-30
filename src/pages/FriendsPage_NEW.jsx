@@ -3,6 +3,7 @@ import { collection, query, where, getDocs, updateDoc, doc, arrayUnion, arrayRem
 import { FirebaseContext } from '../contexts/FirebaseContext.jsx';
 import FriendItem from '../components/FriendItem';
 import LoadingIcon from '../components/LoadingIcon';
+import GroupSection from '../components/GroupSection.jsx';
 import { badgeService } from '../services/badgeService';
 
 const FriendsPage = ({ setCurrentPage, setSelectedFriendId }) => {
@@ -221,6 +222,9 @@ const FriendsPage = ({ setCurrentPage, setSelectedFriendId }) => {
                     </div>
                 )}
             </div>
+
+            {/* Section Groupes */}
+            <GroupSection />
 
             {/* Section Votre Liste d'Amis */}
             <div style={{

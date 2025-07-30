@@ -4,7 +4,7 @@ import { FirebaseContext } from '../contexts/FirebaseContext.jsx';
 import { useTheme } from '../styles/ThemeContext.jsx';
 import ThemedText from '../styles/ThemedText.jsx';
 import { badgeService } from '../services/badgeService';
-import { badgeList } from '../utils/data';
+import { badgeList, gameplayConfig } from '../utils/data';
 import AddPartyModal from '../components/AddPartyModal';
 import LoadingIcon from '../components/LoadingIcon';
 import RewardNotification from '../components/RewardNotification';
@@ -78,6 +78,30 @@ const HomePage = () => {
 
     if (loading) {
         return <div className="flex justify-center mt-10"><LoadingIcon /></div>;
+    }
+
+    // Calcul du niveau si absent
+    let userLevel = undefined;
+    let userLevelName = '';
+    // Priorité : publicStats.level > userProfile.level > calcul local
+    if (userProfile?.publicStats?.level !== undefined) {
+        userLevel = userProfile.publicStats.level;
+        userLevelName = userProfile.publicStats.levelName || '';
+    } else if (userProfile?.level !== undefined) {
+        userLevel = userProfile.level;
+        userLevelName = userProfile.levelName || '';
+    } else if (userProfile?.xp !== undefined && gameplayConfig) {
+        const levels = gameplayConfig.levels;
+        const currentXp = userProfile.xp;
+        let foundLevel = 0;
+        for (let i = levels.length - 1; i >= 0; i--) {
+            if (currentXp >= levels[i].xp) {
+                foundLevel = i;
+                break;
+            }
+        }
+        userLevel = foundLevel;
+        userLevelName = levels[foundLevel]?.name || '';
     }
 
     // Interface normale uniquement

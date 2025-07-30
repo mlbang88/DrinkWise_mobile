@@ -13,7 +13,7 @@ import StatsPage from './pages/StatsPage';
 import BadgesPage from './pages/BadgesPage';
 import ChallengesPage from './pages/ChallengesPage';
 import SouvenirsPage from './pages/SouvenirsPage';
-import FriendsPage from './pages/FriendsPage';
+import FriendsPage from './pages/FriendsPage_NEW';
 import ProfilePage from './pages/ProfilePage';
 import FriendStatsPage from './pages/FriendStatsPage';
 

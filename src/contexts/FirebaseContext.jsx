@@ -3,6 +3,7 @@ import { createContext, useState, useEffect } from 'react';
 import { auth, db, functions, appId } from '../firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, setDoc, onSnapshot } from 'firebase/firestore';
+import { generateUniqueUsername } from '../utils/usernameUtils';
 
 export const FirebaseContext = createContext(null);
 
@@ -27,19 +28,37 @@ export const FirebaseProvider = ({ children }) => {
     };
 
     useEffect(() => {
+        let unsubProfile = null;
+        
         const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+            // Nettoyer la précédente écoute si elle existe
+            if (unsubProfile) {
+                unsubProfile();
+                unsubProfile = null;
+            }
+            
             if (firebaseUser) {
                 setUser(firebaseUser);
                 
                 // Écouter les changements du profil utilisateur en temps réel
                 const userProfileRef = doc(db, `artifacts/${appId}/users/${firebaseUser.uid}/profile`, 'data');
-                const unsubProfile = onSnapshot(userProfileRef, async (profileSnap) => {
+                unsubProfile = onSnapshot(userProfileRef, async (profileSnap) => {
                     if (!profileSnap.exists()) {
-                        // Créer un nouveau profil utilisateur
-                        const newUsername = firebaseUser.displayName || `user_${firebaseUser.uid.substring(0, 5)}`;
+                        // Créer un nouveau profil utilisateur avec username unique
+                        let baseUsername = firebaseUser.displayName || 
+                                          (firebaseUser.email ? firebaseUser.email.split('@')[0] : 'user');
+                        
+                        // Si le baseUsername est vide ou null, utiliser un défaut
+                        if (!baseUsername || baseUsername.trim() === '') {
+                            baseUsername = 'user';
+                        }
+                        
+                        // Générer un username unique
+                        const uniqueUsername = await generateUniqueUsername(db, appId, baseUsername);
+                        
                         const newProfile = {
-                            username: newUsername,
-                            username_lowercase: newUsername.toLowerCase(),
+                            username: uniqueUsername,
+                            username_lowercase: uniqueUsername.toLowerCase(),
                             unlockedBadges: [],
                             friends: [],
                             isPublic: false,
@@ -50,12 +69,59 @@ export const FirebaseProvider = ({ children }) => {
                         
                         try {
                             await setDoc(userProfileRef, newProfile);
+                            
+                            // Créer aussi l'entrée dans profiles pour la recherche d'amis
+                            const publicProfileRef = doc(db, `artifacts/${appId}/profiles`, firebaseUser.uid);
+                            await setDoc(publicProfileRef, {
+                                username: uniqueUsername,
+                                username_lowercase: uniqueUsername.toLowerCase(),
+                                isPublic: false
+                            });
+                            
                             setUserProfile(newProfile);
+                            console.log("✅ Nouveau profil créé avec username unique:", uniqueUsername);
                         } catch (error) {
-                            console.error("Erreur lors de la création du profil:", error);
+                            console.error("❌ Erreur lors de la création du profil:", error);
                         }
                     } else {
-                        setUserProfile(profileSnap.data());
+                        const profileData = profileSnap.data();
+                        
+                        // Vérifier que le username existe, sinon le réparer avec un username unique
+                        if (!profileData.username || profileData.username.trim() === '') {
+                            let baseUsername = firebaseUser.displayName || 
+                                              firebaseUser.email?.split('@')[0] || 'user';
+                            
+                            const repairedUsername = await generateUniqueUsername(db, appId, baseUsername, firebaseUser.uid);
+                            
+                            console.log("🔧 Réparation du username manquant avec username unique:", repairedUsername);
+                            
+                            try {
+                                await setDoc(userProfileRef, {
+                                    ...profileData,
+                                    username: repairedUsername,
+                                    username_lowercase: repairedUsername.toLowerCase()
+                                }, { merge: true });
+                                
+                                // Mettre à jour aussi dans profiles
+                                const publicProfileRef = doc(db, `artifacts/${appId}/profiles`, firebaseUser.uid);
+                                await setDoc(publicProfileRef, {
+                                    username: repairedUsername,
+                                    username_lowercase: repairedUsername.toLowerCase(),
+                                    isPublic: profileData.isPublic || false
+                                }, { merge: true });
+                                
+                                setUserProfile({
+                                    ...profileData,
+                                    username: repairedUsername,
+                                    username_lowercase: repairedUsername.toLowerCase()
+                                });
+                            } catch (error) {
+                                console.error("❌ Erreur réparation username:", error);
+                                setUserProfile(profileData);
+                            }
+                        } else {
+                            setUserProfile(profileData);
+                        }
                     }
                 }, (error) => {
                     console.error("❌ Erreur Firestore onSnapshot:", error);
@@ -64,9 +130,6 @@ export const FirebaseProvider = ({ children }) => {
                 });
                 
                 setLoading(false);
-                
-                // Cleanup function pour l'écoute du profil
-                return () => unsubProfile();
             } else {
                 setUser(null);
                 setUserProfile(null);
@@ -74,7 +137,12 @@ export const FirebaseProvider = ({ children }) => {
             }
         });
 
-        return () => unsubscribe();
+        return () => {
+            unsubscribe();
+            if (unsubProfile) {
+                unsubProfile();
+            }
+        };
     }, []);
 
     const changeBackground = () => {

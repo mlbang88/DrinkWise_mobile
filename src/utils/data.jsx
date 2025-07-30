@@ -100,6 +100,12 @@ export const gameplayConfig = {
     xpPerParty: 50,
     xpPerDrink: 5,
     xpPerBadge: 100,
+    xpPerChallenge: 25,
+    // Aliases pour compatibilité
+    xpParSoiree: 50,
+    xpParVerre: 5,
+    xpParBadge: 100,
+    xpParDefi: 25,
     levels: [
         { name: "Novice de la Fête", xp: 0 },
         { name: "Habitué", xp: 500 },

@@ -3,34 +3,120 @@ import { signOut } from 'firebase/auth';
 import { doc, updateDoc, setDoc } from 'firebase/firestore';
 import { FirebaseContext } from '../contexts/FirebaseContext.jsx';
 import { gameplayConfig } from '../utils/data';
+import { validateUsername, isUsernameAvailable } from '../utils/usernameUtils';
 import LoadingIcon from '../components/LoadingIcon';
 
 const ProfilePage = () => {
     const { auth, user, userProfile, db, appId, setMessageBox } = useContext(FirebaseContext);
     const [newUsername, setNewUsername] = useState(userProfile?.username || '');
     const [loading, setLoading] = useState(false);
+    const [usernameValidation, setUsernameValidation] = useState({ isValid: true, error: null });
+    const [checkingUsername, setCheckingUsername] = useState(false);
 
-    const currentXp = userProfile?.xp || 0;
-    const currentLevel = gameplayConfig.levels.slice().reverse().find(level => currentXp >= level.xp) || gameplayConfig.levels[0];
-    const currentLevelIndex = gameplayConfig.levels.findIndex(level => level.name === currentLevel.name);
-    const nextLevel = gameplayConfig.levels[currentLevelIndex + 1];
+    // XP uniformisé : soirées, verres, défis, badges
+    const parties = userProfile?.publicStats?.totalParties || userProfile?.parties || 0;
+    const drinks = userProfile?.publicStats?.totalDrinks || userProfile?.drinks || 0;
+    const defis = userProfile?.publicStats?.challengesCompleted || userProfile?.challengesCompleted || 0;
+    const badges = userProfile?.unlockedBadges?.length || userProfile?.publicStats?.unlockedBadges?.length || userProfile?.badgesUnlocked || 0;
+    
+    const currentXp =
+        parties * gameplayConfig.xpParSoiree +
+        drinks * gameplayConfig.xpParVerre +
+        defis * gameplayConfig.xpParDefi +
+        badges * gameplayConfig.xpParBadge;
+
+    // Calcul du niveau actuel
+    let currentLevelIndex = 0;
+    for (let i = gameplayConfig.levels.length - 1; i >= 0; i--) {
+        if (currentXp >= gameplayConfig.levels[i].xp) {
+            currentLevelIndex = i;
+            break;
+        }
+    }
+    const currentLevel = gameplayConfig.levels[currentLevelIndex];
+    const nextLevel = gameplayConfig.levels[currentLevelIndex + 1] || null;
 
     const xpForCurrentLevel = currentLevel.xp;
-    const xpForNextLevel = nextLevel ? nextLevel.xp : currentXp;
+    // Si niveau max, le prochain niveau reste le même et le delta XP est 0
+    const xpForNextLevel = nextLevel ? nextLevel.xp : currentLevel.xp;
     const progress = nextLevel ? ((currentXp - xpForCurrentLevel) / (xpForNextLevel - xpForCurrentLevel)) * 100 : 100;
 
+    // Validation en temps réel du username
+    const handleUsernameChange = async (value) => {
+        setNewUsername(value);
+        
+        // Si c'est le même username qu'actuellement, pas besoin de vérifier
+        if (value === userProfile?.username) {
+            setUsernameValidation({ isValid: true, error: null });
+            return;
+        }
+        
+        // Validation du format
+        const formatValidation = validateUsername(value);
+        if (!formatValidation.isValid) {
+            setUsernameValidation(formatValidation);
+            return;
+        }
+        
+        // Vérification de disponibilité avec debounce
+        setCheckingUsername(true);
+        setTimeout(async () => {
+            try {
+                const isAvailable = await isUsernameAvailable(db, appId, value, user.uid);
+                if (!isAvailable) {
+                    setUsernameValidation({ isValid: false, error: "Ce nom d'utilisateur est déjà pris." });
+                } else {
+                    setUsernameValidation({ isValid: true, error: null });
+                }
+            } catch (error) {
+                console.error("Erreur vérification username:", error);
+            } finally {
+                setCheckingUsername(false);
+            }
+        }, 500); // Debounce de 500ms
+    };
+
     const handleSaveProfile = async () => {
-        if (!newUsername.trim()) return setMessageBox({ message: "Le nom ne peut pas être vide.", type: "error" });
+        if (!newUsername.trim()) {
+            return setMessageBox({ message: "Le nom ne peut pas être vide.", type: "error" });
+        }
+        
+        // Validation du format du username
+        const validation = validateUsername(newUsername);
+        if (!validation.isValid) {
+            return setMessageBox({ message: validation.error, type: "error" });
+        }
+        
         setLoading(true);
-        const userProfileRef = doc(db, `artifacts/${appId}/users/${user.uid}/profile`, 'data');
+        
         try {
+            // Vérifier si le username est disponible (en excluant l'utilisateur actuel)
+            const isAvailable = await isUsernameAvailable(db, appId, newUsername, user.uid);
+            if (!isAvailable) {
+                setMessageBox({ message: "Ce nom d'utilisateur est déjà pris.", type: "error" });
+                setLoading(false);
+                return;
+            }
+            
+            // Sauvegarder le nouveau username
+            const userProfileRef = doc(db, `artifacts/${appId}/users/${user.uid}/profile`, 'data');
+            const publicProfileRef = doc(db, `artifacts/${appId}/profiles`, user.uid);
+            
             await updateDoc(userProfileRef, {
                 username: newUsername,
                 username_lowercase: newUsername.toLowerCase()
             });
-            // Les stats publiques seront mises à jour automatiquement par badgeService
+            
+            // Mettre à jour aussi dans la collection publique
+            await setDoc(publicProfileRef, {
+                username: newUsername,
+                username_lowercase: newUsername.toLowerCase(),
+                isPublic: userProfile?.isPublic || false
+            }, { merge: true });
+            
             setMessageBox({ message: "Profil mis à jour !", type: "success" });
         } catch (error) {
+            console.error("❌ Erreur mise à jour profil:", error);
             setMessageBox({ message: "Erreur mise à jour profil.", type: "error" });
         } finally {
             setLoading(false);
@@ -93,7 +179,7 @@ const ProfilePage = () => {
                                 fontWeight: 'bold',
                                 color: '#a855f7'
                             }}>
-                                Pote de Soirée
+                                {currentLevel.name}
                             </span>
                             <span style={{
                                 fontSize: '14px',
@@ -101,6 +187,10 @@ const ProfilePage = () => {
                             }}>
                                 {currentXp} XP
                             </span>
+                        </div>
+                        {/* Affichage du niveau */}
+                        <div style={{ fontSize: '1.1rem', color: '#a78bfa', fontWeight: 'bold', marginBottom: '8px', textAlign: 'center' }}>
+                            Niveau {currentLevelIndex + 1} - {currentLevel.name}
                         </div>
                         
                         {/* Barre de progression */}
@@ -146,18 +236,46 @@ const ProfilePage = () => {
                     <input 
                         type="text"
                         value={newUsername}
-                        onChange={(e) => setNewUsername(e.target.value)}
+                        onChange={(e) => handleUsernameChange(e.target.value)}
                         style={{
                             width: '100%',
                             padding: '12px',
                             backgroundColor: 'rgba(55, 65, 81, 0.8)',
-                            border: '1px solid #4b5563',
+                            border: `1px solid ${!usernameValidation.isValid ? '#ef4444' : '#4b5563'}`,
                             borderRadius: '8px',
                             color: 'white',
                             fontSize: '16px',
                             boxSizing: 'border-box'
                         }}
                     />
+                    
+                    {/* Messages de validation */}
+                    <div style={{ marginTop: '8px', minHeight: '20px' }}>
+                        {checkingUsername && (
+                            <div style={{ fontSize: '12px', color: '#fbbf24', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <LoadingIcon />
+                                Vérification de disponibilité...
+                            </div>
+                        )}
+                        
+                        {!checkingUsername && !usernameValidation.isValid && usernameValidation.error && (
+                            <div style={{ fontSize: '12px', color: '#ef4444' }}>
+                                ❌ {usernameValidation.error}
+                            </div>
+                        )}
+                        
+                        {!checkingUsername && usernameValidation.isValid && newUsername !== userProfile?.username && newUsername.trim() && (
+                            <div style={{ fontSize: '12px', color: '#10b981' }}>
+                                ✅ Nom d'utilisateur disponible
+                            </div>
+                        )}
+                        
+                        {!newUsername.trim() && (
+                            <div style={{ fontSize: '12px', color: '#9ca3af' }}>
+                                2-20 caractères, lettres, chiffres, _ et - uniquement
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 {/* Profil Public */}
@@ -253,19 +371,25 @@ const ProfilePage = () => {
                 {/* Bouton Sauvegarder */}
                 <button
                     onClick={handleSaveProfile}
-                    disabled={loading}
+                    disabled={loading || checkingUsername || !usernameValidation.isValid || newUsername === userProfile?.username}
                     style={{
                         width: '100%',
                         padding: '15px',
-                        backgroundColor: '#3b82f6',
+                        backgroundColor: loading || checkingUsername || !usernameValidation.isValid || newUsername === userProfile?.username 
+                            ? '#6b7280' 
+                            : '#3b82f6',
                         color: 'white',
                         fontSize: '16px',
                         fontWeight: 'bold',
                         border: 'none',
                         borderRadius: '8px',
-                        cursor: loading ? 'not-allowed' : 'pointer',
+                        cursor: loading || checkingUsername || !usernameValidation.isValid || newUsername === userProfile?.username 
+                            ? 'not-allowed' 
+                            : 'pointer',
                         marginBottom: '15px',
-                        opacity: loading ? 0.7 : 1
+                        opacity: loading || checkingUsername || !usernameValidation.isValid || newUsername === userProfile?.username 
+                            ? 0.7 
+                            : 1
                     }}
                 >
                     {loading ? <LoadingIcon /> : "Sauvegarder"}

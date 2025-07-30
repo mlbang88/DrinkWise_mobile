@@ -94,6 +94,8 @@ export const badgeService = {
                 totalFights: cumulativeStats.totalFights,
                 totalVomi: cumulativeStats.totalVomi,
                 totalVolume: cumulativeStats.totalVolume,
+                totalRecal: cumulativeStats.totalRecal,
+                challengesCompleted: Object.keys(userProfile.completedChallenges || {}).length,
                 unlockedBadges: userProfile.unlockedBadges || [],
                 username: userProfile.username || 'Utilisateur',
                 username_lowercase: (userProfile.username || 'Utilisateur').toLowerCase(),
@@ -198,6 +200,9 @@ export const badgeService = {
                 // Mettre à jour les stats publiques pour les amis
                 const publicStatsRef = doc(db, `artifacts/${appId}/public_user_stats`, user.uid);
                 await setDoc(publicStatsRef, publicStats, { merge: true });
+                
+                // Mettre à jour les stats des groupes auxquels l'utilisateur appartient
+                await badgeService.updateUserGroupsStats(db, appId, user.uid);
             }
             console.log("📝 Aucun nouveau badge");
             return { newBadgesCount: 0, newBadges: [] };
@@ -205,6 +210,31 @@ export const badgeService = {
             console.error("❌ Erreur lors de la vérification des badges:", error);
             setMessageBox({ message: "Erreur lors de la mise à jour des badges.", type: "error" });
             return { newBadgesCount: 0, newBadges: [] };
+        }
+    },
+
+    /**
+     * Met à jour les stats de tous les groupes auxquels appartient un utilisateur
+     */
+    async updateUserGroupsStats(db, appId, userId) {
+        try {
+            // Importer dynamiquement pour éviter les dépendances circulaires
+            const { groupService } = await import('./groupService');
+            
+            // Récupérer tous les groupes de l'utilisateur
+            const userGroups = await groupService.getUserGroups(db, appId, userId);
+            
+            // Mettre à jour les stats de chaque groupe
+            for (const group of userGroups) {
+                await groupService.calculateGroupStats(db, appId, group.id);
+                
+                // Vérifier et marquer les objectifs complétés
+                await groupService.checkGroupGoals(db, appId, group.id);
+            }
+            
+            console.log(`✅ Stats mises à jour pour ${userGroups.length} groupes`);
+        } catch (error) {
+            console.error('❌ Erreur mise à jour groupes:', error);
         }
     }
 };

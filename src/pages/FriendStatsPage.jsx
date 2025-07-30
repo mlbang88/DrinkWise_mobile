@@ -13,10 +13,18 @@ export default function FriendStatsPage({ friendId, setCurrentPage }) {
     // Fonction pour calculer le niveau et l'XP
     const calculateLevelInfo = (stats) => {
         if (!stats) return { level: 0, levelName: "Novice de la Fête", currentXp: 0, nextLevelXp: 500, progress: 0 };
+        // XP uniformisé : soirées, verres, défis, badges
+        const parties = stats.totalParties || stats.parties || 0;
+        const drinks = stats.totalDrinks || stats.drinks || 0;
+        const defis = stats.challengesCompleted || stats.defis || 0;
+        const badges = stats.unlockedBadges?.length || stats.badgesUnlocked || stats.badges || 0;
         
-        const totalXp = (stats.totalParties || 0) * gameplayConfig.xpPerParty + 
-                       (stats.totalDrinks || 0) * gameplayConfig.xpPerDrink;
-        
+        const totalXp =
+            parties * (gameplayConfig.xpParSoiree || gameplayConfig.xpPerParty || 0) +
+            drinks * (gameplayConfig.xpParVerre || gameplayConfig.xpPerDrink || 0) +
+            defis * (gameplayConfig.xpParDefi || 0) +
+            badges * (gameplayConfig.xpParBadge || 0);
+
         let currentLevel = 0;
         for (let i = gameplayConfig.levels.length - 1; i >= 0; i--) {
             if (totalXp >= gameplayConfig.levels[i].xp) {
@@ -24,13 +32,13 @@ export default function FriendStatsPage({ friendId, setCurrentPage }) {
                 break;
             }
         }
-        
+
         const nextLevel = Math.min(currentLevel + 1, gameplayConfig.levels.length - 1);
         const currentLevelXp = gameplayConfig.levels[currentLevel].xp;
         const nextLevelXp = gameplayConfig.levels[nextLevel].xp;
-        const progress = nextLevel === currentLevel ? 100 : 
+        const progress = nextLevel === currentLevel ? 100 :
             ((totalXp - currentLevelXp) / (nextLevelXp - currentLevelXp)) * 100;
-        
+
         return {
             level: currentLevel,
             levelName: gameplayConfig.levels[currentLevel].name,
@@ -48,7 +56,6 @@ export default function FriendStatsPage({ friendId, setCurrentPage }) {
 
         // Mettre à jour les stats publiques de l'utilisateur actuel si nécessaire
         if (user && userProfile) {
-            console.log("🔍 Vérification des stats publiques:", userProfile.publicStats);
             badgeService.updatePublicStats(db, user, appId, userProfile);
         }
 
@@ -57,7 +64,6 @@ export default function FriendStatsPage({ friendId, setCurrentPage }) {
             console.log("📊 Données ami reçues:", doc.exists(), doc.data());
             if (doc.exists()) {
                 const friendData = doc.data();
-                console.log("🏆 Badges ami:", friendData.unlockedBadges);
                 setFriendStats(friendData);
             } else {
                 console.log("❌ Document ami non trouvé pour:", friendId);
@@ -76,13 +82,19 @@ export default function FriendStatsPage({ friendId, setCurrentPage }) {
     if (loading) return <LoadingSpinner />;
 
     const userLevelInfo = calculateLevelInfo({
-        totalParties: userProfile?.publicStats?.totalParties || 0,
-        totalDrinks: userProfile?.publicStats?.totalDrinks || 0
+        totalParties: userProfile?.publicStats?.totalParties ?? 0,
+        totalDrinks: userProfile?.publicStats?.totalDrinks ?? 0,
+        challengesCompleted: userProfile?.publicStats?.challengesCompleted ?? 0,
+        unlockedBadges: userProfile?.publicStats?.unlockedBadges ?? userProfile?.unlockedBadges ?? [],
+        badgesUnlocked: userProfile?.publicStats?.badgesUnlocked ?? (userProfile?.unlockedBadges ? userProfile.unlockedBadges.length : 0)
     });
 
     const friendLevelInfo = calculateLevelInfo({
-        totalParties: friendStats?.totalParties || 0,
-        totalDrinks: friendStats?.totalDrinks || 0
+        totalParties: friendStats?.totalParties ?? 0,
+        totalDrinks: friendStats?.totalDrinks ?? 0,
+        challengesCompleted: friendStats?.challengesCompleted ?? 0,
+        unlockedBadges: friendStats?.unlockedBadges ?? [],
+        badgesUnlocked: friendStats?.badgesUnlocked ?? (friendStats?.unlockedBadges ? friendStats.unlockedBadges.length : 0)
     });
 
     return (
@@ -282,6 +294,54 @@ export default function FriendStatsPage({ friendId, setCurrentPage }) {
                             </div>
                             <div style={{ fontSize: '12px', color: '#9ca3af', marginTop: '5px' }}>Volume total</div>
                         </div>
+                        
+                        <div style={{
+                            backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                            padding: '15px',
+                            borderRadius: '12px',
+                            textAlign: 'center'
+                        }}>
+                            <div style={{ fontSize: '18px', fontWeight: 'bold' }}>
+                                {userProfile?.publicStats?.totalVomi || 0} vs {friendStats.totalVomi || 0}
+                            </div>
+                            <div style={{ fontSize: '12px', color: '#9ca3af', marginTop: '5px' }}>Vomis 🤮</div>
+                        </div>
+                        
+                        <div style={{
+                            backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                            padding: '15px',
+                            borderRadius: '12px',
+                            textAlign: 'center'
+                        }}>
+                            <div style={{ fontSize: '18px', fontWeight: 'bold' }}>
+                                {userProfile?.publicStats?.totalFights || 0} vs {friendStats.totalFights || 0}
+                            </div>
+                            <div style={{ fontSize: '12px', color: '#9ca3af', marginTop: '5px' }}>Bagarres 🥊</div>
+                        </div>
+                        
+                        <div style={{
+                            backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                            padding: '15px',
+                            borderRadius: '12px',
+                            textAlign: 'center'
+                        }}>
+                            <div style={{ fontSize: '18px', fontWeight: 'bold' }}>
+                                {userProfile?.publicStats?.totalRecal || 0} vs {friendStats.totalRecal || 0}
+                            </div>
+                            <div style={{ fontSize: '12px', color: '#9ca3af', marginTop: '5px' }}>Recalés 🚫</div>
+                        </div>
+                        
+                        <div style={{
+                            backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                            padding: '15px',
+                            borderRadius: '12px',
+                            textAlign: 'center'
+                        }}>
+                            <div style={{ fontSize: '18px', fontWeight: 'bold' }}>
+                                {userProfile?.publicStats?.challengesCompleted || 0} vs {friendStats.challengesCompleted || 0}
+                            </div>
+                            <div style={{ fontSize: '12px', color: '#9ca3af', marginTop: '5px' }}>Défis complétés ⚡</div>
+                        </div>
                     </div>
 
                     {/* Section Badges */}
@@ -331,15 +391,9 @@ export default function FriendStatsPage({ friendId, setCurrentPage }) {
                             maxHeight: '300px',
                             overflowY: 'auto'
                         }}>
-                            {(() => {
-                                console.log("🎯 Debug badges:", {
-                                    userBadges: userProfile?.unlockedBadges,
-                                    friendBadges: friendStats.unlockedBadges,
-                                    friendStats: friendStats
-                                });
-                                return Object.entries(badgeList).map(([badgeId, badge]) => {
-                                    const userHas = userProfile?.unlockedBadges?.includes(badgeId) || false;
-                                    const friendHas = friendStats.unlockedBadges?.includes(badgeId) || false;
+                            {Object.entries(badgeList).map(([badgeId, badge]) => {
+                                const userHas = userProfile?.unlockedBadges?.includes(badgeId) || false;
+                                const friendHas = friendStats.unlockedBadges?.includes(badgeId) || false;
                                     
                                     let borderColor = 'rgba(75, 85, 99, 0.5)'; // Gris par défaut
                                     let bgColor = 'rgba(0, 0, 0, 0.3)';
@@ -388,8 +442,7 @@ export default function FriendStatsPage({ friendId, setCurrentPage }) {
                                             )}
                                         </div>
                                     );
-                                });
-                            })()}
+                                })}
                         </div>
                         
                         {/* Légende */}

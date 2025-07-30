@@ -12,6 +12,15 @@ service cloud.firestore {
       allow write: if request.auth != null && request.auth.uid == userId;
     }
     
+    // Règles pour les groupes
+    match /artifacts/{appId}/groups/{groupId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null && 
+        (request.auth.uid in resource.data.members || request.auth.uid in resource.data.admins);
+      allow delete: if request.auth != null && request.auth.uid in resource.data.admins;
+    }
+    
     // Règles pour les données globales publiques
     match /artifacts/{appId}/global/{document=**} {
       allow read: if request.auth != null;

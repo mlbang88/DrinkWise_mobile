@@ -25,6 +25,34 @@ const ChallengesPage = () => {
         return () => unsubscribe();
     }, [db, user, appId]);
 
+    // Fonction pour sauvegarder les défis complétés
+    const saveCompletedChallenges = async (challenges) => {
+        if (!user || !userProfile) return;
+
+        const completedChallenges = {};
+        challenges.forEach(challenge => {
+            if (challenge.completed) {
+                completedChallenges[challenge.id] = true;
+            }
+        });
+
+        // Fusionner avec les défis déjà complétés
+        const updatedCompletedChallenges = {
+            ...(userProfile.completedChallenges || {}),
+            ...completedChallenges
+        };
+
+        try {
+            const userProfileRef = doc(db, `artifacts/${appId}/users/${user.uid}/profile`, 'data');
+            await updateDoc(userProfileRef, {
+                completedChallenges: updatedCompletedChallenges
+            });
+            console.log("✅ Défis complétés sauvegardés:", updatedCompletedChallenges);
+        } catch (error) {
+            console.error("❌ Erreur sauvegarde défis:", error);
+        }
+    };
+
     const now = new Date();
     
     // Calcul correct du début de semaine (lundi)
@@ -126,6 +154,14 @@ const ChallengesPage = () => {
             reverse: true // Pour ce défi, on veut moins que la target
         }
     ];
+
+    // Sauvegarder automatiquement les défis complétés
+    useEffect(() => {
+        if (!user || !userProfile || parties.length === 0) return;
+        
+        const allChallenges = [...weeklyChallenges, ...monthlyChallenges];
+        saveCompletedChallenges(allChallenges);
+    }, [parties, user, userProfile]);
 
     const ChallengeItem = ({ challenge, isWeekly = true }) => {
         let progress, displayCurrent, displayTarget;
