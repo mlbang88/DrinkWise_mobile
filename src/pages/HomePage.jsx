@@ -106,87 +106,87 @@ const HomePage = () => {
 
     // Interface normale uniquement
     return (
-        <div className="w-full h-full animate-fade-in space-y-6 px-6 flex flex-col">
-            <div className="text-center">
-                <ThemedText style={{ fontSize: '2.25rem', fontWeight: 'bold', display: 'block', marginTop: '40px' }}>
+        <div className="w-full h-full animate-fade-in space-y-4">
+            <div className="text-center mb-6">
+                <ThemedText style={{ fontSize: '1.75rem', fontWeight: 'bold', display: 'block', marginTop: '20px' }}>
                     Bienvenue, {userProfile?.username || 'Fêtard'} !
                 </ThemedText>
-                <ThemedText style={{ fontSize: '1.125rem', color: '#d1d5db', display: 'block', marginTop: '8px', marginBottom: '20px' }}>
+                <ThemedText style={{ fontSize: '1rem', color: '#d1d5db', display: 'block', marginTop: '8px', marginBottom: '20px' }}>
                     Prêt à faire la fête ?
                 </ThemedText>
             </div>
 
             {/* Bouton Nouvelle Soirée */}
-            <button
-                onClick={() => setShowAddPartyModal(true)}
-                className="font-bold transition-transform transform hover:scale-105 flex items-center justify-center shadow-lg"
-                style={{ 
-                    marginBottom: '60px',
-                    marginLeft: '16px',
-                    marginRight: '16px',
-                    padding: '24px 32px',
-                    backgroundColor: '#7c3aed',
-                    color: 'white',
-                    fontSize: '1.25rem',
-                    borderRadius: '20px'
-                }}
-            >
-                <PlusCircle size={32} className="flex-shrink-0" style={{ color: 'white', marginRight: '16px' }} /> 
-                <span className="flex-grow text-center">Enregistrer une Nouvelle Soirée</span>
-            </button>
+            <div className="mobile-card">
+                <button
+                    onClick={() => setShowAddPartyModal(true)}
+                    className="w-full font-bold transition-transform transform active:scale-95 flex items-center justify-center shadow-lg"
+                    style={{ 
+                        padding: '20px 24px',
+                        backgroundColor: '#7c3aed',
+                        color: 'white',
+                        fontSize: '1.125rem',
+                        borderRadius: '12px',
+                        border: 'none'
+                    }}
+                >
+                    <PlusCircle size={24} className="flex-shrink-0" style={{ color: 'white', marginRight: '12px' }} /> 
+                    <span className="flex-grow text-center">Nouvelle Soirée</span>
+                </button>
+            </div>
 
             {/* Stats et Badges */}
-            <div className="grid grid-cols-1 flex-grow" style={{ gap: '80px', paddingLeft: '16px', paddingRight: '16px' }}>
-                <div className={`p-8 ${containerClassName} min-h-[180px]`} style={{ ...containerStyle, border: '2px solid rgba(255, 255, 255, 0.2)' }}>
-                    <ThemedText style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '20px', textAlign: 'center' }}>
-                        Résumé de la Semaine
+            <div className="mobile-grid">
+                <div className={`mobile-card p-6 ${containerClassName}`} style={{ ...containerStyle, border: '2px solid rgba(255, 255, 255, 0.2)' }}>
+                    <ThemedText style={{ fontSize: '1.25rem', fontWeight: 'bold', marginBottom: '16px', textAlign: 'center' }}>
+                        📊 Semaine
                     </ThemedText>
                     {weeklyStats && weeklyStats.totalParties > 0 ? (
                         <div className="space-y-3">
-                            <ThemedText style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.1rem' }}>
+                            <ThemedText style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.95rem' }}>
                                 <span>🎉 Soirées :</span> <span style={{ fontWeight: 'bold' }}>{weeklyStats.totalParties}</span>
                             </ThemedText>
-                            <ThemedText style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.1rem' }}>
-                                <span>🍻 Verres bus :</span> <span style={{ fontWeight: 'bold' }}>{weeklyStats.totalDrinks}</span>
+                            <ThemedText style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.95rem' }}>
+                                <span>🍻 Verres :</span> <span style={{ fontWeight: 'bold' }}>{weeklyStats.totalDrinks}</span>
                             </ThemedText>
-                            <ThemedText style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.1rem' }}>
-                                <span>🍺 Volume total :</span> <span style={{ fontWeight: 'bold' }}>{weeklyStats.totalVolume ? `${(weeklyStats.totalVolume / 100).toFixed(1)}L` : '0L'}</span>
+                            <ThemedText style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.95rem' }}>
+                                <span>🍺 Volume :</span> <span style={{ fontWeight: 'bold' }}>{weeklyStats.totalVolume ? `${(weeklyStats.totalVolume / 100).toFixed(1)}L` : '0L'}</span>
                             </ThemedText>
-                            <ThemedText style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.1rem' }}>
-                                <span role="img" aria-label="bagarre">🥊 Bagarres :</span> <span style={{ fontWeight: 'bold' }}>{weeklyStats.totalFights}</span>
+                            <ThemedText style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.95rem' }}>
+                                <span>🥊 Bagarres :</span> <span style={{ fontWeight: 'bold' }}>{weeklyStats.totalFights}</span>
                             </ThemedText>
-                            <ThemedText style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.1rem' }}>
+                            <ThemedText style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.95rem' }}>
                                 <span>🤢 Vomis :</span> <span style={{ fontWeight: 'bold' }}>{weeklyStats.totalVomi}</span>
                             </ThemedText>
                         </div>
                     ) : (
-                        <ThemedText style={{ color: '#9ca3af', fontSize: '1rem' }}>
-                            Aucune soirée enregistrée cette semaine. Il est temps de sortir !
+                        <ThemedText className="mobile-text-sm" style={{ color: '#9ca3af', textAlign: 'center' }}>
+                            Aucune soirée cette semaine
                         </ThemedText>
                     )}
                 </div>
 
-                <div className={`p-8 ${containerClassName} min-h-[180px]`} style={{ ...containerStyle, border: '2px solid rgba(255, 255, 255, 0.2)' }}>
-                    <ThemedText style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '20px', textAlign: 'center' }}>
-                        Dernier Exploit
+                <div className={`mobile-card p-6 ${containerClassName}`} style={{ ...containerStyle, border: '2px solid rgba(255, 255, 255, 0.2)' }}>
+                    <ThemedText style={{ fontSize: '1.25rem', fontWeight: 'bold', marginBottom: '16px', textAlign: 'center' }}>
+                        🏆 Dernier Exploit
                     </ThemedText>
                     {lastBadge ? (
-                        <div className="flex items-center space-x-4">
-                            <div className="p-3 rounded-full flex-shrink-0 badge-container-gold">
-                                {React.cloneElement(lastBadge.icon, { size: 36, className: 'badge-gold' })}
+                        <div className="flex items-center space-x-3">
+                            <div className="p-2 rounded-full flex-shrink-0 badge-container-gold">
+                                {React.cloneElement(lastBadge.icon, { size: 28, className: 'badge-gold' })}
                             </div>
-                            <div style={{ overflow: 'hidden', flex: '1' }}>
-                                <ThemedText style={{ fontWeight: 'bold', fontSize: '1.25rem' }}>
+                            <div className="flex-1 min-w-0">
+                                <ThemedText className="mobile-text-base break-words" style={{ fontWeight: 'bold' }}>
                                     {lastBadge.name}
                                 </ThemedText>
-                                <ThemedText style={{ fontSize: '1rem', color: '#d1d5db' }}>
+                                <ThemedText className="mobile-text-sm break-words" style={{ color: '#d1d5db' }}>
                                     {lastBadge.description}
                                 </ThemedText>
                             </div>
                         </div>
                     ) : (
-                        <ThemedText style={{ color: '#9ca3af' }}>
-                            Enregistrez votre première soirée pour commencer à débloquer des badges !
+                        <ThemedText className="mobile-text-sm" style={{ color: '#9ca3af', textAlign: 'center' }}>
+                            Pas encore d'exploits
                         </ThemedText>
                     )}
                 </div>

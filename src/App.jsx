@@ -71,50 +71,47 @@ const AppContent = () => {
                 <AuthPage />
             ) : (
                 <div 
-                    className="min-h-screen font-sans flex flex-col text-white relative w-full" 
+                    className="mobile-container font-sans text-white relative" 
                     style={{ 
                         ...mainBgStyle, 
                         backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)), url(${backgroundUrl})`,
-                        margin: 0,
-                        padding: 0,
-                        minHeight: '100vh', // Force la hauteur minimum à 100vh
-                        backgroundAttachment: 'fixed', // Fond fixe pour toujours couvrir
+                        backgroundAttachment: 'fixed',
                         backgroundSize: 'cover',
                         backgroundPosition: 'center'
                     }}
                 >
-                    <header className="relative z-10 p-4 bg-black/20 shadow-lg text-center backdrop-blur-sm flex-shrink-0">
+                    <header className="mobile-header p-4 bg-black/20 shadow-lg text-center backdrop-blur-sm">
                         <ThemedText style={{ fontSize: '1.875rem', fontWeight: 'bold' }}>DrinkWise</ThemedText>
                     </header>
-                    <main className="relative z-10 flex-grow flex flex-col w-full min-h-0">
-                        <div className="w-full flex-grow flex flex-col">
+                    
+                    <main className="mobile-main">
+                        <div className="page-container">
                             {renderPage()}
                         </div>
                     </main>
-                    <footer className="relative z-10 bg-black/50 backdrop-blur-sm border-t border-white/20 flex-shrink-0 mt-auto">
-                        <div className="flex justify-around items-center p-2">
+                    
+                    <footer className="mobile-footer">
+                        <div className="flex">
                             {navItems.map((item) => (
                                 <button
                                     key={item.id}
                                     onClick={() => setCurrentPage(item.id)}
-                                    className="flex flex-col items-center p-2 transition-colors duration-200"
-                                    style={{
-                                        minWidth: '60px',
-                                        backgroundColor: 'transparent' // Pas de background
-                                    }}
+                                    className="mobile-nav-button"
                                 >
                                     <item.icon 
                                         size={20} 
                                         style={{ 
                                             color: currentPage === item.id ? '#a855f7' : '#ffffff',
-                                            filter: 'drop-shadow(0 1px 2px rgba(0, 0, 0, 0.8))' // Ombre pour meilleure visibilité
+                                            filter: 'drop-shadow(0 1px 2px rgba(0, 0, 0, 0.8))',
+                                            marginBottom: '4px'
                                         }}
                                     />
                                     <span 
-                                        className="text-[10px] mt-0.5"
+                                        className="mobile-text-sm"
                                         style={{ 
                                             color: currentPage === item.id ? '#a855f7' : '#ffffff',
-                                            textShadow: '0 1px 2px rgba(0, 0, 0, 0.8)' // Ombre pour le texte aussi
+                                            textShadow: '0 1px 2px rgba(0, 0, 0, 0.8)',
+                                            fontWeight: currentPage === item.id ? 'bold' : 'normal'
                                         }}
                                     >
                                         {item.label}
@@ -128,7 +125,7 @@ const AppContent = () => {
             <MessageBox 
                 message={messageBox.message} 
                 type={messageBox.type} 
-                onClose={() => {}} // Les messages se ferment automatiquement
+                onClose={() => {}} 
             />
         </>
     );
