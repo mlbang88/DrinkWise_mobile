@@ -99,7 +99,7 @@ export class GeminiService {
                     const drinkInfo = JSON.parse(cleanedResponse);
                     console.log('🍹 Boisson détectée par Gemini:', drinkInfo);
                     return drinkInfo;
-                } catch (parseError) {
+                } catch {
                     console.warn('⚠️ Réponse non JSON, fallback vers format legacy');
                     // Fallback vers l'ancien format si la réponse n'est pas en JSON
                     return { type: responseText, brand: null };

@@ -7,7 +7,7 @@ import GroupStats from './GroupStats.jsx';
 import UserAvatar from './UserAvatar';
 
 const GroupSection = () => {
-    const { db, user, appId, userProfile, setMessageBox } = useContext(FirebaseContext);
+    const { db, user, appId, setMessageBox } = useContext(FirebaseContext);
     
     // États pour les groupes
     const [groups, setGroups] = useState([]);
@@ -79,7 +79,7 @@ const GroupSection = () => {
         }
 
         try {
-            const groupId = await groupService.createGroup(db, appId, user.uid, {
+            const _groupId = await groupService.createGroup(db, appId, user.uid, {
                 name: newGroupName,
                 description: newGroupDescription
             });
@@ -174,6 +174,8 @@ const GroupSection = () => {
     const isCurrentUserAdmin = () => {
         return selectedGroup && groupService.isUserAdmin(selectedGroup, user.uid);
     };
+
+    return (
         <div style={{
             backgroundColor: 'rgba(255, 255, 255, 0.1)',
             borderRadius: '12px',

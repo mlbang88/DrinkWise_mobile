@@ -7,7 +7,7 @@ import LoadingSpinner from './LoadingSpinner';
 import LoadingIcon from './LoadingIcon';
 
 export default function GroupManager({ onSelectGroup, selectedGroupId }) {
-    const { db, user, appId, userProfile, setMessageBox } = useContext(FirebaseContext);
+    const { db, user, appId, setMessageBox } = useContext(FirebaseContext);
     const [groups, setGroups] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showCreateForm, setShowCreateForm] = useState(false);
@@ -53,7 +53,7 @@ export default function GroupManager({ onSelectGroup, selectedGroupId }) {
 
         try {
             setCreating(true);
-            const groupId = await groupService.createGroup(db, appId, user.uid, {
+            const _groupId = await groupService.createGroup(db, appId, user.uid, {
                 name: newGroupName.trim(),
                 description: newGroupDesc.trim()
             });

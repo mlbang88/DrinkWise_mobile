@@ -1,13 +1,11 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { collection, doc, increment, onSnapshot, query, updateDoc } from 'firebase/firestore';
+import { collection, doc, onSnapshot, query, updateDoc } from 'firebase/firestore';
 import { FirebaseContext } from '../contexts/FirebaseContext.jsx';
 import { badgeService } from '../services/badgeService';
-import { getWeekId, getMonthId } from '../utils/helpers';
-import { challengeList } from '../utils/data';
 import LoadingSpinner from '../components/LoadingSpinner';
 
 const ChallengesPage = () => {
-    const { db, user, appId, userProfile, setMessageBox } = useContext(FirebaseContext);
+    const { db, user, appId, userProfile } = useContext(FirebaseContext);
     const [loading, setLoading] = useState(true);
     const [parties, setParties] = useState([]);
 
@@ -163,7 +161,7 @@ const ChallengesPage = () => {
         saveCompletedChallenges(allChallenges);
     }, [parties, user, userProfile]);
 
-    const ChallengeItem = ({ challenge, isWeekly = true }) => {
+    const ChallengeItem = ({ challenge }) => {
         let progress, displayCurrent, displayTarget;
         
         if (challenge.reverse) {

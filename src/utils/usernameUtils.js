@@ -1,5 +1,5 @@
 // src/utils/usernameUtils.js
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, getDocs } from 'firebase/firestore';
 
 /**
  * Vérifie si un nom d'utilisateur est déjà pris

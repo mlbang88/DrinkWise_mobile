@@ -1,12 +1,10 @@
 import React, { useContext } from 'react';
 import { FirebaseContext } from '../contexts/FirebaseContext.jsx';
-import { useTheme } from '../styles/ThemeContext.jsx';
 import { badgeList } from '../utils/data';
 import ThemedText from '../styles/ThemedText.jsx';
 
 const BadgesPage = () => {
     const { userProfile } = useContext(FirebaseContext);
-    const { theme } = useTheme();
     const unlockedBadges = userProfile?.unlockedBadges || [];
     
     console.log("🏅 BadgesPage - userProfile:", userProfile);

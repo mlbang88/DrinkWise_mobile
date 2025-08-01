@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useContext } from 'react';
+import React, { useState, useContext } from 'react';
 import { ThemeProvider, useTheme } from './styles/ThemeContext.jsx';
 import ThemedText from './styles/ThemedText.jsx';
 import { FirebaseProvider, FirebaseContext } from './contexts/FirebaseContext.jsx';
@@ -30,7 +30,7 @@ const mainBgStyle = {
 const AppContent = () => {
     const { user, loading, messageBox } = useContext(FirebaseContext);
     const [currentPage, setCurrentPage] = useState('home');
-    const [backgroundUrl, setBackgroundUrl] = useState(localImageData['soiree']);
+    const [backgroundUrl] = useState(localImageData['soiree']);
     const [selectedFriendId, setSelectedFriendId] = useState(null);
     
     // IMPORTANT: useTheme doit être appelé avant tout return conditionnel
