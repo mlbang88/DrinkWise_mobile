@@ -185,57 +185,108 @@ const ChallengesPage = () => {
         }
 
         return (
-            <div className={`mobile-card mb-4 relative ${
-                challenge.completed ? 'border-green-500' : 'border-purple-600'
-            }`}
-                style={{
-                    borderLeft: challenge.completed ? '4px solid #10b981' : '4px solid #8b45ff',
-                    border: challenge.completed ? '2px solid #10b981' : '2px solid rgba(255, 255, 255, 0.1)'
+            <div style={{
+                backgroundColor: 'rgba(0, 0, 0, 0.4)',
+                border: challenge.completed ? '2px solid #10b981' : '2px solid rgba(255, 255, 255, 0.1)',
+                borderLeft: challenge.completed ? '4px solid #10b981' : '4px solid #8b45ff',
+                borderRadius: '16px',
+                padding: '20px',
+                marginBottom: '16px',
+                position: 'relative'
+            }}>
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '16px'
                 }}>
-                <div className="flex items-start gap-4">
                     {/* Icône */}
-                    <div className={`text-4xl flex items-center justify-center w-12 h-12 rounded-xl ${
-                        challenge.completed ? 'bg-green-500 bg-opacity-20' : 'bg-purple-600 bg-opacity-20'
-                    }`}>
+                    <div style={{
+                        fontSize: '32px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: '50px',
+                        height: '50px',
+                        backgroundColor: challenge.completed ? 'rgba(16, 185, 129, 0.2)' : 'rgba(139, 69, 255, 0.2)',
+                        borderRadius: '12px'
+                    }}>
                         {challenge.icon}
                     </div>
 
                     {/* Contenu */}
-                    <div className="flex-1">
-                        <h3 className="text-white text-lg font-semibold mb-2">
+                    <div style={{ flex: 1 }}>
+                        <h3 style={{
+                            color: 'white',
+                            fontSize: '18px',
+                            fontWeight: '600',
+                            margin: '0 0 8px 0'
+                        }}>
                             {challenge.title}
                         </h3>
-                        <p className="text-gray-400 text-sm mb-4">
+                        <p style={{
+                            color: '#9ca3af',
+                            fontSize: '14px',
+                            margin: '0 0 16px 0'
+                        }}>
                             {challenge.description}
                         </p>
 
                         {/* Barre de progression */}
-                        <div className="bg-gray-700 rounded-lg h-2 w-full overflow-hidden mb-2">
-                            <div 
-                                className={`h-full rounded-lg transition-all duration-300 ${
-                                    challenge.completed ? 'bg-green-500' : 'bg-purple-600'
-                                }`}
-                                style={{ width: `${progress}%` }}
-                            ></div>
+                        <div style={{
+                            backgroundColor: '#374151',
+                            borderRadius: '8px',
+                            height: '8px',
+                            width: '100%',
+                            overflow: 'hidden',
+                            marginBottom: '8px'
+                        }}>
+                            <div style={{
+                                backgroundColor: challenge.completed ? '#10b981' : '#8b45ff',
+                                height: '100%',
+                                width: `${progress}%`,
+                                borderRadius: '8px',
+                                transition: 'width 0.3s ease'
+                            }}></div>
                         </div>
 
-                        {/* Progression numérique et XP */}
-                        <div className="flex justify-between items-center">
-                            <span className="text-gray-400 text-xs">
+                        {/* Progression numérique */}
+                        <div style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center'
+                        }}>
+                            <span style={{
+                                color: '#9ca3af',
+                                fontSize: '12px'
+                            }}>
                                 {displayCurrent} / {displayTarget}
-                            </span>
-                            <span className="text-yellow-400 text-sm font-semibold">
-                                +{challenge.xp} XP
                             </span>
                         </div>
                     </div>
 
-                    {/* Statut de complétion */}
-                    {challenge.completed && (
-                        <div className="text-green-500 text-2xl">
-                            ✓
-                        </div>
-                    )}
+                    {/* XP et statut */}
+                    <div style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'flex-end',
+                        gap: '8px'
+                    }}>
+                        <span style={{
+                            color: '#fbbf24',
+                            fontSize: '16px',
+                            fontWeight: '600'
+                        }}>
+                            +{challenge.xp} XP
+                        </span>
+                        {challenge.completed && (
+                            <div style={{
+                                color: '#10b981',
+                                fontSize: '24px'
+                            }}>
+                                ✓
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
         );
@@ -243,35 +294,49 @@ const ChallengesPage = () => {
 
     if (loading) return <LoadingSpinner />;
 
+    const backgroundStyle = {
+        minHeight: '100vh',
+        background: 'linear-gradient(rgba(0,0,0,0.8), rgba(0,0,0,0.8)), url("https://images.unsplash.com/photo-1543007629-5c4e8a83ba4c") center/cover',
+        padding: '20px',
+        fontFamily: 'Arial, sans-serif'
+    };
+
     return (
-        <div className="mobile-container">
-            {/* Header mobile */}
-            <div className="mobile-header">
-                <h2 className="mobile-title">
-                    Défis & Challenges
+        <div style={backgroundStyle}>
+            {/* Défis de la Semaine */}
+            <div style={{ marginBottom: '40px' }}>
+                <h2 style={{
+                    color: 'white',
+                    fontSize: '24px',
+                    fontWeight: '600',
+                    margin: '0 0 24px 0',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px'
+                }}>
+                    📅 Défis de la Semaine
                 </h2>
+                {weeklyChallenges.map(challenge => (
+                    <ChallengeItem key={challenge.id} challenge={challenge} isWeekly={true} />
+                ))}
             </div>
 
-            <div className="mobile-main">
-                {/* Défis de la Semaine */}
-                <div className="mb-10">
-                    <h2 className="text-white text-2xl font-semibold mb-6 flex items-center gap-3">
-                        📅 Défis de la Semaine
-                    </h2>
-                    {weeklyChallenges.map(challenge => (
-                        <ChallengeItem key={challenge.id} challenge={challenge} isWeekly={true} />
-                    ))}
-                </div>
-
-                {/* Défis du Mois */}
-                <div>
-                    <h2 className="text-white text-2xl font-semibold mb-6 flex items-center gap-3">
-                        ⭐ Défis du Mois
-                    </h2>
-                    {monthlyChallenges.map(challenge => (
-                        <ChallengeItem key={challenge.id} challenge={challenge} isWeekly={false} />
-                    ))}
-                </div>
+            {/* Défis du Mois */}
+            <div>
+                <h2 style={{
+                    color: 'white',
+                    fontSize: '24px',
+                    fontWeight: '600',
+                    margin: '0 0 24px 0',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px'
+                }}>
+                    ⭐ Défis du Mois
+                </h2>
+                {monthlyChallenges.map(challenge => (
+                    <ChallengeItem key={challenge.id} challenge={challenge} isWeekly={false} />
+                ))}
             </div>
         </div>
     );

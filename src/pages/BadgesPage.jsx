@@ -14,57 +14,93 @@ const BadgesPage = () => {
     console.log("🏅 BadgesPage - badgeList keys:", Object.keys(badgeList));
 
     return (
-        <div className="w-full animate-fade-in space-y-4">
+        <div style={{
+            minHeight: '100vh',
+            background: 'linear-gradient(rgba(0,0,0,0.75), rgba(0,0,0,0.75)), url("https://images.unsplash.com/photo-1667983088885-226788e18a6e?q=80&w=387&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D") center/cover',
+            padding: '20px',
+            display: 'flex',
+            flexDirection: 'column'
+        }}>
             {/* Titre dans un conteneur */}
-            <div className="mobile-card" style={{
+            <div style={{
                 backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                borderRadius: '20px',
                 border: '1px solid rgba(255, 255, 255, 0.3)',
-                padding: '20px',
+                padding: '24px',
+                marginBottom: '32px',
                 textAlign: 'center'
             }}>
-                <h2 className="mobile-text-2xl" style={{
+                <h2 style={{
                     color: 'white',
+                    fontSize: '32px',
                     fontWeight: '600',
                     margin: 0
                 }}>
-                    🏆 Vos Badges
+                    Vos Badges
                 </h2>
             </div>
 
             {/* Conteneur de la grille de badges */}
-            <div className="mobile-card" style={{
+            <div style={{
                 backgroundColor: 'rgba(128, 128, 128, 0.2)',
+                borderRadius: '20px',
                 border: '1px solid rgba(255, 255, 255, 0.1)',
-                padding: '12px'
+                padding: '12px',
+                width: '100%',
+                margin: '0 auto'
             }}>
                 {/* Grille de badges */}
-                <div className="mobile-grid" style={{
-                    gap: '10px'
+                <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(2, 1fr)',
+                    gap: '10px',
+                    '@media (min-width: 480px)': {
+                        gridTemplateColumns: 'repeat(3, 1fr)'
+                    }
                 }}>
                     {Object.entries(badgeList).map(([id, badge]) => {
                         const isUnlocked = unlockedBadges.includes(id);
                         return (
                             <div
                                 key={id}
-                                className={`mobile-card p-3 ${
-                                    isUnlocked ? 'bg-white bg-opacity-15 border-yellow-400' : 'bg-white bg-opacity-8 border-white border-opacity-15'
-                                }`}
                                 style={{
+                                    backgroundColor: isUnlocked ? 'rgba(255, 255, 255, 0.15)' : 'rgba(255, 255, 255, 0.08)',
                                     border: `2px solid ${isUnlocked ? '#fbbf24' : 'rgba(255, 255, 255, 0.15)'}`,
+                                    borderRadius: '12px',
+                                    padding: '12px',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'center',
+                                    textAlign: 'center',
+                                    transition: 'all 0.2s ease',
                                     opacity: isUnlocked ? 1 : 0.6,
                                     minHeight: '140px',
-                                    position: 'relative'
+                                    position: 'relative',
+                                    justifyContent: 'space-between'
                                 }}
                             >
                                 {/* Overlay pour badges verrouillés */}
                                 {!isUnlocked && (
-                                    <div className="absolute top-1.5 right-1.5 text-xs z-10">
+                                    <div style={{
+                                        position: 'absolute',
+                                        top: '6px',
+                                        right: '6px',
+                                        fontSize: '12px',
+                                        zIndex: 2
+                                    }}>
                                         🔒
                                     </div>
                                 )}
                                 
                                 {/* Container pour l'icône */}
-                                <div className="flex items-center justify-center w-full h-10 mb-2">
+                                <div style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    width: '100%',
+                                    height: '40px',
+                                    marginBottom: '8px'
+                                }}>
                                     {(() => {
                                         try {
                                             if (badge.icon && React.isValidElement(badge.icon)) {
@@ -100,10 +136,15 @@ const BadgesPage = () => {
                                         };
                                         
                                         return (
-                                            <div className="w-8 h-8 flex items-center justify-center text-xl"
-                                                style={{
-                                                    opacity: isUnlocked ? 1 : 0.6
-                                                }}>
+                                            <div style={{
+                                                width: '32px',
+                                                height: '32px',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                fontSize: '20px',
+                                                opacity: isUnlocked ? 1 : 0.6
+                                            }}>
                                                 {getEmojiForBadge(id)}
                                             </div>
                                         );
@@ -111,26 +152,36 @@ const BadgesPage = () => {
                                 </div>
                                 
                                 {/* Container pour le texte */}
-                                <div className="flex flex-col items-center w-full flex-1">
-                                    <h3 className={`text-center w-full font-semibold mb-1 ${
-                                        isUnlocked ? 'text-yellow-400' : 'text-gray-300'
-                                    }`}
-                                        style={{
-                                            fontSize: '11px',
-                                            lineHeight: '1.2'
-                                        }}>
+                                <div style={{
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'center',
+                                    width: '100%',
+                                    flex: 1
+                                }}>
+                                    <h3 style={{
+                                        color: isUnlocked ? '#fbbf24' : '#d1d5db',
+                                        fontSize: '11px',
+                                        fontWeight: '600',
+                                        margin: '0 0 4px 0',
+                                        lineHeight: '1.2',
+                                        textAlign: 'center',
+                                        width: '100%'
+                                    }}>
                                         {badge.name}
                                     </h3>
-                                    <p className={`text-center w-full m-0 overflow-hidden ${
-                                        isUnlocked ? 'text-gray-300' : 'text-gray-400'
-                                    }`}
-                                        style={{ 
-                                            fontSize: '9px',
-                                            lineHeight: '1.3',
-                                            display: '-webkit-box',
-                                            WebkitLineClamp: 3,
-                                            WebkitBoxOrient: 'vertical'
-                                        }}>
+                                    <p style={{ 
+                                        color: isUnlocked ? '#d1d5db' : '#9ca3af',
+                                        fontSize: '9px',
+                                        margin: 0,
+                                        lineHeight: '1.3',
+                                        textAlign: 'center',
+                                        width: '100%',
+                                        overflow: 'hidden',
+                                        display: '-webkit-box',
+                                        WebkitLineClamp: 3,
+                                        WebkitBoxOrient: 'vertical'
+                                    }}>
                                         {badge.description}
                                     </p>
                                 </div>
