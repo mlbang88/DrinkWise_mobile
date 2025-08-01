@@ -132,7 +132,7 @@ const ProfilePage = () => {
             await updateDoc(userProfileRef, { isPublic });
             // Les stats publiques seront mises à jour automatiquement par badgeService
             setMessageBox({ message: `Profil rendu ${isPublic ? 'public' : 'privé'}`, type: "success" });
-        } catch (error) {
+        } catch {
             setMessageBox({ message: "Erreur mise à jour statut.", type: "error" });
         } finally {
             setLoading(false);
@@ -143,7 +143,7 @@ const ProfilePage = () => {
         setCurrentProfilePhoto(photoData);
     };
 
-    const handleSignOut = () => signOut(auth).catch(e => setMessageBox({ message: "Erreur déconnexion.", type: "error" }));
+    const handleSignOut = () => signOut(auth).catch(() => setMessageBox({ message: "Erreur déconnexion.", type: "error" }));
 
     return (
         <div style={{

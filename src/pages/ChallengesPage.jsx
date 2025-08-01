@@ -161,7 +161,7 @@ const ChallengesPage = () => {
         saveCompletedChallenges(allChallenges);
     }, [parties, user, userProfile]);
 
-    const ChallengeItem = ({ challenge, isWeekly = true }) => {
+    const ChallengeItem = ({ challenge }) => {
         let progress, displayCurrent, displayTarget;
         
         if (challenge.reverse) {

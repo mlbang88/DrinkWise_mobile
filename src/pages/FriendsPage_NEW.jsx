@@ -55,7 +55,7 @@ const FriendsPage = ({ setCurrentPage, setSelectedFriendId }) => {
         try {
             await updateDoc(userProfileRef, { friends: arrayRemove(friendId) });
             setMessageBox({ message: "Ami supprimé.", type: "info" });
-        } catch (error) {
+        } catch {
             setMessageBox({ message: "Erreur suppression ami.", type: "error" });
         }
     };
