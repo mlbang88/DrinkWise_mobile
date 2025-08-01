@@ -2,8 +2,7 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { doc, onSnapshot, getDoc } from 'firebase/firestore';
 import { FirebaseContext } from '../contexts/FirebaseContext';
-import { groupService } from '../services/groupService';
-import { badgeList, gameplayConfig } from '../utils/data';
+import { gameplayConfig } from '../utils/data';
 import LoadingSpinner from './LoadingSpinner';
 import GroupGoals from './GroupGoals';
 import GroupMemories from './GroupMemories';

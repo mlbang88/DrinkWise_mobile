@@ -2,7 +2,6 @@ import React, { useState, useEffect, useContext } from 'react';
 import { collection, onSnapshot, query } from 'firebase/firestore';
 import { httpsCallable } from "firebase/functions";
 import { FirebaseContext } from '../contexts/FirebaseContext.jsx';
-import { useTheme } from '../styles/ThemeContext.jsx';
 import ThemedText from '../styles/ThemedText.jsx';
 import { badgeService } from '../services/badgeService';
 import { PieChart, Pie, Cell, BarChart as ReBarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from 'recharts';
@@ -12,7 +11,6 @@ import { BarChart, Trophy, Sparkles, Lightbulb } from 'lucide-react';
 
 const StatsPage = () => {
     const { db, user, appId, setMessageBox, functions } = useContext(FirebaseContext);
-    const { theme } = useTheme();
     const [myParties, setMyParties] = useState([]);
     const [loading, setLoading] = useState(true);
     const [timeFilter, setTimeFilter] = useState('all'); // 'all', 'week', 'month', 'year'
@@ -131,10 +129,10 @@ const StatsPage = () => {
     const partyChartData = processPartyDataForChart(filteredParties);
     const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042', '#0088fe', '#00c49f'];
 
-    const cardClassName = "bg-black/30 backdrop-blur-md border border-gray-700";
-    const inputClassName = "bg-gray-900/50 text-white border-gray-600";
-    const activeFilterClass = "bg-purple-600 text-white";
-    const inactiveFilterClass = "bg-gray-500/50 hover:bg-gray-500/80";
+    const _cardClassName = "bg-black/30 backdrop-blur-md border border-gray-700";
+    const _inputClassName = "bg-gray-900/50 text-white border-gray-600";
+    const _activeFilterClass = "bg-purple-600 text-white";
+    const _inactiveFilterClass = "bg-gray-500/50 hover:bg-gray-500/80";
 
     if (loading) return <LoadingSpinner />;
 

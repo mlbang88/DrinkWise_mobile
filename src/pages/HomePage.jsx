@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { collection, onSnapshot, query } from 'firebase/firestore';
 import { FirebaseContext } from '../contexts/FirebaseContext.jsx';
-import { useTheme } from '../styles/ThemeContext.jsx';
 import ThemedText from '../styles/ThemedText.jsx';
 import { badgeService } from '../services/badgeService';
 import { badgeList, gameplayConfig } from '../utils/data';
@@ -13,7 +12,6 @@ import { PlusCircle } from 'lucide-react';
 const HomePage = () => {
     const { db, user, appId, userProfile } = useContext(FirebaseContext);
     
-    const { theme } = useTheme();
     const [showAddPartyModal, setShowAddPartyModal] = useState(false);
     const [weeklyStats, setWeeklyStats] = useState(null);
     const [lastBadge, setLastBadge] = useState(null);
@@ -81,15 +79,15 @@ const HomePage = () => {
     }
 
     // Calcul du niveau si absent
-    let userLevel = undefined;
-    let userLevelName = '';
+    let _userLevel = undefined;
+    let _userLevelName = '';
     // Priorité : publicStats.level > userProfile.level > calcul local
     if (userProfile?.publicStats?.level !== undefined) {
-        userLevel = userProfile.publicStats.level;
-        userLevelName = userProfile.publicStats.levelName || '';
+        _userLevel = userProfile.publicStats.level;
+        _userLevelName = userProfile.publicStats.levelName || '';
     } else if (userProfile?.level !== undefined) {
-        userLevel = userProfile.level;
-        userLevelName = userProfile.levelName || '';
+        _userLevel = userProfile.level;
+        _userLevelName = userProfile.levelName || '';
     } else if (userProfile?.xp !== undefined && gameplayConfig) {
         const levels = gameplayConfig.levels;
         const currentXp = userProfile.xp;
@@ -100,8 +98,8 @@ const HomePage = () => {
                 break;
             }
         }
-        userLevel = foundLevel;
-        userLevelName = levels[foundLevel]?.name || '';
+        _userLevel = foundLevel;
+        _userLevelName = levels[foundLevel]?.name || '';
     }
 
     // Interface normale uniquement
