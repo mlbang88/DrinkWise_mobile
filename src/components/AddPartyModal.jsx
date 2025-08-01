@@ -1,12 +1,12 @@
-import React, { useState, useContext, useCallback } from 'react';
-import { Timestamp, addDoc, collection, doc, updateDoc } from 'firebase/firestore';
+import React, { useState, useContext, useCallback, useEffect } from 'react';
+import { Timestamp, addDoc, collection, doc, updateDoc, getDocs, query, where } from 'firebase/firestore';
 import { httpsCallable } from "firebase/functions";
 import { FirebaseContext } from '../contexts/FirebaseContext.jsx';
 import { drinkOptions, partyCategories } from '../utils/data';
 import LoadingSpinner from './LoadingSpinner';
 import DrinkAnalyzer from './DrinkAnalyzer';
 import QuizManagerSimple from './QuizManagerSimple';
-import { PlusCircle, Trash2, XCircle } from 'lucide-react';
+import { PlusCircle, Trash2, XCircle, Users, User } from 'lucide-react';
 
 const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
     console.log("🎭 AddPartyModal rendu/re-rendu", draftData ? "avec données du draft" : "normal");
@@ -28,7 +28,8 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
                     elleVeutElleVeut: draftData.events?.elleVeutElleVeut || 0
                 },
                 location: draftData.location || '',
-                category: draftData.category || partyCategories[0]
+                category: draftData.category || partyCategories[0],
+                companions: draftData.companions || { type: 'none', selectedIds: [], selectedNames: [] }
             };
         }
         return {
@@ -36,7 +37,8 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
             drinks: [{ type: 'Bière', brand: '', quantity: 1 }],
             stats: { girlsTalkedTo: 0, fights: 0, recal: 0, vomi: 0, elleVeutElleVeut: 0 },
             location: '',
-            category: partyCategories[0]
+            category: partyCategories[0],
+            companions: { type: 'none', selectedIds: [], selectedNames: [] }
         };
     };
 
@@ -46,10 +48,108 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
     const [stats, setStats] = useState(initialData.stats);
     const [location, setLocation] = useState(initialData.location);
     const [category, setCategory] = useState(initialData.category);
+    const [companions, setCompanions] = useState(initialData.companions);
     const [lastPartyData, setLastPartyData] = useState(null);
     const [lastPartyId, setLastPartyId] = useState(null);
     const [showQuiz, setShowQuiz] = useState(false);
     const [loadingSummary, setLoadingSummary] = useState(false);
+    
+    // États pour la gestion des amis et groupes
+    const [friendsList, setFriendsList] = useState([]);
+    const [groupsList, setGroupsList] = useState([]);
+    const [loadingCompanions, setLoadingCompanions] = useState(false);
+
+    // Charger les amis et groupes au montage du composant
+    useEffect(() => {
+        const loadCompanionsData = async () => {
+            if (!user || !db || !userProfile) return;
+            
+            setLoadingCompanions(true);
+            try {
+                // Charger les amis
+                if (userProfile.friends && userProfile.friends.length > 0) {
+                    const friendsData = [];
+                    for (const friendId of userProfile.friends) {
+                        try {
+                            const friendQuery = query(
+                                collection(db, `artifacts/${appId}/public_user_stats`),
+                                where('__name__', '==', friendId)
+                            );
+                            const friendSnapshot = await getDocs(friendQuery);
+                            if (!friendSnapshot.empty) {
+                                const friendData = friendSnapshot.docs[0].data();
+                                friendsData.push({
+                                    id: friendId,
+                                    username: friendData.username || 'Ami',
+                                    displayName: friendData.displayName || friendData.username || 'Ami'
+                                });
+                            }
+                        } catch (error) {
+                            console.error('Erreur chargement ami:', error);
+                        }
+                    }
+                    setFriendsList(friendsData);
+                }
+
+                // Charger les groupes (structure simplifiée)
+                try {
+                    const groupsQuery = query(
+                        collection(db, `artifacts/${appId}/groups`),
+                        where('members', 'array-contains', user.uid)
+                    );
+                    const groupsSnapshot = await getDocs(groupsQuery);
+                    const groupsData = groupsSnapshot.docs.map(doc => ({
+                        id: doc.id,
+                        name: doc.data().name || 'Groupe',
+                        ...doc.data()
+                    }));
+                    setGroupsList(groupsData);
+                } catch (error) {
+                    console.error('Erreur chargement groupes:', error);
+                }
+            } catch (error) {
+                console.error('Erreur chargement compagnons:', error);
+            } finally {
+                setLoadingCompanions(false);
+            }
+        };
+
+        loadCompanionsData();
+    }, [user, db, userProfile, appId]);
+
+    // Fonction pour gérer le changement de type de compagnon
+    const handleCompanionTypeChange = (type) => {
+        setCompanions({ type, selectedIds: [], selectedNames: [] });
+    };
+
+    // Fonction pour gérer la sélection/désélection d'amis
+    const handleFriendToggle = (friendId, friendName) => {
+        setCompanions(prev => {
+            const isSelected = prev.selectedIds.includes(friendId);
+            if (isSelected) {
+                return {
+                    ...prev,
+                    selectedIds: prev.selectedIds.filter(id => id !== friendId),
+                    selectedNames: prev.selectedNames.filter(name => name !== friendName)
+                };
+            } else {
+                return {
+                    ...prev,
+                    selectedIds: [...prev.selectedIds, friendId],
+                    selectedNames: [...prev.selectedNames, friendName]
+                };
+            }
+        });
+    };
+
+    // Fonction pour gérer la sélection de groupe
+    const handleGroupSelect = (groupId, groupName) => {
+        setCompanions({
+            type: 'group',
+            selectedIds: [groupId],
+            selectedNames: [groupName]
+        });
+    };
 
     // Fonction pour gérer la fin du quiz
     const handleQuizComplete = () => {
@@ -102,7 +202,17 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
         
         if (!user || !db) return setMessageBox({ message: "Connexion requise.", type: "error" });
 
-        const partyData = { date, drinks, ...stats, location, category, timestamp: Timestamp.now(), userId: user.uid, username: userProfile?.username || "Anonyme" };
+        const partyData = { 
+            date, 
+            drinks, 
+            ...stats, 
+            location, 
+            category, 
+            companions,
+            timestamp: Timestamp.now(), 
+            userId: user.uid, 
+            username: userProfile?.username || "Anonyme" 
+        };
         console.log("📋 Données de soirée:", partyData);
         
         try {
@@ -673,6 +783,233 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
                                     e.target.style.backgroundColor = '#2d3748';
                                 }}
                             />
+                        </div>
+                        
+                        {/* Compagnons */}
+                        <div>
+                            <label style={{
+                                display: 'block',
+                                color: '#9ca3af',
+                                fontSize: '16px',
+                                fontWeight: '500',
+                                marginBottom: '12px'
+                            }}>
+                                Avec qui étiez-vous ?
+                            </label>
+                            
+                            {/* Sélecteur de type */}
+                            <div style={{
+                                display: 'flex',
+                                gap: '8px',
+                                marginBottom: '16px'
+                            }}>
+                                <button
+                                    type="button"
+                                    onClick={() => handleCompanionTypeChange('none')}
+                                    style={{
+                                        flex: 1,
+                                        padding: '12px 16px',
+                                        backgroundColor: companions.type === 'none' ? '#8b45ff' : '#2d3748',
+                                        border: '1px solid ' + (companions.type === 'none' ? '#8b45ff' : 'rgba(255, 255, 255, 0.1)'),
+                                        borderRadius: '8px',
+                                        color: 'white',
+                                        fontSize: '14px',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s ease'
+                                    }}
+                                >
+                                    Seul(e)
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => handleCompanionTypeChange('friends')}
+                                    style={{
+                                        flex: 1,
+                                        padding: '12px 16px',
+                                        backgroundColor: companions.type === 'friends' ? '#8b45ff' : '#2d3748',
+                                        border: '1px solid ' + (companions.type === 'friends' ? '#8b45ff' : 'rgba(255, 255, 255, 0.1)'),
+                                        borderRadius: '8px',
+                                        color: 'white',
+                                        fontSize: '14px',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s ease',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        gap: '6px'
+                                    }}
+                                >
+                                    <User size={16} />
+                                    Amis
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => handleCompanionTypeChange('group')}
+                                    style={{
+                                        flex: 1,
+                                        padding: '12px 16px',
+                                        backgroundColor: companions.type === 'group' ? '#8b45ff' : '#2d3748',
+                                        border: '1px solid ' + (companions.type === 'group' ? '#8b45ff' : 'rgba(255, 255, 255, 0.1)'),
+                                        borderRadius: '8px',
+                                        color: 'white',
+                                        fontSize: '14px',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s ease',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        gap: '6px'
+                                    }}
+                                >
+                                    <Users size={16} />
+                                    Groupe
+                                </button>
+                            </div>
+
+                            {/* Liste des amis (si amis sélectionné) */}
+                            {companions.type === 'friends' && (
+                                <div style={{
+                                    backgroundColor: '#2d3748',
+                                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                                    borderRadius: '12px',
+                                    padding: '16px',
+                                    maxHeight: '200px',
+                                    overflowY: 'auto'
+                                }}>
+                                    {loadingCompanions ? (
+                                        <div style={{ textAlign: 'center', color: '#9ca3af', padding: '20px' }}>
+                                            Chargement des amis...
+                                        </div>
+                                    ) : friendsList.length === 0 ? (
+                                        <div style={{ textAlign: 'center', color: '#9ca3af', padding: '20px' }}>
+                                            Aucun ami trouvé
+                                        </div>
+                                    ) : (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                            {friendsList.map(friend => (
+                                                <label
+                                                    key={friend.id}
+                                                    style={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '12px',
+                                                        padding: '10px',
+                                                        borderRadius: '8px',
+                                                        backgroundColor: companions.selectedIds.includes(friend.id) ? 'rgba(139, 69, 255, 0.2)' : 'transparent',
+                                                        border: companions.selectedIds.includes(friend.id) ? '1px solid #8b45ff' : '1px solid transparent',
+                                                        cursor: 'pointer',
+                                                        transition: 'all 0.2s ease'
+                                                    }}
+                                                >
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={companions.selectedIds.includes(friend.id)}
+                                                        onChange={() => handleFriendToggle(friend.id, friend.username)}
+                                                        style={{
+                                                            width: '16px',
+                                                            height: '16px',
+                                                            accentColor: '#8b45ff'
+                                                        }}
+                                                    />
+                                                    <span style={{
+                                                        color: 'white',
+                                                        fontSize: '14px',
+                                                        fontWeight: companions.selectedIds.includes(friend.id) ? '600' : '400'
+                                                    }}>
+                                                        {friend.username}
+                                                    </span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Liste des groupes (si groupe sélectionné) */}
+                            {companions.type === 'group' && (
+                                <div style={{
+                                    backgroundColor: '#2d3748',
+                                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                                    borderRadius: '12px',
+                                    padding: '16px',
+                                    maxHeight: '200px',
+                                    overflowY: 'auto'
+                                }}>
+                                    {loadingCompanions ? (
+                                        <div style={{ textAlign: 'center', color: '#9ca3af', padding: '20px' }}>
+                                            Chargement des groupes...
+                                        </div>
+                                    ) : groupsList.length === 0 ? (
+                                        <div style={{ textAlign: 'center', color: '#9ca3af', padding: '20px' }}>
+                                            Aucun groupe trouvé
+                                        </div>
+                                    ) : (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                            {groupsList.map(group => (
+                                                <label
+                                                    key={group.id}
+                                                    style={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '12px',
+                                                        padding: '10px',
+                                                        borderRadius: '8px',
+                                                        backgroundColor: companions.selectedIds.includes(group.id) ? 'rgba(139, 69, 255, 0.2)' : 'transparent',
+                                                        border: companions.selectedIds.includes(group.id) ? '1px solid #8b45ff' : '1px solid transparent',
+                                                        cursor: 'pointer',
+                                                        transition: 'all 0.2s ease'
+                                                    }}
+                                                >
+                                                    <input
+                                                        type="radio"
+                                                        name="selectedGroup"
+                                                        checked={companions.selectedIds.includes(group.id)}
+                                                        onChange={() => handleGroupSelect(group.id, group.name)}
+                                                        style={{
+                                                            width: '16px',
+                                                            height: '16px',
+                                                            accentColor: '#8b45ff'
+                                                        }}
+                                                    />
+                                                    <span style={{
+                                                        color: 'white',
+                                                        fontSize: '14px',
+                                                        fontWeight: companions.selectedIds.includes(group.id) ? '600' : '400'
+                                                    }}>
+                                                        {group.name}
+                                                    </span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Affichage des compagnons sélectionnés */}
+                            {companions.selectedNames.length > 0 && (
+                                <div style={{
+                                    marginTop: '12px',
+                                    padding: '12px',
+                                    backgroundColor: 'rgba(139, 69, 255, 0.1)',
+                                    border: '1px solid #8b45ff',
+                                    borderRadius: '8px'
+                                }}>
+                                    <div style={{
+                                        color: '#c084fc',
+                                        fontSize: '12px',
+                                        fontWeight: '600',
+                                        marginBottom: '4px'
+                                    }}>
+                                        {companions.type === 'friends' ? 'Amis sélectionnés :' : 'Groupe sélectionné :'}
+                                    </div>
+                                    <div style={{
+                                        color: 'white',
+                                        fontSize: '14px'
+                                    }}>
+                                        {companions.selectedNames.join(', ')}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                         
                         {/* Catégorie */}

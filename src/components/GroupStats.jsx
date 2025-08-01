@@ -233,7 +233,8 @@ export default function GroupStats({ groupId }) {
                 </h3>
                 
                 <div style={{
-                    display: 'grid',
+                    display: 'flex',
+                    flexDirection: 'column',
                     gap: '10px'
                 }}>
                     {memberDetails
@@ -250,11 +251,20 @@ export default function GroupStats({ groupId }) {
                                         borderRadius: '8px',
                                         padding: '15px',
                                         display: 'flex',
+                                        flexDirection: 'row',
                                         justifyContent: 'space-between',
-                                        alignItems: 'center'
+                                        alignItems: 'center',
+                                        width: '100%',
+                                        boxSizing: 'border-box'
                                     }}
                                 >
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                                    <div style={{ 
+                                        display: 'flex', 
+                                        alignItems: 'center', 
+                                        gap: '15px',
+                                        flex: 1,
+                                        minWidth: 0 // Permet la compression du texte si nécessaire
+                                    }}>
                                         <div style={{
                                             backgroundColor: index === 0 ? '#fbbf24' : 
                                                            index === 1 ? '#9ca3af' : 
@@ -267,12 +277,24 @@ export default function GroupStats({ groupId }) {
                                             justifyContent: 'center',
                                             fontSize: '14px',
                                             fontWeight: 'bold',
-                                            color: 'white'
+                                            color: 'white',
+                                            flexShrink: 0 // Empêche la compression du numéro
                                         }}>
                                             {index + 1}
                                         </div>
-                                        <div>
-                                            <div style={{ color: 'white', fontWeight: 'bold', fontSize: '16px' }}>
+                                        <div style={{ 
+                                            flex: 1,
+                                            minWidth: 0,
+                                            overflow: 'hidden'
+                                        }}>
+                                            <div style={{ 
+                                                color: 'white', 
+                                                fontWeight: 'bold', 
+                                                fontSize: '16px',
+                                                whiteSpace: 'nowrap',
+                                                overflow: 'hidden',
+                                                textOverflow: 'ellipsis'
+                                            }}>
                                                 {member.username || 'Utilisateur'}
                                                 {isAdmin && (
                                                     <span style={{ 
@@ -280,17 +302,27 @@ export default function GroupStats({ groupId }) {
                                                         fontSize: '12px', 
                                                         marginLeft: '8px' 
                                                     }}>
-                                                        👑 Admin
+                                                        👑
                                                     </span>
                                                 )}
                                             </div>
-                                            <div style={{ color: '#9ca3af', fontSize: '12px' }}>
+                                            <div style={{ 
+                                                color: '#9ca3af', 
+                                                fontSize: '12px',
+                                                whiteSpace: 'nowrap',
+                                                overflow: 'hidden',
+                                                textOverflow: 'ellipsis'
+                                            }}>
                                                 {levelInfo.levelName}
                                             </div>
                                         </div>
                                     </div>
                                     
-                                    <div style={{ textAlign: 'right' }}>
+                                    <div style={{ 
+                                        textAlign: 'right',
+                                        flexShrink: 0,
+                                        marginLeft: '10px'
+                                    }}>
                                         <div style={{ color: 'white', fontWeight: 'bold' }}>
                                             {levelInfo.currentXp} XP
                                         </div>
