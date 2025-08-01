@@ -261,32 +261,25 @@ const ChallengesPage = () => {
                             }}>
                                 {displayCurrent} / {displayTarget}
                             </span>
+                            <span style={{
+                                color: '#fbbf24',
+                                fontSize: '12px',
+                                fontWeight: '600'
+                            }}>
+                                +{challenge.xp} XP
+                            </span>
                         </div>
                     </div>
 
-                    {/* XP et statut */}
-                    <div style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'flex-end',
-                        gap: '8px'
-                    }}>
-                        <span style={{
-                            color: '#fbbf24',
-                            fontSize: '16px',
-                            fontWeight: '600'
+                    {/* Statut de complétion */}
+                    {challenge.completed && (
+                        <div style={{
+                            color: '#10b981',
+                            fontSize: '24px'
                         }}>
-                            +{challenge.xp} XP
-                        </span>
-                        {challenge.completed && (
-                            <div style={{
-                                color: '#10b981',
-                                fontSize: '24px'
-                            }}>
-                                ✓
-                            </div>
-                        )}
-                    </div>
+                            ✓
+                        </div>
+                    )}
                 </div>
             </div>
         );
@@ -298,7 +291,8 @@ const ChallengesPage = () => {
         minHeight: '100vh',
         background: 'linear-gradient(rgba(0,0,0,0.8), rgba(0,0,0,0.8)), url("https://images.unsplash.com/photo-1543007629-5c4e8a83ba4c") center/cover',
         padding: '20px',
-        fontFamily: 'Arial, sans-serif'
+        fontFamily: 'Arial, sans-serif',
+        color: 'white'
     };
 
     return (

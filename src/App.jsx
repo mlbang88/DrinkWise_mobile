@@ -25,6 +25,11 @@ const mainBgStyle = {
     backgroundPosition: 'center',
     backgroundAttachment: 'fixed',
     transition: 'background-image 0.5s ease-in-out',
+    // Support responsive universel
+    minHeight: '100dvh', // Dynamic Viewport Height pour mobiles modernes (avec fallback)
+    width: '100vw',
+    maxWidth: '100vw',
+    overflowX: 'hidden'
 };
 
 const AppContent = () => {
@@ -77,11 +82,22 @@ const AppContent = () => {
                         backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)), url(${backgroundUrl})`,
                         backgroundAttachment: 'fixed',
                         backgroundSize: 'cover',
-                        backgroundPosition: 'center'
+                        backgroundPosition: 'center',
+                        // Support Safe Area universel
+                        paddingTop: 'env(safe-area-inset-top, 0)',
+                        paddingBottom: 'env(safe-area-inset-bottom, 0)',
+                        paddingLeft: 'env(safe-area-inset-left, 0)',
+                        paddingRight: 'env(safe-area-inset-right, 0)'
                     }}
                 >
                     <header className="mobile-header p-4 bg-black/20 shadow-lg text-center backdrop-blur-sm">
-                        <ThemedText style={{ fontSize: '1.875rem', fontWeight: 'bold' }}>DrinkWise</ThemedText>
+                        <ThemedText style={{ 
+                            fontSize: 'clamp(1.5rem, 5vw, 2rem)', // Taille responsive universelle
+                            fontWeight: 'bold',
+                            textShadow: '0 2px 4px rgba(0, 0, 0, 0.8)'
+                        }}>
+                            DrinkWise
+                        </ThemedText>
                     </header>
                     
                     <main className="mobile-main">
@@ -103,7 +119,10 @@ const AppContent = () => {
                                         style={{ 
                                             color: currentPage === item.id ? '#a855f7' : '#ffffff',
                                             filter: 'drop-shadow(0 1px 2px rgba(0, 0, 0, 0.8))',
-                                            marginBottom: '4px'
+                                            marginBottom: '2px',
+                                            // Taille responsive selon l'écran
+                                            width: 'clamp(18px, 5vw, 24px)',
+                                            height: 'clamp(18px, 5vw, 24px)'
                                         }}
                                     />
                                     <span 
@@ -111,7 +130,11 @@ const AppContent = () => {
                                         style={{ 
                                             color: currentPage === item.id ? '#a855f7' : '#ffffff',
                                             textShadow: '0 1px 2px rgba(0, 0, 0, 0.8)',
-                                            fontWeight: currentPage === item.id ? 'bold' : 'normal'
+                                            fontWeight: currentPage === item.id ? 'bold' : 'normal',
+                                            // Adaptation responsive du texte
+                                            fontSize: 'clamp(0.7rem, 3vw, 0.85rem)',
+                                            lineHeight: '1.2',
+                                            marginTop: '2px'
                                         }}
                                     >
                                         {item.label}

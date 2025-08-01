@@ -41,28 +41,31 @@ const BadgesPage = () => {
             </div>
 
             {/* Conteneur de la grille de badges */}
-            <div style={{
-                backgroundColor: 'rgba(128, 128, 128, 0.2)',
-                borderRadius: '20px',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
-                padding: '12px',
-                width: '100%',
-                margin: '0 auto'
-            }}>
-                {/* Grille de badges */}
-                <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(2, 1fr)',
-                    gap: '10px',
-                    '@media (min-width: 480px)': {
-                        gridTemplateColumns: 'repeat(3, 1fr)'
-                    }
+            <div 
+                className="badges-container force-visible"
+                style={{
+                    backgroundColor: 'rgba(128, 128, 128, 0.2)',
+                    borderRadius: '20px',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    padding: '12px',
+                    width: '100%',
+                    margin: '0 auto'
                 }}>
+                {/* Grille de badges */}
+                <div 
+                    className="badges-grid force-visible"
+                    style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(2, 1fr)',
+                        gap: '10px',
+                        width: '100%'
+                    }}>
                     {Object.entries(badgeList).map(([id, badge]) => {
                         const isUnlocked = unlockedBadges.includes(id);
                         return (
                             <div
                                 key={id}
+                                className="badge-item force-visible"
                                 style={{
                                     backgroundColor: isUnlocked ? 'rgba(255, 255, 255, 0.15)' : 'rgba(255, 255, 255, 0.08)',
                                     border: `2px solid ${isUnlocked ? '#fbbf24' : 'rgba(255, 255, 255, 0.15)'}`,
@@ -76,7 +79,8 @@ const BadgesPage = () => {
                                     opacity: isUnlocked ? 1 : 0.6,
                                     minHeight: '140px',
                                     position: 'relative',
-                                    justifyContent: 'space-between'
+                                    justifyContent: 'space-between',
+                                    boxSizing: 'border-box'
                                 }}
                             >
                                 {/* Overlay pour badges verrouillés */}

@@ -2,40 +2,51 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Reset et configuration mobile-first */
+/* Reset et configuration mobile-first universelle */
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
 
-html, body {
+html {
+  width: 100%;
+  height: 100%;
+  font-size: 16px; /* Base pour rem */
+  overflow-x: hidden;
+  -webkit-text-size-adjust: 100%; /* Empêche le zoom automatique sur iOS */
+  -moz-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  /* Fixes pour Android WebView */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
   margin: 0;
   padding: 0;
   width: 100%;
-  height: 100%;
-  overflow-x: hidden; /* Empêche le défilement horizontal */
+  min-height: 100vh;
+  overflow-x: hidden;
   position: relative;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  /* Support Safe Area pour iPhone avec encoche */
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
 }
 
 #root {
   margin: 0;
   padding: 0;
   width: 100%;
-  height: 100%;
+  min-height: 100vh;
   overflow-x: hidden;
   position: relative;
 }
 
-/* Configuration viewport mobile */
-@viewport {
-  width: device-width;
-  initial-scale: 1.0;
-  maximum-scale: 1.0;
-  user-scalable: no;
-}
-
-/* Container principal mobile-optimisé */
+/* Container principal mobile-optimisé universel */
 .mobile-container {
   width: 100vw;
   max-width: 100vw;
@@ -44,27 +55,47 @@ html, body {
   position: relative;
   display: flex;
   flex-direction: column;
+  /* Support des unités viewport avec fallback */
+  min-height: 100vh;
+  min-height: 100dvh; /* Dynamic Viewport Height pour mobiles modernes */
 }
 
-/* Header mobile */
+/* Header mobile responsive */
 .mobile-header {
   width: 100%;
   position: sticky;
   top: 0;
   z-index: 50;
   flex-shrink: 0;
+  /* Support Safe Area pour iPhone avec encoche */
+  padding-top: env(safe-area-inset-top, 0);
 }
 
-/* Main content mobile */
+/* Main content mobile responsive */
 .mobile-main {
   width: 100%;
   flex: 1;
   overflow-x: hidden;
   overflow-y: auto;
-  padding-bottom: env(safe-area-inset-bottom, 80px); /* Espace pour les boutons système */
+  /* Calcul de hauteur responsive pour tous mobiles */
+  min-height: calc(100vh - 140px); /* Header + Footer approximatifs */
+  min-height: calc(100dvh - 140px); /* Dynamic Viewport pour mobiles modernes */
+  padding-bottom: 2rem; /* Espace supplémentaire pour éviter le footer */
 }
 
-/* Footer/Navigation mobile */
+/* Page container responsive */
+.page-container {
+  width: 100%;
+  max-width: 100vw;
+  padding: 1rem;
+  margin: 0 auto;
+  box-sizing: border-box;
+  /* Responsive padding selon la taille d'écran */
+  padding-left: max(1rem, env(safe-area-inset-left));
+  padding-right: max(1rem, env(safe-area-inset-right));
+}
+
+/* Footer/Navigation mobile universel */
 .mobile-footer {
   width: 100%;
   position: fixed;
@@ -72,25 +103,34 @@ html, body {
   left: 0;
   right: 0;
   z-index: 100;
-  background: rgba(0, 0, 0, 0.8);
-  backdrop-filter: blur(10px);
+  background: rgba(0, 0, 0, 0.9);
+  backdrop-filter: blur(15px);
   border-top: 1px solid rgba(255, 255, 255, 0.2);
-  padding-bottom: env(safe-area-inset-bottom, 0); /* Espace pour les boutons système iOS */
+  /* Support Safe Area pour tous les appareils */
+  padding-bottom: env(safe-area-inset-bottom, 0);
+  padding-left: env(safe-area-inset-left, 0);
+  padding-right: env(safe-area-inset-right, 0);
 }
 
-/* Navigation buttons mobile */
+/* Navigation buttons mobile responsive */
 .mobile-nav-button {
   flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 8px 4px;
-  min-height: 60px;
+  justify-content: center;
+  /* Taille de touch optimale pour tous mobiles */
+  min-height: 44px; /* Minimum recommandé par Apple/Google */
+  min-width: 44px;
+  padding: 0.5rem 0.25rem;
   background: transparent;
   border: none;
   cursor: pointer;
   transition: all 0.2s ease;
   text-decoration: none;
+  /* Support touch amélioré */
+  -webkit-tap-highlight-color: rgba(255, 255, 255, 0.1);
+  touch-action: manipulation;
 }
 
 .mobile-nav-button:active {
@@ -98,23 +138,46 @@ html, body {
   background: rgba(255, 255, 255, 0.1);
 }
 
-/* Conteneur pour les pages */
-.page-container {
-  width: 100%;
-  max-width: 100vw;
-  padding: 16px;
-  overflow-x: hidden;
-  box-sizing: border-box;
+/* Text sizes responsive selon l'écran */
+.mobile-text-sm {
+  font-size: 0.75rem; /* 12px */
+  line-height: 1.2;
+  text-align: center;
 }
 
-/* Cards et composants responsive */
+/* Media queries pour adaptation universelle */
+@media (min-width: 375px) {
+  .mobile-text-sm {
+    font-size: 0.8rem; /* 13px pour écrans plus grands */
+  }
+  
+  .mobile-nav-button {
+    min-height: 50px;
+    padding: 0.6rem 0.3rem;
+  }
+}
+
+@media (min-width: 414px) {
+  .mobile-text-sm {
+    font-size: 0.85rem; /* 14px pour grands mobiles */
+  }
+  
+  .mobile-nav-button {
+    min-height: 56px;
+    padding: 0.7rem 0.4rem;
+  }
+}
+
+/* Cards et composants responsive universels */
 .mobile-card {
   width: 100%;
   max-width: 100%;
-  margin: 0 auto 16px auto;
-  border-radius: 12px;
+  margin: 0 auto 1rem auto;
+  border-radius: 0.75rem; /* 12px */
   overflow: hidden;
   box-sizing: border-box;
+  /* Adaptation automatique selon l'écran */
+  padding: clamp(0.75rem, 4vw, 1.25rem);
 }
 
 /* Grilles responsive */
@@ -142,44 +205,85 @@ html, body {
   }
 }
 
-/* Scrollbar styling pour mobile */
-::-webkit-scrollbar {
-  width: 4px;
+/* Utilitaires universels pour mobiles */
+
+/* Empêcher le défilement horizontal sur tous les éléments */
+.no-horizontal-scroll {
+  overflow-x: hidden !important;
+  max-width: 100vw !important;
 }
 
-::-webkit-scrollbar-track {
-  background: transparent;
+/* Container flex responsive universel */
+.mobile-flex-container {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: 100vh;
+  overflow-x: hidden;
 }
 
-::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.3);
-  border-radius: 2px;
+/* Grid responsive universel pour mobiles */
+.mobile-grid {
+  display: grid;
+  width: 100%;
+  gap: 1rem;
+  grid-template-columns: 1fr;
 }
 
-/* Text responsive */
-.mobile-text-sm {
-  font-size: 12px;
-  line-height: 1.4;
+@media (min-width: 480px) {
+  .mobile-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.25rem;
+  }
 }
 
-.mobile-text-base {
-  font-size: 14px;
-  line-height: 1.5;
+@media (min-width: 768px) {
+  .mobile-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.5rem;
+  }
 }
 
-.mobile-text-lg {
-  font-size: 16px;
-  line-height: 1.5;
+/* Boutons touch-friendly universels */
+.mobile-button {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  font-size: clamp(0.875rem, 4vw, 1rem);
 }
 
-.mobile-text-xl {
-  font-size: 18px;
-  line-height: 1.4;
+.mobile-button:active {
+  transform: scale(0.98);
 }
 
-.mobile-text-2xl {
-  font-size: 24px;
-  line-height: 1.3;
+/* Text responsive universel avec clamp() */
+.text-responsive-xs { font-size: clamp(0.7rem, 3vw, 0.8rem); }
+.text-responsive-sm { font-size: clamp(0.8rem, 3.5vw, 0.9rem); }
+.text-responsive-base { font-size: clamp(0.9rem, 4vw, 1rem); }
+.text-responsive-lg { font-size: clamp(1rem, 4.5vw, 1.125rem); }
+.text-responsive-xl { font-size: clamp(1.125rem, 5vw, 1.25rem); }
+.text-responsive-2xl { font-size: clamp(1.25rem, 6vw, 1.5rem); }
+.text-responsive-3xl { font-size: clamp(1.5rem, 7vw, 2rem); }
+
+/* Padding responsive universel */
+.padding-responsive {
+  padding: clamp(0.75rem, 4vw, 1.5rem);
+}
+
+.padding-x-responsive {
+  padding-left: clamp(1rem, 5vw, 2rem);
+  padding-right: clamp(1rem, 5vw, 2rem);
+}
+
+.padding-y-responsive {
+  padding-top: clamp(0.75rem, 4vw, 1.5rem);
+  padding-bottom: clamp(0.75rem, 4vw, 1.5rem);
 }
 
 /* Styles pour les badges dorés */
@@ -213,6 +317,40 @@ html, body {
   }
   
   .mobile-main {
-    padding-bottom: max(80px, calc(60px + env(safe-area-inset-bottom)));
+    padding-bottom: max(32px, env(safe-area-inset-bottom));
   }
+}
+
+/* FIXES SPÉCIFIQUES ANDROID WEBVIEW */
+/* Force le rendu des grilles sur Android */
+@media screen and (-webkit-min-device-pixel-ratio: 0) {
+  .badges-grid, [style*="grid"] {
+    display: -webkit-grid !important;
+    display: grid !important;
+    -webkit-grid-template-columns: repeat(2, 1fr) !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+/* Fix pour Samsung Internet et WebView */
+@supports (-webkit-touch-callout: none) {
+  .badges-container {
+    width: 100% !important;
+    display: block !important;
+  }
+  
+  .badge-item {
+    width: calc(50% - 5px) !important;
+    display: inline-block !important;
+    vertical-align: top !important;
+    margin: 5px !important;
+    box-sizing: border-box !important;
+  }
+}
+
+/* Force visibility pour WebView */
+.force-visible {
+  opacity: 1 !important;
+  visibility: visible !important;
+  display: block !important;
 }
