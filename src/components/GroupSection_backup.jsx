@@ -174,6 +174,8 @@ const GroupSection = () => {
     const isCurrentUserAdmin = () => {
         return selectedGroup && groupService.isUserAdmin(selectedGroup, user.uid);
     };
+
+    return (
         <div style={{
             backgroundColor: 'rgba(255, 255, 255, 0.1)',
             borderRadius: '12px',
