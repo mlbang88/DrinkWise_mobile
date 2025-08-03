@@ -236,5 +236,15 @@ export const badgeService = {
         } catch (error) {
             console.error('❌ Erreur mise à jour groupes:', error);
         }
+    },
+
+    // Obtenir les informations d'un badge
+    getBadgeInfo: (badgeId) => {
+        return badgeList[badgeId] || {
+            name: 'Badge Inconnu',
+            description: 'Badge non trouvé',
+            icon: '❓',
+            tier: 'bronze'
+        };
     }
 };

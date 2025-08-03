@@ -1,7 +1,34 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Règles pour les artefacts utilisateur (données privées)
+    // Règles pour les soirées - accessibles au propriétaire et à ses amis
+    match /artifacts/{appId}/users/{userId}/parties/{partyId} {
+      allow read: if request.auth != null && (
+        request.auth.uid == userId ||
+        request.auth.uid in get(/databases/$(database)/documents/artifacts/$(appId)/public_user_stats/$(userId)).data.friends
+      );
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Règles pour les badges - accessibles au propriétaire et à ses amis
+    match /artifacts/{appId}/users/{userId}/badges/{badgeId} {
+      allow read: if request.auth != null && (
+        request.auth.uid == userId ||
+        request.auth.uid in get(/databases/$(database)/documents/artifacts/$(appId)/public_user_stats/$(userId)).data.friends
+      );
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Règles pour les profils - accessibles au propriétaire et à ses amis (pour les badges débloqués)
+    match /artifacts/{appId}/users/{userId}/profile/{profileDoc} {
+      allow read: if request.auth != null && (
+        request.auth.uid == userId ||
+        request.auth.uid in get(/databases/$(database)/documents/artifacts/$(appId)/public_user_stats/$(userId)).data.friends
+      );
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Règles pour les autres données utilisateur (données strictement privées)
     match /artifacts/{appId}/users/{userId}/{document=**} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
@@ -10,6 +37,20 @@ service cloud.firestore {
     match /artifacts/{appId}/public_user_stats/{userId} {
       allow read: if request.auth != null;
       allow write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Règles pour les demandes d'amis
+    match /artifacts/{appId}/friend_requests/{requestId} {
+      allow read: if request.auth != null && (
+        request.auth.uid == resource.data.from ||
+        request.auth.uid == resource.data.to
+      );
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.from;
+      allow update: if request.auth != null && request.auth.uid == resource.data.to;
+      allow delete: if request.auth != null && (
+        request.auth.uid == resource.data.from ||
+        request.auth.uid == resource.data.to
+      );
     }
     
     // Règles pour les groupes

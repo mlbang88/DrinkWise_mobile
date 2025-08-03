@@ -12,13 +12,13 @@ import HomePage from './pages/HomePage';
 import StatsPage from './pages/StatsPage';
 import BadgesPage from './pages/BadgesPage';
 import ChallengesPage from './pages/ChallengesPage';
-import SouvenirsPage from './pages/SouvenirsPage';
 import FriendsPage from './pages/FriendsPage_NEW';
 import ProfilePage from './pages/ProfilePage';
 import FriendStatsPage from './pages/FriendStatsPage';
+import FeedPage from './pages/FeedPage';
 
 // Import icons for the nav bar
-import { Home, BarChart, Users, Award, User as UserIcon, Shield, Calendar } from 'lucide-react';
+import { Home, BarChart, Users, Award, User as UserIcon, Shield, Rss } from 'lucide-react';
 
 const mainBgStyle = {
     backgroundSize: 'cover',
@@ -48,10 +48,9 @@ const AppContent = () => {
     // Navigation
     const navItems = [
         { id: 'home', icon: Home, label: 'Accueil' },
+        { id: 'feed', icon: Rss, label: 'Fil' },
         { id: 'stats', icon: BarChart, label: 'Stats' },
         { id: 'badges', icon: Award, label: 'Badges' },
-        { id: 'challenges', icon: Shield, label: 'Défis' },
-        { id: 'souvenirs', icon: Calendar, label: 'Souvenirs' },
         { id: 'friends', icon: Users, label: 'Amis' },
         { id: 'profile', icon: UserIcon, label: 'Profil' }
     ];
@@ -59,10 +58,10 @@ const AppContent = () => {
     const renderPage = () => {
         switch (currentPage) {
             case 'home': return <HomePage />;
+            case 'feed': return <FeedPage />;
             case 'stats': return <StatsPage />;
             case 'badges': return <BadgesPage />;
             case 'challenges': return <ChallengesPage />;
-            case 'souvenirs': return <SouvenirsPage />;
             case 'friends': return <FriendsPage setSelectedFriendId={setSelectedFriendId} setCurrentPage={setCurrentPage} />;
             case 'profile': return <ProfilePage />;
             case 'friendStats': return <FriendStatsPage friendId={selectedFriendId} setCurrentPage={setCurrentPage} />;

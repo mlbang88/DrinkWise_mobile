@@ -4,6 +4,7 @@ import { auth, db, functions, appId } from '../firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, setDoc, onSnapshot } from 'firebase/firestore';
 import { generateUniqueUsername } from '../utils/usernameUtils';
+import { friendshipListenerService } from '../services/friendshipListenerService.js';
 
 export const FirebaseContext = createContext(null);
 
@@ -122,6 +123,14 @@ export const FirebaseProvider = ({ children }) => {
                         } else {
                             setUserProfile(profileData);
                         }
+                    }
+                    
+                    // Démarrer le service d'écoute des amitiés avec synchronisation automatique
+                    try {
+                        friendshipListenerService.startListening(db, appId, firebaseUser.uid, setMessageBox, functions);
+                        console.log("🤝 Service d'écoute des amitiés avec auto-sync démarré");
+                    } catch (error) {
+                        console.error("❌ Erreur démarrage service d'écoute:", error);
                     }
                 }, (error) => {
                     console.error("❌ Erreur Firestore onSnapshot:", error);
