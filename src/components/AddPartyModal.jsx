@@ -7,6 +7,8 @@ import LoadingSpinner from './LoadingSpinner';
 import DrinkAnalyzer from './DrinkAnalyzer';
 import QuizManagerSimple from './QuizManagerSimple';
 import { PlusCircle, Trash2, XCircle, Users, User } from 'lucide-react';
+import { storage } from '../firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
     console.log("🎭 AddPartyModal rendu/re-rendu", draftData ? "avec données du draft" : "normal");
@@ -53,6 +55,7 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
     const [lastPartyId, setLastPartyId] = useState(null);
     const [showQuiz, setShowQuiz] = useState(false);
     const [loadingSummary, setLoadingSummary] = useState(false);
+    const [photoFile, setPhotoFile] = useState(null);
     
     // États pour la gestion des amis et groupes
     const [friendsList, setFriendsList] = useState([]);
@@ -151,16 +154,15 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
         });
     };
 
-    // Fonction pour gérer la fin du quiz
-    const handleQuizComplete = () => {
-        console.log("✅ Quiz terminé, fermeture du modal");
+    // Fonction pour gérer la fin du quiz et afficher le récapitulatif
+    const handleQuizComplete = (resultTitle) => {
+        console.log("✅ Quiz terminé, notification parent");
         setShowQuiz(false);
         
-        // Maintenant on peut informer le parent que tout est terminé
+        // Fermer le modal et notifier le parent
         if (onPartySaved) {
             onPartySaved();
         }
-        
         onClose();
     };
 
@@ -219,6 +221,20 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
             const docRef = await addDoc(collection(db, `artifacts/${appId}/users/${user.uid}/parties`), partyData);
             console.log("✅ Soirée sauvegardée avec ID:", docRef.id);
             
+            // upload photo if selected
+            if (photoFile) {
+                try {
+                    const storageRefPhoto = ref(storage, `artifacts/${appId}/users/${user.uid}/parties/${docRef.id}/photo.jpg`);
+                    await uploadBytes(storageRefPhoto, photoFile);
+                    const photoURL = await getDownloadURL(storageRefPhoto);
+                                                        const partyRefWithPhoto = doc(db, `artifacts/${appId}/users/${user.uid}/parties`, docRef.id);
+                                    await updateDoc(partyRefWithPhoto, { photoURL });
+                    await updateDoc(partyRefWithPhoto, { photoURL });
+                } catch (photoError) {
+                    console.error("❌ Erreur upload photo, mais on continue ", photoError);
+                }
+            }
+            
             setLastPartyData(partyData);
             setLastPartyId(docRef.id);
             
@@ -274,6 +290,17 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
             setLoadingSummary(false);
         }
     }, [db, user, appId, functions]);
+
+    // If quiz is activated, unmount form and display quiz modal
+    if (showQuiz && lastPartyData && lastPartyId) {
+        return (
+            <QuizManagerSimple
+                partyData={lastPartyData}
+                partyId={lastPartyId}
+                onQuizComplete={handleQuizComplete}
+            />
+        );
+    }
 
     return (
         <div 
@@ -1053,6 +1080,34 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
                                 ))}
                             </select>
                         </div>
+                        {/* Photo de la soirée */}
+                        <div>
+                            <label style={{
+                                display: 'block',
+                                color: '#9ca3af',
+                                fontSize: '16px',
+                                fontWeight: '500',
+                                marginBottom: '8px'
+                            }}>
+                                Photo de la soirée:
+                            </label>
+                            <input 
+                                type="file" 
+                                accept="image/*" 
+                                onChange={e => setPhotoFile(e.target.files[0])}
+                                style={{
+                                    width: '100%',
+                                    padding: '16px 20px',
+                                    backgroundColor: '#2d3748',
+                                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                                    borderRadius: '12px',
+                                    color: 'white',
+                                    fontSize: '16px',
+                                    outline: 'none',
+                                    transition: 'all 0.2s ease'
+                                }}
+                            />
+                        </div>
                         {/* Bouton submit */}
                         <button 
                             type="submit"
@@ -1077,18 +1132,6 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
                     </form>
                 </div>
             </div>
-            
-            {/* Quiz simple qui s'affiche après la soumission */}
-            {(() => {
-                console.log("🔍 Condition Quiz:", { showQuiz, hasLastPartyData: !!lastPartyData, hasLastPartyId: !!lastPartyId });
-                return showQuiz && lastPartyData && lastPartyId;
-            })() && (
-                <QuizManagerSimple
-                    partyData={lastPartyData}
-                    partyId={lastPartyId}
-                    onQuizComplete={handleQuizComplete}
-                />
-            )}
         </div>
     );
 };
