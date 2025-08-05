@@ -519,7 +519,7 @@ exports.getFeedInteractions = onCall({
           const interactionUserStatsRef = db.collection(`artifacts/${appId}/public_user_stats`).doc(interactionUserId);
           const interactionUserStatsDoc = await interactionUserStatsRef.get();
           
-          if (interactionUserStatsDoc.exists()) {
+          if (interactionUserStatsDoc.exists) {
             const interactionUserData = interactionUserStatsDoc.data();
             const interactionUserFriends = interactionUserData.friends || [];
             
