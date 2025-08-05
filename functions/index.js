@@ -21,7 +21,13 @@ const db = admin.firestore();
 const corsOptions = {
   origin: [
     'http://localhost:5173',
-    'http://localhost:5175', 
+    'http://localhost:5174',
+    'http://localhost:5175',
+    'http://localhost:5176',
+    'http://localhost:5177',
+    'http://localhost:5178',
+    'http://localhost:5179',
+    'http://localhost:5180',
     'https://drinkwise-31d3a.web.app',
     'https://drinkwise-31d3a.firebaseapp.com'
   ],
@@ -264,6 +270,70 @@ exports.removeFriendship = onCall({
   }
 });
 
+// Fonction de réparation pour forcer l'amitié bidirectionnelle
+exports.fixFriendship = onCall({
+  region: 'us-central1',
+  cors: corsOptions
+}, async (request) => {
+  try {
+    // Vérifier l'authentification
+    if (!request.auth) {
+      throw new Error('Utilisateur non authentifié');
+    }
+
+    const { friendId, appId } = request.data;
+    const userId = request.auth.uid;
+    
+    if (!friendId || !appId) {
+      throw new Error('Paramètres manquants: friendId et appId requis');
+    }
+
+    logger.info('🔧 Réparation amitié bidirectionnelle:', {
+      userId,
+      friendId
+    });
+
+    const batch = db.batch();
+
+    // Références des documents à mettre à jour
+    const userProfileRef = db.doc(`artifacts/${appId}/users/${userId}/profile/data`);
+    const userStatsRef = db.doc(`artifacts/${appId}/public_user_stats/${userId}`);
+    const friendProfileRef = db.doc(`artifacts/${appId}/users/${friendId}/profile/data`);
+    const friendStatsRef = db.doc(`artifacts/${appId}/public_user_stats/${friendId}`);
+
+    // Forcer l'ajout bidirectionnel (arrayUnion évite les doublons)
+    batch.update(userProfileRef, {
+      friends: admin.firestore.FieldValue.arrayUnion(friendId)
+    });
+    
+    batch.update(userStatsRef, {
+      friends: admin.firestore.FieldValue.arrayUnion(friendId)
+    });
+
+    batch.update(friendProfileRef, {
+      friends: admin.firestore.FieldValue.arrayUnion(userId)
+    });
+    
+    batch.update(friendStatsRef, {
+      friends: admin.firestore.FieldValue.arrayUnion(userId)
+    });
+
+    // Exécuter toutes les opérations
+    await batch.commit();
+
+    logger.info('✅ Amitié bidirectionnelle réparée');
+
+    return { 
+      success: true, 
+      message: 'Amitié bidirectionnelle réparée avec succès' 
+    };
+
+  } catch (error) {
+    logger.error('❌ Erreur réparation amitié:', error);
+    return { success: false, error: error.message };
+  }
+});
+
 // Fonction pour gérer les interactions du feed (likes, félicitations, commentaires)
 exports.handleFeedInteraction = onCall({
   region: 'us-central1',
@@ -295,7 +365,9 @@ exports.handleFeedInteraction = onCall({
       itemId,
       itemType,
       ownerId,
-      interactionType
+      interactionType,
+      authenticatedUser: request.auth.uid,
+      content: content
     });
 
     // Référence vers la collection des interactions
@@ -379,11 +451,33 @@ exports.getFeedInteractions = onCall({
   cors: corsOptions
 }, async (request) => {
   try {
+    // Vérifier l'authentification
+    if (!request.auth) {
+      throw new Error('Utilisateur non authentifié');
+    }
+
     const { itemId, appId } = request.data;
+    const currentUserId = request.auth.uid;
     
     if (!itemId || !appId) {
       throw new Error('Paramètres manquants: itemId et appId requis');
     }
+
+    logger.info('Récupération interactions pour:', {
+      itemId,
+      userId: currentUserId
+    });
+
+    // Récupérer la liste des amis de l'utilisateur connecté
+    const userStatsRef = db.doc(`artifacts/${appId}/public_user_stats/${currentUserId}`);
+    const userStatsDoc = await userStatsRef.get();
+    
+    let userFriends = [];
+    if (userStatsDoc.exists) {
+      userFriends = userStatsDoc.data().friends || [];
+    }
+
+    logger.info('Amis de l\'utilisateur:', userFriends);
 
     const interactionsRef = db.collection(`artifacts/${appId}/feed_interactions`);
     const snapshot = await interactionsRef
@@ -397,8 +491,64 @@ exports.getFeedInteractions = onCall({
       comments: []
     };
 
-    snapshot.docs.forEach(doc => {
+    // Utiliser for...of au lieu de forEach pour permettre await
+    for (const doc of snapshot.docs) {
       const data = doc.data();
+      const interactionUserId = data.userId;
+      
+      logger.info(`🔍 Évaluation interaction:`, {
+        docId: doc.id,
+        interactionUserId,
+        currentUserId,
+        userFriends,
+        isCurrentUser: interactionUserId === currentUserId,
+        isFriend: userFriends.includes(interactionUserId),
+        interactionType: data.type,
+        content: data.content
+      });
+      
+      // Vérifier si l'utilisateur peut voir cette interaction
+      // L'utilisateur peut voir :
+      // 1. Ses propres interactions
+      // 2. Les interactions de ses amis (vérification bidirectionnelle)
+      let canSeeInteraction = interactionUserId === currentUserId;
+      
+      if (!canSeeInteraction && userFriends.includes(interactionUserId)) {
+        // Vérifier la bidirectionnalité : est-ce que je suis aussi dans la liste d'amis de l'auteur de l'interaction ?
+        try {
+          const interactionUserStatsRef = db.collection(`artifacts/${appId}/public_user_stats`).doc(interactionUserId);
+          const interactionUserStatsDoc = await interactionUserStatsRef.get();
+          
+          if (interactionUserStatsDoc.exists()) {
+            const interactionUserData = interactionUserStatsDoc.data();
+            const interactionUserFriends = interactionUserData.friends || [];
+            
+            // Vérification bidirectionnelle : je suis dans ses amis ET il est dans les miens
+            canSeeInteraction = interactionUserFriends.includes(currentUserId);
+            
+            logger.info(`🔍 Vérification bidirectionnelle pour ${interactionUserId}:`, {
+              interactionUserFriends,
+              amISInHisFriends: interactionUserFriends.includes(currentUserId),
+              isHeInMyFriends: userFriends.includes(interactionUserId),
+              finalDecision: canSeeInteraction
+            });
+          } else {
+            logger.info(`⚠️ Stats publiques introuvables pour ${interactionUserId}`);
+            canSeeInteraction = false;
+          }
+        } catch (error) {
+          logger.error(`❌ Erreur vérification bidirectionnelle pour ${interactionUserId}:`, error);
+          canSeeInteraction = false;
+        }
+      }
+
+      if (!canSeeInteraction) {
+        logger.info(`❌ Interaction filtrée - amitié non bidirectionnelle entre ${interactionUserId} et ${currentUserId}`);
+        continue; // Skip cette interaction
+      }
+      
+      logger.info(`✅ Interaction acceptée pour ${interactionUserId}`);
+
       switch(data.type) {
         case 'like':
           interactions.likes.push({
@@ -423,6 +573,12 @@ exports.getFeedInteractions = onCall({
           });
           break;
       }
+    }
+
+    logger.info('Interactions filtrées retournées:', {
+      likes: interactions.likes.length,
+      congratulations: interactions.congratulations.length,
+      comments: interactions.comments.length
     });
 
     return { 

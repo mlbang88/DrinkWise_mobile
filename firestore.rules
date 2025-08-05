@@ -75,6 +75,19 @@ service cloud.firestore {
       allow update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
     }
     
+    // Règles pour les interactions du feed (likes, commentaires, félicitations)
+    match /artifacts/{appId}/feed_interactions/{interactionId} {
+      // Lecture : autorisée pour tous les utilisateurs authentifiés
+      // (nécessaire pour voir les interactions des amis)
+      allow read: if request.auth != null;
+      
+      // Création : seulement par l'utilisateur qui fait l'interaction
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      
+      // Modification/suppression : seulement par l'auteur de l'interaction
+      allow update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
+    }
+    
     // Refuser tout autre accès
     match /{document=**} {
       allow read, write: if false;
