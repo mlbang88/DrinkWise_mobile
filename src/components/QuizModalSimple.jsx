@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { XCircle, Trophy } from 'lucide-react';
 
-const QuizModal = ({ onQuizComplete, onClose }) => {
+const QuizModal = ({ onQuizComplete, onClose, uploadingPhotos = false, photosCount = 0 }) => {
     console.log("🎯 QuizModal monté !");
     
     const [questionIndex, setQuestionIndex] = useState(0);
@@ -138,6 +138,36 @@ const QuizModal = ({ onQuizComplete, onClose }) => {
                         <XCircle size={24} />
                     </button>
                 </div>
+
+                {/* Indicateur d'upload des photos */}
+                {uploadingPhotos && photosCount > 0 && (
+                    <div style={{
+                        backgroundColor: 'rgba(139, 69, 255, 0.1)',
+                        border: '1px solid rgba(139, 69, 255, 0.3)',
+                        borderRadius: '12px',
+                        padding: '12px 16px',
+                        marginBottom: '24px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px'
+                    }}>
+                        <div style={{
+                            width: '20px',
+                            height: '20px',
+                            border: '2px solid #8b45ff',
+                            borderTop: '2px solid transparent',
+                            borderRadius: '50%',
+                            animation: 'spin 1s linear infinite'
+                        }}></div>
+                        <div style={{
+                            color: '#c084fc',
+                            fontSize: '14px',
+                            fontWeight: '500'
+                        }}>
+                            📸 Upload de {photosCount} photo(s) en cours...
+                        </div>
+                    </div>
+                )}
 
                 {/* Contenu */}
                 {!quizResult ? (

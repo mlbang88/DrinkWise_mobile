@@ -5,7 +5,7 @@ import { gameplayConfig } from '../utils/data';
 import { badgeService } from '../services/badgeService';
 import QuizModal from './QuizModalSimple';
 
-const QuizManagerSimple = ({ partyData, partyId, onQuizComplete }) => {
+const QuizManagerSimple = ({ partyData, partyId, onQuizComplete, uploadingPhotos = false, photosCount = 0 }) => {
     const [isProcessing, setIsProcessing] = useState(false); // Protection contre les doubles soumissions
     const { db, user, appId, setMessageBox, userProfile } = useContext(FirebaseContext);
 
@@ -88,6 +88,8 @@ const QuizManagerSimple = ({ partyData, partyId, onQuizComplete }) => {
         <QuizModal
             onQuizComplete={handleQuizComplete}
             onClose={handleQuizClose}
+            uploadingPhotos={uploadingPhotos}
+            photosCount={photosCount}
         />
     );
 };

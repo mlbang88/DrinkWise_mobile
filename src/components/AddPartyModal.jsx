@@ -236,84 +236,66 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
             const docRef = await addDoc(collection(db, `artifacts/${appId}/users/${user.uid}/parties`), partyData);
             console.log("✅ Soirée sauvegardée avec ID:", docRef.id);
             
-            // Upload photos if selected
-            if (photoFiles.length > 0) {
-                setUploadingPhotos(true);
-                try {
-                    console.log(`📸 Début upload de ${photoFiles.length} photo(s)...`);
-                    
-                    const photoURLs = [];
-                    
-                    for (let i = 0; i < photoFiles.length; i++) {
-                        const photoFile = photoFiles[i];
-                        console.log(`📸 Upload photo ${i + 1}/${photoFiles.length}:`, {
-                            fileName: photoFile.name,
-                            fileSize: photoFile.size,
-                            fileType: photoFile.type
-                        });
-                        
-                        const storagePath = `artifacts/${appId}/users/${user.uid}/parties/${docRef.id}/photo_${i + 1}.jpg`;
-                        console.log(`📁 Chemin: ${storagePath}`);
-                        
-                        const storageRefPhoto = ref(storage, storagePath);
-                        await uploadBytes(storageRefPhoto, photoFile);
-                        console.log(`✅ Photo ${i + 1} uploadée vers Storage`);
-                        
-                        const photoURL = await getDownloadURL(storageRefPhoto);
-                        photoURLs.push(photoURL);
-                        console.log(`🔗 URL photo ${i + 1} obtenue`);
-                    }
-                    
-                    // Sauvegarder toutes les URLs dans Firestore
-                    const partyRefWithPhotos = doc(db, `artifacts/${appId}/users/${user.uid}/parties`, docRef.id);
-                    await updateDoc(partyRefWithPhotos, { 
-                        photoURLs: photoURLs,
-                        photosCount: photoURLs.length 
-                    });
-                    console.log(`✅ ${photoURLs.length} URL(s) sauvegardée(s) dans Firestore`);
-                    
-                    console.log("🎉 Toutes les photos uploadées et référencées !");
-                } catch (photoError) {
-                    console.error("❌ Erreur upload photos:", photoError);
-                    console.error("❌ Détails de l'erreur:", {
-                        code: photoError.code,
-                        message: photoError.message,
-                        stack: photoError.stack
-                    });
-                } finally {
-                    setUploadingPhotos(false);
-                }
-            }
-            
+            // Préparer et lancer le quiz IMMÉDIATEMENT
             setLastPartyData(partyData);
             setLastPartyId(docRef.id);
-            
-            // Générer le résumé de la soirée
-            generatePartySummary(partyData, docRef.id);
-            
-            // Stocker les données pour le quiz simple
-            console.log("🎯 Soirée sauvegardée, déclenchement du quiz simple");
-            setLastPartyData(partyData);
-            setLastPartyId(docRef.id);
+            console.log("🎯 Lancement immédiat du quiz - Upload des photos en arrière-plan");
             setShowQuiz(true);
             
-            console.log("✅ Quiz simple préparé avec les données:", { partyData, id: docRef.id });
+            // Upload photos EN ARRIÈRE-PLAN (ne bloque pas le quiz)
+            if (photoFiles.length > 0) {
+                console.log(`📸 Début upload en arrière-plan de ${photoFiles.length} photo(s)...`);
+                
+                // Upload asynchrone sans attendre
+                (async () => {
+                    try {
+                        setUploadingPhotos(true);
+                        const photoURLs = [];
+                        
+                        for (let i = 0; i < photoFiles.length; i++) {
+                            const photoFile = photoFiles[i];
+                            console.log(`📸 Upload arrière-plan photo ${i + 1}/${photoFiles.length}:`, {
+                                fileName: photoFile.name,
+                                fileSize: photoFile.size,
+                                fileType: photoFile.type
+                            });
+                            
+                            const storagePath = `artifacts/${appId}/users/${user.uid}/parties/${docRef.id}/photo_${i + 1}.jpg`;
+                            console.log(`📁 Chemin: ${storagePath}`);
+                            
+                            const storageRefPhoto = ref(storage, storagePath);
+                            await uploadBytes(storageRefPhoto, photoFile);
+                            console.log(`✅ Photo ${i + 1} uploadée vers Storage`);
+                            
+                            const photoURL = await getDownloadURL(storageRefPhoto);
+                            photoURLs.push(photoURL);
+                            console.log(`🔗 URL photo ${i + 1} obtenue`);
+                        }
+                        
+                        // Sauvegarder toutes les URLs dans Firestore
+                        const partyRefWithPhotos = doc(db, `artifacts/${appId}/users/${user.uid}/parties`, docRef.id);
+                        await updateDoc(partyRefWithPhotos, { 
+                            photoURLs: photoURLs,
+                            photosCount: photoURLs.length 
+                        });
+                        console.log(`✅ ${photoURLs.length} URL(s) sauvegardée(s) dans Firestore - Upload terminé !`);
+                        
+                        console.log("🎉 Toutes les photos uploadées et référencées en arrière-plan !");
+                    } catch (photoError) {
+                        console.error("❌ Erreur upload photos en arrière-plan:", photoError);
+                        console.error("❌ Détails de l'erreur:", {
+                            code: photoError.code,
+                            message: photoError.message,
+                            stack: photoError.stack
+                        });
+                    } finally {
+                        setUploadingPhotos(false);
+                    }
+                })();
+            }
             
-            // Log de vérification des états
-            setTimeout(() => {
-                console.log("🔍 États après setShowQuiz:", { 
-                    showQuiz: true, // On sait qu'on vient de le set à true
-                    hasLastPartyData: !!partyData,
-                    hasLastPartyId: !!docRef.id
-                });
-            }, 100);
-            
-            // NE PAS informer le parent maintenant - on attend que le quiz soit terminé
-            // if (onPartySaved) {
-            //     onPartySaved();
-            // }
-            
-            // NE PAS fermer le modal - on attend que le quiz soit terminé
+            // Générer le résumé de la soirée EN ARRIÈRE-PLAN aussi
+            generatePartySummary(partyData, docRef.id);
             
         } catch (error) {
             console.error("❌ Erreur enregistrement soirée:", error);
@@ -348,6 +330,8 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
                 partyData={lastPartyData}
                 partyId={lastPartyId}
                 onQuizComplete={handleQuizComplete}
+                uploadingPhotos={uploadingPhotos}
+                photosCount={photoFiles.length}
             />
         );
     }
