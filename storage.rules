@@ -22,6 +22,28 @@ service firebase.storage {
                     && filename.matches('.*' + request.auth.uid + '.*');
     }
     
+    // Règles pour les photos de soirées - support de plusieurs photos
+    match /artifacts/{appId}/users/{userId}/parties/{partyId}/{photoFile} {
+      // Permettre la lecture à tous les utilisateurs authentifiés
+      allow read: if request.auth != null;
+      
+      // Permettre l'écriture seulement au propriétaire de la soirée
+      allow write: if request.auth != null 
+                   && request.auth.uid == userId
+                   // Validation de la taille (max 10MB pour les photos de soirées)
+                   && request.resource.size < 10 * 1024 * 1024
+                   // Validation du type de fichier
+                   && request.resource.contentType.matches('image/(jpeg|jpg|png|webp)');
+      
+      // Permettre la suppression au propriétaire
+      allow delete: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Règle générale pour tous les fichiers artifacts (plus permissive pour debug)
+    match /artifacts/{appId}/users/{userId}/{allPaths=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
     // Bloquer tout autre accès
     match /{allPaths=**} {
       allow read, write: if false;

@@ -22,6 +22,9 @@ const FeedPage = () => {
     const [showComments, setShowComments] = useState({});
     const [isLoadingInteraction, setIsLoadingInteraction] = useState({});
     
+    // États pour l'affichage des photos
+    const [selectedPhoto, setSelectedPhoto] = useState(null);
+    
     // Fonctions Firebase
     const handleFeedInteraction = httpsCallable(functions, 'handleFeedInteraction');
     const getFeedInteractions = httpsCallable(functions, 'getFeedInteractions');
@@ -224,12 +227,11 @@ const FeedPage = () => {
         }
     };
 
-    // Gérer une interaction (like, comment, etc.)
+    // Gérer une interaction (like, comment, etc.) avec mise à jour optimiste
     const handleInteraction = async (itemId, type, data = null) => {
         if (isLoadingInteraction[itemId]) return;
 
         try {
-            setIsLoadingInteraction(prev => ({ ...prev, [itemId]: true }));
             console.log('🔄 Interaction:', type, 'sur', itemId, data);
 
             // Trouver le propriétaire de l'item
@@ -239,29 +241,74 @@ const FeedPage = () => {
                 return;
             }
 
+            // ⚡ MISE À JOUR OPTIMISTE : Met à jour l'UI instantanément
+            if (type === 'like') {
+                const currentInteractions = interactions[itemId] || { likes: [], comments: [], congratulations: [] };
+                const hasLiked = currentInteractions.likes?.some(like => like.userId === user.uid);
+                
+                setInteractions(prev => ({
+                    ...prev,
+                    [itemId]: {
+                        ...currentInteractions,
+                        likes: hasLiked 
+                            ? currentInteractions.likes.filter(like => like.userId !== user.uid)
+                            : [...(currentInteractions.likes || []), { 
+                                userId: user.uid, 
+                                username: userProfile?.username || 'Vous',
+                                timestamp: new Date()
+                              }]
+                    }
+                }));
+            } else if (type === 'comment' && data?.text) {
+                const currentInteractions = interactions[itemId] || { likes: [], comments: [], congratulations: [] };
+                const newComment = {
+                    id: `temp-${Date.now()}`,
+                    userId: user.uid,
+                    username: userProfile?.username || 'Vous',
+                    text: data.text,
+                    timestamp: new Date()
+                };
+                
+                setInteractions(prev => ({
+                    ...prev,
+                    [itemId]: {
+                        ...currentInteractions,
+                        comments: [...(currentInteractions.comments || []), newComment]
+                    }
+                }));
+            }
+
             // Utiliser l'ID original pour Firebase
             const originalId = item.originalId || itemId;
 
-            const result = await handleFeedInteraction({
+            // 🚀 Envoyer la requête en arrière-plan (sans attendre)
+            handleFeedInteraction({
                 itemId: originalId,
                 itemType: item.type,
                 ownerId: item.userId,
                 interactionType: type,
                 content: data?.text || null,
                 appId
+            }).then(result => {
+                if (result?.data?.success) {
+                    console.log('✅ Interaction synchronisée avec le serveur');
+                    // Optionnel : recharger pour être sûr de la cohérence
+                    // loadInteractions(itemId);
+                } else {
+                    console.error('❌ Échec sync serveur, rollback:', result?.data?.error);
+                    // En cas d'erreur, recharger les vraies données
+                    loadInteractions(itemId);
+                }
+            }).catch(error => {
+                console.error('❌ Erreur sync serveur, rollback:', error);
+                // En cas d'erreur, recharger les vraies données  
+                loadInteractions(itemId);
             });
 
-            if (result?.data?.success) {
-                console.log('✅ Interaction réussie');
-                // Recharger les interactions pour cet item
-                await loadInteractions(itemId);
-            } else {
-                console.error('❌ Échec interaction:', result?.data?.error);
-            }
         } catch (error) {
             console.error('❌ Erreur interaction:', error);
-        } finally {
-            setIsLoadingInteraction(prev => ({ ...prev, [itemId]: false }));
+            // En cas d'erreur, recharger les vraies données
+            loadInteractions(itemId);
         }
     };
 
@@ -327,7 +374,12 @@ const FeedPage = () => {
                 })}
 
                 {/* Zone de saisie */}
-                <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                <div style={{ 
+                    display: 'flex', 
+                    gap: '8px', 
+                    marginTop: '8px',
+                    width: '100%'
+                }}>
                     <input
                         type="text"
                         placeholder="Ajouter un commentaire..."
@@ -340,12 +392,14 @@ const FeedPage = () => {
                         }}
                         style={{
                             flex: 1,
-                            padding: '8px',
+                            minWidth: 0, // Important pour éviter le débordement
+                            padding: '8px 12px',
                             backgroundColor: 'rgba(255, 255, 255, 0.1)',
                             border: '1px solid rgba(255, 255, 255, 0.2)',
                             borderRadius: '6px',
                             color: 'white',
-                            fontSize: '14px'
+                            fontSize: '14px',
+                            outline: 'none'
                         }}
                     />
                     <button
@@ -358,16 +412,18 @@ const FeedPage = () => {
                             }
                         }}
                         style={{
-                            padding: '8px 12px',
+                            padding: '8px 16px',
                             backgroundColor: '#3b82f6',
                             border: 'none',
                             borderRadius: '6px',
                             color: 'white',
                             fontSize: '12px',
-                            cursor: 'pointer'
+                            cursor: 'pointer',
+                            whiteSpace: 'nowrap',
+                            flexShrink: 0 // Empêche le bouton de rétrécir
                         }}
                     >
-                        Envoyer
+                        📨
                     </button>
                 </div>
             </div>
@@ -379,6 +435,16 @@ const FeedPage = () => {
         const party = item.data;
         const totalDrinks = party.drinks?.reduce((sum, drink) => sum + drink.quantity, 0) || 0;
         const timeAgo = getTimeAgo(item.timestamp?.toDate());
+
+        // Debug: vérifier si la soirée a des photos
+        console.log(`🔍 PartyItem ${item.id}:`, {
+            hasPhotos: !!(party.photoURLs && party.photoURLs.length > 0),
+            photosCount: party.photoURLs?.length || 0,
+            photoURLs: party.photoURLs,
+            // Rétrocompatibilité avec l'ancien format
+            hasOldPhoto: !!party.photoURL,
+            partyData: party
+        });
 
         return (
             <div style={{
@@ -400,8 +466,41 @@ const FeedPage = () => {
                         style={{ marginRight: '12px' }}
                     />
                     <div style={{ flex: 1 }}>
-                        <div style={{ color: 'white', fontWeight: '600', fontSize: '16px' }}>
+                        <div style={{ 
+                            color: 'white', 
+                            fontWeight: '600', 
+                            fontSize: '16px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px'
+                        }}>
                             {item.isOwn ? 'Vous' : item.username}
+                            {/* Indicateur de photos */}
+                            {(party.photoURLs && party.photoURLs.length > 0) && (
+                                <span style={{
+                                    backgroundColor: '#8b45ff',
+                                    color: 'white',
+                                    fontSize: '10px',
+                                    padding: '2px 6px',
+                                    borderRadius: '8px',
+                                    fontWeight: '600'
+                                }}>
+                                    📸 {party.photoURLs.length}
+                                </span>
+                            )}
+                            {/* Rétrocompatibilité avec l'ancien format */}
+                            {party.photoURL && !(party.photoURLs && party.photoURLs.length > 0) && (
+                                <span style={{
+                                    backgroundColor: '#8b45ff',
+                                    color: 'white',
+                                    fontSize: '10px',
+                                    padding: '2px 6px',
+                                    borderRadius: '8px',
+                                    fontWeight: '600'
+                                }}>
+                                    📸 1
+                                </span>
+                            )}
                         </div>
                         <div style={{ color: '#9ca3af', fontSize: '14px', display: 'flex', alignItems: 'center' }}>
                             <Calendar size={14} style={{ marginRight: '4px' }} />
@@ -465,11 +564,112 @@ const FeedPage = () => {
                     )}
                 </div>
 
+                {/* Photos de la soirée */}
+                {((party.photoURLs && party.photoURLs.length > 0) || party.photoURL) && (
+                    <div style={{ marginTop: '16px' }}>
+                        {/* Grille de photos pour le nouveau format */}
+                        {party.photoURLs && party.photoURLs.length > 0 ? (
+                            <div style={{
+                                display: 'grid',
+                                gridTemplateColumns: party.photoURLs.length === 1 ? '1fr' : 
+                                                   party.photoURLs.length === 2 ? '1fr 1fr' :
+                                                   party.photoURLs.length === 3 ? '1fr 1fr 1fr' :
+                                                   '1fr 1fr',
+                                gap: '8px',
+                                borderRadius: '12px',
+                                overflow: 'hidden'
+                            }}>
+                                {party.photoURLs.slice(0, 4).map((photoURL, index) => (
+                                    <div
+                                        key={index}
+                                        style={{
+                                            position: 'relative',
+                                            aspectRatio: party.photoURLs.length === 1 ? '16/10' : '1/1',
+                                            cursor: 'pointer',
+                                            borderRadius: '8px',
+                                            overflow: 'hidden',
+                                            border: '1px solid rgba(255, 255, 255, 0.1)'
+                                        }}
+                                        onClick={() => setSelectedPhoto(photoURL)}
+                                    >
+                                        <img 
+                                            src={photoURL}
+                                            alt={`Photo ${index + 1}`}
+                                            style={{
+                                                width: '100%',
+                                                height: '100%',
+                                                objectFit: 'cover',
+                                                transition: 'transform 0.2s ease'
+                                            }}
+                                            onMouseEnter={(e) => e.target.style.transform = 'scale(1.05)'}
+                                            onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
+                                            onError={(e) => {
+                                                e.target.style.display = 'none';
+                                                console.error('Erreur chargement image:', photoURL);
+                                            }}
+                                            loading="lazy"
+                                        />
+                                        {/* Overlay si plus de 4 photos */}
+                                        {index === 3 && party.photoURLs.length > 4 && (
+                                            <div style={{
+                                                position: 'absolute',
+                                                top: 0,
+                                                left: 0,
+                                                right: 0,
+                                                bottom: 0,
+                                                backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                color: 'white',
+                                                fontSize: '18px',
+                                                fontWeight: '600'
+                                            }}>
+                                                +{party.photoURLs.length - 4}
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            /* Rétrocompatibilité avec l'ancien format */
+                            party.photoURL && (
+                                <div style={{
+                                    borderRadius: '12px',
+                                    overflow: 'hidden',
+                                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                                    cursor: 'pointer'
+                                }}>
+                                    <img 
+                                        src={party.photoURL}
+                                        alt="Photo de soirée"
+                                        onClick={() => setSelectedPhoto(party.photoURL)}
+                                        style={{
+                                            width: '100%',
+                                            height: 'auto',
+                                            maxHeight: '300px',
+                                            objectFit: 'cover',
+                                            display: 'block',
+                                            transition: 'transform 0.2s ease'
+                                        }}
+                                        onError={(e) => {
+                                            e.target.style.display = 'none';
+                                            console.error('Erreur chargement image:', party.photoURL);
+                                        }}
+                                        onMouseEnter={(e) => e.target.style.transform = 'scale(1.02)'}
+                                        onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
+                                        loading="lazy"
+                                    />
+                                </div>
+                            )
+                        )}
+                    </div>
+                )}
+
                 {/* Actions */}
                 <div style={{ display: 'flex', gap: '16px', paddingTop: '8px' }}>
                     <button 
                         onClick={() => handleInteraction(item.id, 'like')}
-                        disabled={isLoadingInteraction[item.id]}
                         style={{
                             background: 'none',
                             border: 'none',
@@ -478,7 +678,8 @@ const FeedPage = () => {
                             cursor: 'pointer',
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '4px'
+                            gap: '4px',
+                            transition: 'color 0.2s ease'
                         }}
                     >
                         <Heart size={16} fill={hasUserInteracted(item.id, 'like') ? '#ef4444' : 'none'} />
@@ -662,6 +863,69 @@ const FeedPage = () => {
                             {item.type === 'party' && <PartyItem item={item} />}
                         </div>
                     ))}
+                </div>
+            )}
+
+            {/* Modal photo en plein écran */}
+            {selectedPhoto && (
+                <div 
+                    style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        backgroundColor: 'rgba(0, 0, 0, 0.95)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        zIndex: 10000,
+                        padding: '20px'
+                    }}
+                    onClick={() => setSelectedPhoto(null)}
+                >
+                    <div style={{
+                        position: 'relative',
+                        maxWidth: '100%',
+                        maxHeight: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                    }}>
+                        <img 
+                            src={selectedPhoto}
+                            alt="Photo en grand"
+                            style={{
+                                maxWidth: '100%',
+                                maxHeight: '100%',
+                                objectFit: 'contain',
+                                borderRadius: '8px'
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                        />
+                        <button
+                            onClick={() => setSelectedPhoto(null)}
+                            style={{
+                                position: 'absolute',
+                                top: '10px',
+                                right: '10px',
+                                backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                                border: 'none',
+                                borderRadius: '50%',
+                                width: '40px',
+                                height: '40px',
+                                color: 'white',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '20px',
+                                fontWeight: 'bold'
+                            }}
+                        >
+                            ×
+                        </button>
+                    </div>
                 </div>
             )}
         </div>

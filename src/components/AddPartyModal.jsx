@@ -55,7 +55,8 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
     const [lastPartyId, setLastPartyId] = useState(null);
     const [showQuiz, setShowQuiz] = useState(false);
     const [loadingSummary, setLoadingSummary] = useState(false);
-    const [photoFile, setPhotoFile] = useState(null);
+    const [photoFiles, setPhotoFiles] = useState([]);
+    const [uploadingPhotos, setUploadingPhotos] = useState(false);
     
     // États pour la gestion des amis et groupes
     const [friendsList, setFriendsList] = useState([]);
@@ -198,6 +199,20 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
     const addDrink = () => setDrinks([...drinks, { type: 'Bière', brand: '', quantity: 1 }]);
     const removeDrink = (index) => setDrinks(drinks.filter((_, i) => i !== index));
 
+    // Fonctions pour gérer les photos
+    const handlePhotoAdd = (e) => {
+        const files = Array.from(e.target.files);
+        const newPhotos = files.slice(0, 5 - photoFiles.length); // Limiter à 5 photos max
+        
+        setPhotoFiles(prev => [...prev, ...newPhotos]);
+        console.log(`📸 ${newPhotos.length} photo(s) ajoutée(s), total: ${photoFiles.length + newPhotos.length}`);
+    };
+
+    const removePhoto = (index) => {
+        setPhotoFiles(prev => prev.filter((_, i) => i !== index));
+        console.log(`🗑️ Photo ${index + 1} supprimée`);
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         console.log("🎉 Début soumission de soirée", { user: !!user, db: !!db });
@@ -221,17 +236,52 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
             const docRef = await addDoc(collection(db, `artifacts/${appId}/users/${user.uid}/parties`), partyData);
             console.log("✅ Soirée sauvegardée avec ID:", docRef.id);
             
-            // upload photo if selected
-            if (photoFile) {
+            // Upload photos if selected
+            if (photoFiles.length > 0) {
+                setUploadingPhotos(true);
                 try {
-                    const storageRefPhoto = ref(storage, `artifacts/${appId}/users/${user.uid}/parties/${docRef.id}/photo.jpg`);
-                    await uploadBytes(storageRefPhoto, photoFile);
-                    const photoURL = await getDownloadURL(storageRefPhoto);
-                                                        const partyRefWithPhoto = doc(db, `artifacts/${appId}/users/${user.uid}/parties`, docRef.id);
-                                    await updateDoc(partyRefWithPhoto, { photoURL });
-                    await updateDoc(partyRefWithPhoto, { photoURL });
+                    console.log(`📸 Début upload de ${photoFiles.length} photo(s)...`);
+                    
+                    const photoURLs = [];
+                    
+                    for (let i = 0; i < photoFiles.length; i++) {
+                        const photoFile = photoFiles[i];
+                        console.log(`📸 Upload photo ${i + 1}/${photoFiles.length}:`, {
+                            fileName: photoFile.name,
+                            fileSize: photoFile.size,
+                            fileType: photoFile.type
+                        });
+                        
+                        const storagePath = `artifacts/${appId}/users/${user.uid}/parties/${docRef.id}/photo_${i + 1}.jpg`;
+                        console.log(`📁 Chemin: ${storagePath}`);
+                        
+                        const storageRefPhoto = ref(storage, storagePath);
+                        await uploadBytes(storageRefPhoto, photoFile);
+                        console.log(`✅ Photo ${i + 1} uploadée vers Storage`);
+                        
+                        const photoURL = await getDownloadURL(storageRefPhoto);
+                        photoURLs.push(photoURL);
+                        console.log(`🔗 URL photo ${i + 1} obtenue`);
+                    }
+                    
+                    // Sauvegarder toutes les URLs dans Firestore
+                    const partyRefWithPhotos = doc(db, `artifacts/${appId}/users/${user.uid}/parties`, docRef.id);
+                    await updateDoc(partyRefWithPhotos, { 
+                        photoURLs: photoURLs,
+                        photosCount: photoURLs.length 
+                    });
+                    console.log(`✅ ${photoURLs.length} URL(s) sauvegardée(s) dans Firestore`);
+                    
+                    console.log("🎉 Toutes les photos uploadées et référencées !");
                 } catch (photoError) {
-                    console.error("❌ Erreur upload photo, mais on continue ", photoError);
+                    console.error("❌ Erreur upload photos:", photoError);
+                    console.error("❌ Détails de l'erreur:", {
+                        code: photoError.code,
+                        message: photoError.message,
+                        stack: photoError.stack
+                    });
+                } finally {
+                    setUploadingPhotos(false);
                 }
             }
             
@@ -407,7 +457,7 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
                     </button>
                 </div>
 
-                {loadingSummary && (
+                {(loadingSummary || uploadingPhotos) && (
                     <div style={{
                         position: 'absolute',
                         top: 0,
@@ -421,7 +471,7 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
                         borderRadius: '20px',
                         zIndex: 10
                     }}>
-                        <LoadingSpinner text="Finalisation..." />
+                        <LoadingSpinner text={uploadingPhotos ? "Upload des photos..." : "Finalisation..."} />
                     </div>
                 )}
 
@@ -1080,33 +1130,145 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
                                 ))}
                             </select>
                         </div>
-                        {/* Photo de la soirée */}
+                        {/* Section Photos avec interface smartphone */}
                         <div>
                             <label style={{
                                 display: 'block',
                                 color: '#9ca3af',
                                 fontSize: '16px',
                                 fontWeight: '500',
-                                marginBottom: '8px'
+                                marginBottom: '12px'
                             }}>
-                                Photo de la soirée:
+                                Photos de la soirée ({photoFiles.length}/5):
                             </label>
-                            <input 
-                                type="file" 
-                                accept="image/*" 
-                                onChange={e => setPhotoFile(e.target.files[0])}
-                                style={{
-                                    width: '100%',
-                                    padding: '16px 20px',
+                            
+                            {/* Grille des photos existantes */}
+                            {photoFiles.length > 0 && (
+                                <div style={{
+                                    display: 'grid',
+                                    gridTemplateColumns: 'repeat(auto-fit, minmax(80px, 1fr))',
+                                    gap: '12px',
+                                    marginBottom: '16px',
+                                    padding: '16px',
                                     backgroundColor: '#2d3748',
-                                    border: '1px solid rgba(255, 255, 255, 0.1)',
                                     borderRadius: '12px',
-                                    color: 'white',
-                                    fontSize: '16px',
-                                    outline: 'none',
-                                    transition: 'all 0.2s ease'
-                                }}
-                            />
+                                    border: '1px solid rgba(255, 255, 255, 0.1)'
+                                }}>
+                                    {photoFiles.map((photo, index) => (
+                                        <div
+                                            key={index}
+                                            style={{
+                                                position: 'relative',
+                                                aspectRatio: '1',
+                                                borderRadius: '8px',
+                                                overflow: 'hidden',
+                                                backgroundColor: '#374151'
+                                            }}
+                                        >
+                                            <img
+                                                src={URL.createObjectURL(photo)}
+                                                alt={`Photo ${index + 1}`}
+                                                style={{
+                                                    width: '100%',
+                                                    height: '100%',
+                                                    objectFit: 'cover'
+                                                }}
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => removePhoto(index)}
+                                                style={{
+                                                    position: 'absolute',
+                                                    top: '4px',
+                                                    right: '4px',
+                                                    width: '24px',
+                                                    height: '24px',
+                                                    backgroundColor: 'rgba(220, 38, 38, 0.9)',
+                                                    border: 'none',
+                                                    borderRadius: '50%',
+                                                    color: 'white',
+                                                    cursor: 'pointer',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    fontSize: '14px',
+                                                    fontWeight: 'bold'
+                                                }}
+                                            >
+                                                ×
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                            
+                            {/* Bouton d'ajout de photos (seulement si moins de 5) */}
+                            {photoFiles.length < 5 && (
+                                <div style={{ position: 'relative' }}>
+                                    <input 
+                                        type="file" 
+                                        accept="image/*" 
+                                        multiple
+                                        onChange={handlePhotoAdd}
+                                        style={{
+                                            position: 'absolute',
+                                            top: 0,
+                                            left: 0,
+                                            width: '100%',
+                                            height: '100%',
+                                            opacity: 0,
+                                            cursor: 'pointer'
+                                        }}
+                                    />
+                                    <button
+                                        type="button"
+                                        style={{
+                                            width: '100%',
+                                            padding: '20px',
+                                            backgroundColor: '#374151',
+                                            border: '2px dashed #8b45ff',
+                                            borderRadius: '12px',
+                                            color: '#8b45ff',
+                                            fontSize: '16px',
+                                            fontWeight: '500',
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            alignItems: 'center',
+                                            gap: '8px',
+                                            transition: 'all 0.2s ease'
+                                        }}
+                                    >
+                                        <span style={{ fontSize: '24px' }}>📸</span>
+                                        <span>Ajouter des photos</span>
+                                        <span style={{ 
+                                            fontSize: '12px', 
+                                            color: '#9ca3af',
+                                            fontWeight: '400' 
+                                        }}>
+                                            {photoFiles.length === 0 
+                                                ? 'Touchez pour sélectionner jusqu\'à 5 photos'
+                                                : `Encore ${5 - photoFiles.length} photo(s) possible(s)`
+                                            }
+                                        </span>
+                                    </button>
+                                </div>
+                            )}
+                            
+                            {/* Message si limite atteinte */}
+                            {photoFiles.length === 5 && (
+                                <div style={{
+                                    padding: '12px',
+                                    backgroundColor: 'rgba(139, 69, 255, 0.1)',
+                                    border: '1px solid #8b45ff',
+                                    borderRadius: '8px',
+                                    textAlign: 'center'
+                                }}>
+                                    <span style={{ color: '#c084fc', fontSize: '14px' }}>
+                                        ✅ Limite de 5 photos atteinte
+                                    </span>
+                                </div>
+                            )}
                         </div>
                         {/* Bouton submit */}
                         <button 
