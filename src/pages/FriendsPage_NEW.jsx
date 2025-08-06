@@ -1,5 +1,5 @@
 import React, { useState, useContext } from 'react';
-import { collection, query, where, getDocs, updateDoc, doc, arrayUnion, arrayRemove, addDoc, getDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, updateDoc, doc, arrayUnion, arrayRemove, addDoc, getDoc, deleteDoc } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { FirebaseContext } from '../contexts/FirebaseContext.jsx';
 import FriendItem from '../components/FriendItem';
@@ -15,6 +15,113 @@ const FriendsPage = ({ setCurrentPage, setSelectedFriendId }) => {
     const [loadingSearch, setLoadingSearch] = useState(false);
     const [friendIdInput, setFriendIdInput] = useState('');
     const [loadingAddById, setLoadingAddById] = useState(false);
+    const [debugInfo, setDebugInfo] = useState(null);
+    const [forceAddInput, setForceAddInput] = useState('');
+
+    // Fonction de diagnostic
+    const runDiagnostic = async () => {
+        try {
+            console.log("🔍 Diagnostic du système d'amitié...");
+            
+            // 1. Vérifier mes données utilisateur
+            const myStatsRef = doc(db, `artifacts/${appId}/public_user_stats`, user.uid);
+            const myStatsDoc = await getDoc(myStatsRef);
+            
+            const myData = myStatsDoc.exists() ? myStatsDoc.data() : null;
+            
+            // 2. Vérifier les demandes d'amis reçues
+            const receivedQuery = query(
+                collection(db, `artifacts/${appId}/friend_requests`),
+                where('to', '==', user.uid)
+            );
+            const receivedSnapshot = await getDocs(receivedQuery);
+            const receivedRequests = receivedSnapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }));
+            
+            // 3. Vérifier les demandes d'amis envoyées
+            const sentQuery = query(
+                collection(db, `artifacts/${appId}/friend_requests`),
+                where('from', '==', user.uid)
+            );
+            const sentSnapshot = await getDocs(sentQuery);
+            const sentRequests = sentSnapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }));
+            
+            const diagnostic = {
+                userId: user.uid,
+                username: userProfile?.username,
+                myFriends: myData?.friends || [],
+                friendsCount: myData?.friends?.length || 0,
+                receivedRequests: receivedRequests,
+                sentRequests: sentRequests,
+                userProfileFriends: userProfile?.friends || []
+            };
+            
+            console.log("📊 Diagnostic complet:", diagnostic);
+            setDebugInfo(diagnostic);
+            
+        } catch (error) {
+            console.error("❌ Erreur diagnostic:", error);
+            setMessageBox({ message: "Erreur lors du diagnostic", type: "error" });
+        }
+    };
+
+    // Fonction d'ajout forcé d'ami (utilise Firebase Functions)
+    const forceAddFriend = async (friendId) => {
+        console.log('🔧 AJOUT FORCÉ D\'AMI:', friendId);
+        
+        try {
+            // Appeler la fonction Firebase avec privilèges administrateur
+            const forceAddFriendFunc = httpsCallable(functions, 'forceAddFriend');
+            
+            const result = await forceAddFriendFunc({
+                friendId: friendId,
+                appId: appId
+            });
+            
+            if (result?.data?.success) {
+                const data = result.data;
+                console.log('🎉 Ajout forcé réussi:', data);
+                
+                if (data.alreadyFriends) {
+                    setMessageBox({ 
+                        message: "Vous êtes déjà amis!", 
+                        type: "info" 
+                    });
+                } else {
+                    setMessageBox({ 
+                        message: data.message, 
+                        type: "success" 
+                    });
+                }
+                
+                setForceAddInput('');
+                
+                // Rafraîchir la page pour voir les changements
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1000);
+                
+            } else {
+                console.error('❌ Échec de l\'ajout forcé:', result);
+                setMessageBox({ 
+                    message: "Échec de l'ajout forcé", 
+                    type: "error" 
+                });
+            }
+            
+        } catch (error) {
+            console.error('❌ Erreur lors de l\'ajout forcé:', error);
+            setMessageBox({ 
+                message: `Erreur: ${error.message}`, 
+                type: "error" 
+            });
+        }
+    };
 
     const handleSearch = async () => {
         if (!searchTerm.trim()) return setSearchResults([]);
@@ -429,6 +536,102 @@ const FriendsPage = ({ setCurrentPage, setSelectedFriendId }) => {
                     }}>
                         Votre ID utilisateur : <span style={{ fontFamily: 'monospace', color: '#10b981' }}>{user?.uid}</span>
                     </p>
+                </div>
+
+                {/* Section Debug & Ajout Forcé */}
+                <div style={{
+                    backgroundColor: 'rgba(255, 69, 0, 0.1)',
+                    borderRadius: '16px',
+                    padding: '20px',
+                    marginTop: '20px',
+                    border: '1px solid rgba(255, 69, 0, 0.3)'
+                }}>
+                    <h3 style={{
+                        color: '#ff6b35',
+                        fontSize: '16px',
+                        fontWeight: '600',
+                        margin: '0 0 16px 0',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                    }}>
+                        🔧 Outils de Debug & Réparation
+                    </h3>
+                    
+                    <div style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '12px'
+                    }}>
+                        <button
+                            onClick={runDiagnostic}
+                            style={{
+                                padding: '12px 16px',
+                                backgroundColor: '#10b981',
+                                border: 'none',
+                                borderRadius: '8px',
+                                color: 'white',
+                                fontSize: '14px',
+                                fontWeight: '600',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px'
+                            }}
+                        >
+                            🔍 Diagnostic du Système d'Amitié
+                        </button>
+
+                        <div style={{
+                            display: 'flex',
+                            gap: '8px',
+                            alignItems: 'center'
+                        }}>
+                            <input
+                                type="text"
+                                placeholder="ID utilisateur pour ajout forcé"
+                                value={forceAddInput}
+                                onChange={(e) => setForceAddInput(e.target.value)}
+                                style={{
+                                    flex: 1,
+                                    padding: '10px 12px',
+                                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                                    borderRadius: '6px',
+                                    color: 'white',
+                                    fontSize: '14px',
+                                    outline: 'none',
+                                    fontFamily: 'monospace'
+                                }}
+                            />
+                            <button
+                                onClick={() => forceAddInput.trim() && forceAddFriend(forceAddInput.trim())}
+                                disabled={!forceAddInput.trim()}
+                                style={{
+                                    padding: '10px 16px',
+                                    backgroundColor: forceAddInput.trim() ? '#ef4444' : '#6b7280',
+                                    border: 'none',
+                                    borderRadius: '6px',
+                                    color: 'white',
+                                    fontSize: '14px',
+                                    fontWeight: '600',
+                                    cursor: forceAddInput.trim() ? 'pointer' : 'not-allowed',
+                                    whiteSpace: 'nowrap'
+                                }}
+                            >
+                                🔧 Ajout Forcé
+                            </button>
+                        </div>
+                        
+                        <p style={{
+                            color: 'rgba(255, 255, 255, 0.7)',
+                            fontSize: '12px',
+                            margin: '0',
+                            fontStyle: 'italic'
+                        }}>
+                            ⚠️ L'ajout forcé bypasse toutes les vérifications et ajoute directement l'utilisateur à vos amis.
+                        </p>
+                    </div>
                 </div>
             </div>
 

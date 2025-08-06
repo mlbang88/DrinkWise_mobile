@@ -56,7 +56,9 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
     const [showQuiz, setShowQuiz] = useState(false);
     const [loadingSummary, setLoadingSummary] = useState(false);
     const [photoFiles, setPhotoFiles] = useState([]);
+    const [videoFiles, setVideoFiles] = useState([]);
     const [uploadingPhotos, setUploadingPhotos] = useState(false);
+    const [uploadingVideos, setUploadingVideos] = useState(false);
     
     // États pour la gestion des amis et groupes
     const [friendsList, setFriendsList] = useState([]);
@@ -164,6 +166,11 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
         if (onPartySaved) {
             onPartySaved();
         }
+        
+        // Déclencher un rafraîchissement automatique du feed
+        console.log("📡 Quiz terminé - Déclenchement rafraîchissement automatique du feed");
+        window.dispatchEvent(new CustomEvent('refreshFeed'));
+        
         onClose();
     };
 
@@ -211,6 +218,50 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
     const removePhoto = (index) => {
         setPhotoFiles(prev => prev.filter((_, i) => i !== index));
         console.log(`🗑️ Photo ${index + 1} supprimée`);
+    };
+
+    // Fonctions pour gérer les vidéos
+    const handleVideoAdd = (e) => {
+        const files = Array.from(e.target.files);
+        const validVideos = [];
+        
+        for (const file of files) {
+            // Vérifier la taille (max 50MB)
+            if (file.size > 50 * 1024 * 1024) {
+                setMessageBox({ 
+                    message: `Vidéo "${file.name}" trop volumineuse (max 50MB)`, 
+                    type: "error" 
+                });
+                continue;
+            }
+            
+            // Vérifier la durée via un élément vidéo temporaire
+            const video = document.createElement('video');
+            video.preload = 'metadata';
+            
+            video.onloadedmetadata = function() {
+                if (video.duration > 20) {
+                    setMessageBox({ 
+                        message: `Vidéo "${file.name}" trop longue (max 20 secondes)`, 
+                        type: "error" 
+                    });
+                } else {
+                    validVideos.push(file);
+                    if (validVideos.length > 0 && videoFiles.length + validVideos.length <= 3) {
+                        setVideoFiles(prev => [...prev, ...validVideos.slice(0, 3 - prev.length)]);
+                        console.log(`🎥 ${validVideos.length} vidéo(s) ajoutée(s)`);
+                    }
+                }
+                URL.revokeObjectURL(video.src);
+            };
+            
+            video.src = URL.createObjectURL(file);
+        }
+    };
+
+    const removeVideo = (index) => {
+        setVideoFiles(prev => prev.filter((_, i) => i !== index));
+        console.log(`🗑️ Vidéo ${index + 1} supprimée`);
     };
 
     const handleSubmit = async (e) => {
@@ -290,6 +341,68 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
                         });
                     } finally {
                         setUploadingPhotos(false);
+                    }
+                })();
+            }
+            
+            // Upload vidéos EN ARRIÈRE-PLAN (ne bloque pas le quiz)
+            if (videoFiles.length > 0) {
+                console.log(`🎥 Début upload en arrière-plan de ${videoFiles.length} vidéo(s)...`);
+                
+                // Upload asynchrone sans attendre
+                (async () => {
+                    try {
+                        setUploadingVideos(true);
+                        const videoURLs = [];
+                        
+                        for (let i = 0; i < videoFiles.length; i++) {
+                            const videoFile = videoFiles[i];
+                            console.log(`🎥 Upload arrière-plan vidéo ${i + 1}/${videoFiles.length}:`, {
+                                fileName: videoFile.name,
+                                fileSize: videoFile.size,
+                                fileType: videoFile.type
+                            });
+                            
+                            const storagePath = `artifacts/${appId}/users/${user.uid}/parties/${docRef.id}/video_${i + 1}.mp4`;
+                            console.log(`📁 Chemin: ${storagePath}`);
+                            
+                            const storageRefVideo = ref(storage, storagePath);
+                            await uploadBytes(storageRefVideo, videoFile);
+                            console.log(`✅ Vidéo ${i + 1} uploadée vers Storage`);
+                            
+                            const videoURL = await getDownloadURL(storageRefVideo);
+                            videoURLs.push(videoURL);
+                            console.log(`🔗 URL vidéo ${i + 1} obtenue`);
+                        }
+                        
+                        // Sauvegarder toutes les URLs dans Firestore
+                        const partyRefWithVideos = doc(db, `artifacts/${appId}/users/${user.uid}/parties`, docRef.id);
+                        await updateDoc(partyRefWithVideos, { 
+                            videoURLs: videoURLs,
+                            videosCount: videoURLs.length 
+                        });
+                        console.log(`✅ ${videoURLs.length} URL(s) vidéo sauvegardée(s) dans Firestore - Upload terminé !`);
+                        
+                        console.log("🎉 Toutes les vidéos uploadées et référencées en arrière-plan !");
+                        
+                        // Notifier le parent pour rafraîchir le feed
+                        if (onPartySaved) {
+                            console.log("🔄 Notification parent pour rafraîchir le feed...");
+                            onPartySaved();
+                        }
+                        
+                        // Déclencher un rafraîchissement automatique du feed
+                        console.log("📡 Déclenchement de l'événement de rafraîchissement global du feed");
+                        window.dispatchEvent(new CustomEvent('refreshFeed'));
+                    } catch (videoError) {
+                        console.error("❌ Erreur upload vidéos en arrière-plan:", videoError);
+                        console.error("❌ Détails de l'erreur:", {
+                            code: videoError.code,
+                            message: videoError.message,
+                            stack: videoError.stack
+                        });
+                    } finally {
+                        setUploadingVideos(false);
                     }
                 })();
             }
@@ -441,7 +554,7 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
                     </button>
                 </div>
 
-                {(loadingSummary || uploadingPhotos) && (
+                {(loadingSummary || uploadingPhotos || uploadingVideos) && (
                     <div style={{
                         position: 'absolute',
                         top: 0,
@@ -455,7 +568,11 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
                         borderRadius: '20px',
                         zIndex: 10
                     }}>
-                        <LoadingSpinner text={uploadingPhotos ? "Upload des photos..." : "Finalisation..."} />
+                        <LoadingSpinner text={
+                            uploadingVideos ? "Upload des vidéos..." : 
+                            uploadingPhotos ? "Upload des photos..." : 
+                            "Finalisation..."
+                        } />
                     </div>
                 )}
 
@@ -1254,6 +1371,160 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
                                 </div>
                             )}
                         </div>
+
+                        {/* Section Vidéos avec interface smartphone */}
+                        <div>
+                            <label style={{
+                                display: 'block',
+                                color: '#9ca3af',
+                                fontSize: '16px',
+                                fontWeight: '500',
+                                marginBottom: '12px'
+                            }}>
+                                Vidéos de la soirée ({videoFiles.length}/3) - Max 20 secondes:
+                            </label>
+                            
+                            {/* Grille des vidéos existantes */}
+                            {videoFiles.length > 0 && (
+                                <div style={{
+                                    display: 'grid',
+                                    gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))',
+                                    gap: '12px',
+                                    marginBottom: '16px',
+                                    padding: '16px',
+                                    backgroundColor: '#2d3748',
+                                    borderRadius: '12px',
+                                    border: '1px solid rgba(255, 255, 255, 0.1)'
+                                }}>
+                                    {videoFiles.map((video, index) => (
+                                        <div
+                                            key={index}
+                                            style={{
+                                                position: 'relative',
+                                                aspectRatio: '16/9',
+                                                borderRadius: '8px',
+                                                overflow: 'hidden',
+                                                backgroundColor: '#374151'
+                                            }}
+                                        >
+                                            <video
+                                                src={URL.createObjectURL(video)}
+                                                style={{
+                                                    width: '100%',
+                                                    height: '100%',
+                                                    objectFit: 'cover'
+                                                }}
+                                                muted
+                                                playsInline
+                                            />
+                                            <div style={{
+                                                position: 'absolute',
+                                                top: '50%',
+                                                left: '50%',
+                                                transform: 'translate(-50%, -50%)',
+                                                color: 'white',
+                                                fontSize: '20px',
+                                                pointerEvents: 'none'
+                                            }}>
+                                                ▶️
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => removeVideo(index)}
+                                                style={{
+                                                    position: 'absolute',
+                                                    top: '4px',
+                                                    right: '4px',
+                                                    width: '24px',
+                                                    height: '24px',
+                                                    backgroundColor: 'rgba(220, 38, 38, 0.9)',
+                                                    border: 'none',
+                                                    borderRadius: '50%',
+                                                    color: 'white',
+                                                    cursor: 'pointer',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    fontSize: '14px',
+                                                    fontWeight: 'bold'
+                                                }}
+                                            >
+                                                ×
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                            
+                            {/* Bouton d'ajout de vidéos (seulement si moins de 3) */}
+                            {videoFiles.length < 3 && (
+                                <div style={{ position: 'relative' }}>
+                                    <input 
+                                        type="file" 
+                                        accept="video/*" 
+                                        multiple
+                                        onChange={handleVideoAdd}
+                                        style={{
+                                            position: 'absolute',
+                                            top: 0,
+                                            left: 0,
+                                            width: '100%',
+                                            height: '100%',
+                                            opacity: 0,
+                                            cursor: 'pointer'
+                                        }}
+                                    />
+                                    <button
+                                        type="button"
+                                        style={{
+                                            width: '100%',
+                                            padding: '20px',
+                                            backgroundColor: '#374151',
+                                            border: '2px dashed #10b981',
+                                            borderRadius: '12px',
+                                            color: '#10b981',
+                                            fontSize: '16px',
+                                            fontWeight: '500',
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            alignItems: 'center',
+                                            gap: '8px',
+                                            transition: 'all 0.2s ease'
+                                        }}
+                                    >
+                                        <span style={{ fontSize: '24px' }}>🎥</span>
+                                        <span>Ajouter des vidéos</span>
+                                        <span style={{ 
+                                            fontSize: '12px', 
+                                            color: '#9ca3af',
+                                            fontWeight: '400' 
+                                        }}>
+                                            {videoFiles.length === 0 
+                                                ? 'Max 20 sec, jusqu\'à 3 vidéos, 50MB max'
+                                                : `Encore ${3 - videoFiles.length} vidéo(s) possible(s)`
+                                            }
+                                        </span>
+                                    </button>
+                                </div>
+                            )}
+                            
+                            {/* Message si limite atteinte */}
+                            {videoFiles.length === 3 && (
+                                <div style={{
+                                    padding: '12px',
+                                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                                    border: '1px solid #10b981',
+                                    borderRadius: '8px',
+                                    textAlign: 'center'
+                                }}>
+                                    <span style={{ color: '#34d399', fontSize: '14px' }}>
+                                        ✅ Limite de 3 vidéos atteinte
+                                    </span>
+                                </div>
+                            )}
+                        </div>
+
                         {/* Bouton submit */}
                         <button 
                             type="submit"

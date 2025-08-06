@@ -48,6 +48,139 @@ exports.generateSummary = onCall({
     // Vérifier l'authentification
     if (!request.auth) {
       throw new Error('Utilisateur non authentifié');
+
+// Fonction pour forcer l'ajout d'un ami (avec privilèges admin)
+exports.forceAddFriend = onCall({
+  region: 'us-central1',
+  cors: corsOptions
+}, async (request) => {
+  try {
+    const { friendId, appId } = request.data;
+    const userId = request.auth.uid;
+    
+    // Vérifier l'authentification
+    if (!request.auth) {
+      throw new Error('Utilisateur non authentifié');
+    }
+    
+    logger.info(`🔧 Ajout forcé d'ami: ${userId} -> ${friendId}`);
+    
+    // 1. Vérifier que les deux utilisateurs existent
+    const [userStatsRef, friendStatsRef] = [
+      db.doc(`artifacts/${appId}/public_user_stats/${userId}`),
+      db.doc(`artifacts/${appId}/public_user_stats/${friendId}`)
+    ];
+    
+    const [userDoc, friendDoc] = await Promise.all([
+      userStatsRef.get(),
+      friendStatsRef.get()
+    ]);
+    
+    if (!userDoc.exists) {
+      throw new Error('Utilisateur actuel introuvable');
+    }
+    
+    if (!friendDoc.exists) {
+      throw new Error('Ami introuvable');
+    }
+    
+    const userData = userDoc.data();
+    const friendData = friendDoc.data();
+    
+    logger.info(`✅ Utilisateur: ${userData.username}, Ami: ${friendData.username}`);
+    
+    // 2. Vérifier s'ils sont déjà amis
+    const userFriends = userData.friends || [];
+    const friendFriends = friendData.friends || [];
+    
+    if (userFriends.includes(friendId) && friendFriends.includes(userId)) {
+      return {
+        success: true,
+        message: 'Vous êtes déjà amis',
+        alreadyFriends: true
+      };
+    }
+    
+    // 3. Créer un batch pour toutes les opérations
+    const batch = db.batch();
+    
+    // 4. Ajouter aux profils publics
+    if (!userFriends.includes(friendId)) {
+      batch.update(userStatsRef, {
+        friends: admin.firestore.FieldValue.arrayUnion(friendId)
+      });
+      logger.info(`➕ ${friendData.username} ajouté aux amis de ${userData.username}`);
+    }
+    
+    if (!friendFriends.includes(userId)) {
+      batch.update(friendStatsRef, {
+        friends: admin.firestore.FieldValue.arrayUnion(userId)
+      });
+      logger.info(`➕ ${userData.username} ajouté aux amis de ${friendData.username}`);
+    }
+    
+    // 5. Ajouter aux profils privés (si ils existent)
+    const userProfileRef = db.doc(`artifacts/${appId}/users/${userId}/profile`);
+    const friendProfileRef = db.doc(`artifacts/${appId}/users/${friendId}/profile`);
+    
+    try {
+      const userProfileDoc = await userProfileRef.get();
+      if (userProfileDoc.exists()) {
+        const profileFriends = userProfileDoc.data().friends || [];
+        if (!profileFriends.includes(friendId)) {
+          batch.update(userProfileRef, {
+            friends: admin.firestore.FieldValue.arrayUnion(friendId)
+          });
+          logger.info(`➕ Profil privé de ${userData.username} mis à jour`);
+        }
+      }
+    } catch (error) {
+      logger.warn(`⚠️ Pas de profil privé pour ${userData.username}`);
+    }
+    
+    try {
+      const friendProfileDoc = await friendProfileRef.get();
+      if (friendProfileDoc.exists()) {
+        const profileFriends = friendProfileDoc.data().friends || [];
+        if (!profileFriends.includes(userId)) {
+          batch.update(friendProfileRef, {
+            friends: admin.firestore.FieldValue.arrayUnion(userId)
+          });
+          logger.info(`➕ Profil privé de ${friendData.username} mis à jour`);
+        }
+      }
+    } catch (error) {
+      logger.warn(`⚠️ Pas de profil privé pour ${friendData.username}`);
+    }
+    
+    // 6. Supprimer les demandes d'amitié en cours
+    const requestsSnapshot = await db.collection(`artifacts/${appId}/friend_requests`)
+      .where('from', 'in', [userId, friendId])
+      .where('to', 'in', [userId, friendId])
+      .get();
+    
+    requestsSnapshot.docs.forEach(doc => {
+      batch.delete(doc.ref);
+      logger.info(`🗑️ Demande d'amitié supprimée: ${doc.id}`);
+    });
+    
+    // 7. Exécuter toutes les opérations
+    await batch.commit();
+    
+    logger.info(`🎉 Amitié créée avec succès entre ${userData.username} et ${friendData.username}!`);
+    
+    return {
+      success: true,
+      message: `Ami ${friendData.username} ajouté avec succès !`,
+      friendName: friendData.username,
+      userName: userData.username
+    };
+    
+  } catch (error) {
+    logger.error('❌ Erreur lors de l\'ajout forcé d\'ami:', error);
+    throw new Error(`Erreur: ${error.message}`);
+  }
+});
     }
 
     logger.info('Génération de résumé pour:', { 

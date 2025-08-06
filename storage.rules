@@ -22,18 +22,22 @@ service firebase.storage {
                     && filename.matches('.*' + request.auth.uid + '.*');
     }
     
-    // Règles pour les photos de soirées - support de plusieurs photos
-    match /artifacts/{appId}/users/{userId}/parties/{partyId}/{photoFile} {
+    // Règles pour les photos et vidéos de soirées - support de plusieurs fichiers
+    match /artifacts/{appId}/users/{userId}/parties/{partyId}/{mediaFile} {
       // Permettre la lecture à tous les utilisateurs authentifiés
       allow read: if request.auth != null;
       
       // Permettre l'écriture seulement au propriétaire de la soirée
       allow write: if request.auth != null 
                    && request.auth.uid == userId
-                   // Validation de la taille (max 10MB pour les photos de soirées)
-                   && request.resource.size < 10 * 1024 * 1024
-                   // Validation du type de fichier
-                   && request.resource.contentType.matches('image/(jpeg|jpg|png|webp)');
+                   // Validation de la taille - Photos: max 10MB, Vidéos: max 50MB
+                   && ((request.resource.contentType.matches('image/(jpeg|jpg|png|webp)') 
+                        && request.resource.size < 10 * 1024 * 1024)
+                       || (request.resource.contentType.matches('video/(mp4|mov|avi|webm)') 
+                           && request.resource.size < 50 * 1024 * 1024))
+                   // Validation du type de fichier (images ou vidéos)
+                   && (request.resource.contentType.matches('image/(jpeg|jpg|png|webp)')
+                       || request.resource.contentType.matches('video/(mp4|mov|avi|webm)'));
       
       // Permettre la suppression au propriétaire
       allow delete: if request.auth != null && request.auth.uid == userId;

@@ -24,6 +24,7 @@ const FeedPage = () => {
     
     // États pour l'affichage des photos
     const [selectedPhoto, setSelectedPhoto] = useState(null);
+    const [selectedVideo, setSelectedVideo] = useState(null);
     
     // Fonctions Firebase
     const handleFeedInteraction = httpsCallable(functions, 'handleFeedInteraction');
@@ -126,7 +127,7 @@ const FeedPage = () => {
     };
 
     // Charger le feed principal
-    const loadFeed = async () => {
+    const loadFeed = useCallback(async () => {
         try {
             setLoading(true);
             console.log('📱 Chargement du feed...');
@@ -158,7 +159,7 @@ const FeedPage = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [user, userProfile, db, appId, setMessageBox]);
 
     // ===== GESTION DES INTERACTIONS =====
 
@@ -441,6 +442,9 @@ const FeedPage = () => {
             hasPhotos: !!(party.photoURLs && party.photoURLs.length > 0),
             photosCount: party.photoURLs?.length || 0,
             photoURLs: party.photoURLs,
+            hasVideos: !!(party.videoURLs && party.videoURLs.length > 0),
+            videosCount: party.videoURLs?.length || 0,
+            videoURLs: party.videoURLs,
             // Rétrocompatibilité avec l'ancien format
             hasOldPhoto: !!party.photoURL,
             partyData: party
@@ -486,6 +490,19 @@ const FeedPage = () => {
                                     fontWeight: '600'
                                 }}>
                                     📸 {party.photoURLs.length}
+                                </span>
+                            )}
+                            {/* Indicateur de vidéos */}
+                            {(party.videoURLs && party.videoURLs.length > 0) && (
+                                <span style={{
+                                    backgroundColor: '#ef4444',
+                                    color: 'white',
+                                    fontSize: '10px',
+                                    padding: '2px 6px',
+                                    borderRadius: '8px',
+                                    fontWeight: '600'
+                                }}>
+                                    🎥 {party.videoURLs.length}
                                 </span>
                             )}
                             {/* Rétrocompatibilité avec l'ancien format */}
@@ -666,6 +683,102 @@ const FeedPage = () => {
                     </div>
                 )}
 
+                {/* Vidéos de la soirée */}
+                {(party.videoURLs && party.videoURLs.length > 0) && (
+                    <div style={{ marginTop: '16px' }}>
+                        <div style={{
+                            display: 'grid',
+                            gridTemplateColumns: party.videoURLs.length === 1 ? '1fr' : 
+                                               party.videoURLs.length === 2 ? '1fr 1fr' :
+                                               '1fr 1fr',
+                            gap: '8px',
+                            borderRadius: '12px',
+                            overflow: 'hidden'
+                        }}>
+                            {party.videoURLs.slice(0, 3).map((videoURL, index) => (
+                                <div
+                                    key={index}
+                                    style={{
+                                        position: 'relative',
+                                        aspectRatio: party.videoURLs.length === 1 ? '16/10' : '16/9',
+                                        cursor: 'pointer',
+                                        borderRadius: '8px',
+                                        overflow: 'hidden',
+                                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                                        backgroundColor: '#000'
+                                    }}
+                                    onClick={() => setSelectedVideo(videoURL)}
+                                >
+                                    <video 
+                                        src={videoURL}
+                                        style={{
+                                            width: '100%',
+                                            height: '100%',
+                                            objectFit: 'cover',
+                                            transition: 'transform 0.2s ease'
+                                        }}
+                                        muted
+                                        playsInline
+                                        preload="metadata"
+                                        onError={(e) => {
+                                            e.target.style.display = 'none';
+                                            console.error('Erreur chargement vidéo:', videoURL);
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            e.target.style.transform = 'scale(1.05)';
+                                            e.target.play().catch(console.error);
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.target.style.transform = 'scale(1)';
+                                            e.target.pause();
+                                            e.target.currentTime = 0;
+                                        }}
+                                    />
+                                    {/* Bouton play */}
+                                    <div style={{
+                                        position: 'absolute',
+                                        top: '50%',
+                                        left: '50%',
+                                        transform: 'translate(-50%, -50%)',
+                                        width: '48px',
+                                        height: '48px',
+                                        backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                                        borderRadius: '50%',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        color: 'white',
+                                        fontSize: '16px',
+                                        pointerEvents: 'none',
+                                        border: '2px solid rgba(255, 255, 255, 0.8)'
+                                    }}>
+                                        ▶️
+                                    </div>
+                                    {/* Overlay si plus de 3 vidéos */}
+                                    {index === 2 && party.videoURLs.length > 3 && (
+                                        <div style={{
+                                            position: 'absolute',
+                                            top: 0,
+                                            left: 0,
+                                            right: 0,
+                                            bottom: 0,
+                                            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            color: 'white',
+                                            fontSize: '18px',
+                                            fontWeight: '600'
+                                        }}>
+                                            +{party.videoURLs.length - 3}
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
                 {/* Actions */}
                 <div style={{ display: 'flex', gap: '16px', paddingTop: '8px' }}>
                     <button 
@@ -735,6 +848,21 @@ const FeedPage = () => {
         }
     }, [user, userProfile]);
 
+    // Listener pour rafraîchissement automatique du feed
+    useEffect(() => {
+        const handleFeedRefresh = () => {
+            console.log('🔄 Rafraîchissement automatique du feed déclenché');
+            loadFeed();
+        };
+
+        // Écouter l'événement custom de refresh du feed
+        window.addEventListener('refreshFeed', handleFeedRefresh);
+        
+        return () => {
+            window.removeEventListener('refreshFeed', handleFeedRefresh);
+        };
+    }, [loadFeed]);
+
     // Charger les interactions quand les items changent
     useEffect(() => {
         if (feedItems.length > 0) {
@@ -768,6 +896,24 @@ const FeedPage = () => {
                 </h2>
                 
                 <div style={{ display: 'flex', gap: '8px' }}>
+                    <button 
+                        onClick={() => {
+                            console.log('🔄 Rechargement feed complet...');
+                            loadFeed();
+                        }}
+                        style={{
+                            padding: '8px 12px',
+                            backgroundColor: '#8b45ff',
+                            border: 'none',
+                            borderRadius: '8px',
+                            color: 'white',
+                            fontSize: '12px',
+                            cursor: 'pointer'
+                        }}
+                    >
+                        🎥 Recharger Feed
+                    </button>
+                    
                     <button 
                         onClick={() => {
                             console.log('🔄 Rechargement interactions...');
@@ -905,6 +1051,71 @@ const FeedPage = () => {
                         />
                         <button
                             onClick={() => setSelectedPhoto(null)}
+                            style={{
+                                position: 'absolute',
+                                top: '10px',
+                                right: '10px',
+                                backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                                border: 'none',
+                                borderRadius: '50%',
+                                width: '40px',
+                                height: '40px',
+                                color: 'white',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '20px',
+                                fontWeight: 'bold'
+                            }}
+                        >
+                            ×
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal vidéo en plein écran */}
+            {selectedVideo && (
+                <div 
+                    style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        backgroundColor: 'rgba(0, 0, 0, 0.95)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        zIndex: 10000,
+                        padding: '20px'
+                    }}
+                    onClick={() => setSelectedVideo(null)}
+                >
+                    <div style={{
+                        position: 'relative',
+                        maxWidth: '100%',
+                        maxHeight: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                    }}>
+                        <video 
+                            src={selectedVideo}
+                            controls
+                            autoPlay
+                            muted
+                            playsInline
+                            style={{
+                                maxWidth: '100%',
+                                maxHeight: '100%',
+                                borderRadius: '8px'
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                        />
+                        <button
+                            onClick={() => setSelectedVideo(null)}
                             style={{
                                 position: 'absolute',
                                 top: '10px',
