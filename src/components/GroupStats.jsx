@@ -95,7 +95,10 @@ export default function GroupStats({ groupId }) {
         <div style={{
             backgroundColor: 'rgba(255, 255, 255, 0.05)',
             borderRadius: '15px',
-            padding: '20px'
+            padding: 'clamp(16px, 5vw, 20px)',
+            margin: '0 auto',
+            maxWidth: '100%',
+            boxSizing: 'border-box'
         }}>
             {/* En-tête du groupe */}
             <div style={{
@@ -104,21 +107,34 @@ export default function GroupStats({ groupId }) {
                 paddingBottom: '20px',
                 borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
             }}>
-                <h2 style={{ color: 'white', margin: 0, marginBottom: '8px' }}>
+                <h2 style={{ 
+                    color: 'white', 
+                    margin: 0, 
+                    marginBottom: '8px',
+                    fontSize: 'clamp(18px, 5vw, 24px)',
+                    lineHeight: '1.2'
+                }}>
                     👥 {groupData.name}
                 </h2>
                 {groupData.description && (
-                    <p style={{ color: '#9ca3af', fontSize: '14px', margin: 0 }}>
+                    <p style={{ 
+                        color: '#9ca3af', 
+                        fontSize: 'clamp(12px, 3.5vw, 14px)', 
+                        margin: 0,
+                        lineHeight: '1.4',
+                        padding: '0 10px'
+                    }}>
                         {groupData.description}
                     </p>
                 )}
                 <div style={{
                     display: 'flex',
                     justifyContent: 'center',
-                    gap: '20px',
+                    gap: 'clamp(15px, 4vw, 20px)',
                     marginTop: '15px',
-                    fontSize: '14px',
-                    color: '#ccc'
+                    fontSize: 'clamp(12px, 3.5vw, 14px)',
+                    color: '#ccc',
+                    flexWrap: 'wrap'
                 }}>
                     <span>👥 {groupData.members.length} membres</span>
                     <span>📅 Créé le {groupData.createdAt?.toDate?.()?.toLocaleDateString?.() || 'N/A'}</span>
@@ -129,94 +145,153 @@ export default function GroupStats({ groupId }) {
             <div style={{
                 backgroundColor: 'rgba(255, 255, 255, 0.05)',
                 borderRadius: '12px',
-                padding: '20px',
+                padding: 'clamp(16px, 5vw, 20px)',
                 marginBottom: '25px'
             }}>
-                <h3 style={{ color: '#ccc', marginBottom: '20px', textAlign: 'center' }}>
+                <h3 style={{ 
+                    color: '#ccc', 
+                    marginBottom: '20px', 
+                    textAlign: 'center',
+                    fontSize: 'clamp(16px, 4.5vw, 18px)'
+                }}>
                     📊 Statistiques cumulées du groupe
                 </h3>
                 
                 <div style={{
                     display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
-                    gap: '15px'
+                    gridTemplateColumns: 'repeat(2, 1fr)',
+                    gap: 'clamp(12px, 3vw, 15px)'
                 }}>
                     <div style={{
                         backgroundColor: 'rgba(16, 185, 129, 0.1)',
                         border: '1px solid #10b981',
                         borderRadius: '8px',
-                        padding: '15px',
+                        padding: 'clamp(12px, 4vw, 15px)',
                         textAlign: 'center'
                     }}>
-                        <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#10b981' }}>
+                        <div style={{ 
+                            fontSize: 'clamp(20px, 6vw, 24px)', 
+                            fontWeight: 'bold', 
+                            color: '#10b981',
+                            lineHeight: '1.2'
+                        }}>
                             {stats.totalDrinks || 0}
                         </div>
-                        <div style={{ fontSize: '12px', color: '#9ca3af' }}>Verres total</div>
+                        <div style={{ 
+                            fontSize: 'clamp(10px, 3vw, 12px)', 
+                            color: '#9ca3af',
+                            marginTop: '4px'
+                        }}>Verres total</div>
                     </div>
 
                     <div style={{
                         backgroundColor: 'rgba(139, 92, 246, 0.1)',
                         border: '1px solid #8b5cf6',
                         borderRadius: '8px',
-                        padding: '15px',
+                        padding: 'clamp(12px, 4vw, 15px)',
                         textAlign: 'center'
                     }}>
-                        <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#8b5cf6' }}>
+                        <div style={{ 
+                            fontSize: 'clamp(20px, 6vw, 24px)', 
+                            fontWeight: 'bold', 
+                            color: '#8b5cf6',
+                            lineHeight: '1.2'
+                        }}>
                             {stats.totalParties || 0}
                         </div>
-                        <div style={{ fontSize: '12px', color: '#9ca3af' }}>Soirées total</div>
+                        <div style={{ 
+                            fontSize: 'clamp(10px, 3vw, 12px)', 
+                            color: '#9ca3af',
+                            marginTop: '4px'
+                        }}>Soirées total</div>
                     </div>
 
                     <div style={{
                         backgroundColor: 'rgba(59, 130, 246, 0.1)',
                         border: '1px solid #3b82f6',
                         borderRadius: '8px',
-                        padding: '15px',
+                        padding: 'clamp(12px, 4vw, 15px)',
                         textAlign: 'center'
                     }}>
-                        <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#3b82f6' }}>
+                        <div style={{ 
+                            fontSize: 'clamp(20px, 6vw, 24px)', 
+                            fontWeight: 'bold', 
+                            color: '#3b82f6',
+                            lineHeight: '1.2'
+                        }}>
                             {Math.round((stats.totalVolume || 0) / 100) / 10}L
                         </div>
-                        <div style={{ fontSize: '12px', color: '#9ca3af' }}>Volume total</div>
+                        <div style={{ 
+                            fontSize: 'clamp(10px, 3vw, 12px)', 
+                            color: '#9ca3af',
+                            marginTop: '4px'
+                        }}>Volume total</div>
                     </div>
 
                     <div style={{
                         backgroundColor: 'rgba(245, 158, 11, 0.1)',
                         border: '1px solid #f59e0b',
                         borderRadius: '8px',
-                        padding: '15px',
+                        padding: 'clamp(12px, 4vw, 15px)',
                         textAlign: 'center'
                     }}>
-                        <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#f59e0b' }}>
+                        <div style={{ 
+                            fontSize: 'clamp(20px, 6vw, 24px)', 
+                            fontWeight: 'bold', 
+                            color: '#f59e0b',
+                            lineHeight: '1.2'
+                        }}>
                             {stats.challengesCompleted || 0}
                         </div>
-                        <div style={{ fontSize: '12px', color: '#9ca3af' }}>Défis complétés</div>
+                        <div style={{ 
+                            fontSize: 'clamp(10px, 3vw, 12px)', 
+                            color: '#9ca3af',
+                            marginTop: '4px'
+                        }}>Défis complétés</div>
                     </div>
 
                     <div style={{
                         backgroundColor: 'rgba(239, 68, 68, 0.1)',
                         border: '1px solid #ef4444',
                         borderRadius: '8px',
-                        padding: '15px',
+                        padding: 'clamp(12px, 4vw, 15px)',
                         textAlign: 'center'
                     }}>
-                        <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#ef4444' }}>
+                        <div style={{ 
+                            fontSize: 'clamp(20px, 6vw, 24px)', 
+                            fontWeight: 'bold', 
+                            color: '#ef4444',
+                            lineHeight: '1.2'
+                        }}>
                             {stats.totalVomi || 0}
                         </div>
-                        <div style={{ fontSize: '12px', color: '#9ca3af' }}>Vomis 🤮</div>
+                        <div style={{ 
+                            fontSize: 'clamp(10px, 3vw, 12px)', 
+                            color: '#9ca3af',
+                            marginTop: '4px'
+                        }}>Vomis 🤮</div>
                     </div>
 
                     <div style={{
                         backgroundColor: 'rgba(168, 85, 247, 0.1)',
                         border: '1px solid #a855f7',
                         borderRadius: '8px',
-                        padding: '15px',
+                        padding: 'clamp(12px, 4vw, 15px)',
                         textAlign: 'center'
                     }}>
-                        <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#a855f7' }}>
+                        <div style={{ 
+                            fontSize: 'clamp(20px, 6vw, 24px)', 
+                            fontWeight: 'bold', 
+                            color: '#a855f7',
+                            lineHeight: '1.2'
+                        }}>
                             {stats.totalBadges || 0}
                         </div>
-                        <div style={{ fontSize: '12px', color: '#9ca3af' }}>Badges total</div>
+                        <div style={{ 
+                            fontSize: 'clamp(10px, 3vw, 12px)', 
+                            color: '#9ca3af',
+                            marginTop: '4px'
+                        }}>Badges total</div>
                     </div>
                 </div>
             </div>
@@ -254,61 +329,69 @@ export default function GroupStats({ groupId }) {
                                     style={{
                                         backgroundColor: 'rgba(255, 255, 255, 0.05)',
                                         borderRadius: '8px',
-                                        padding: 'clamp(12px, 4vw, 15px)',
+                                        padding: 'clamp(16px, 4vw, 20px)',
                                         display: 'flex',
                                         flexDirection: 'row',
                                         justifyContent: 'space-between',
-                                        alignItems: 'center',
+                                        alignItems: 'flex-start',
                                         width: '100%',
                                         boxSizing: 'border-box',
-                                        gap: 'clamp(8px, 3vw, 15px)'
+                                        gap: 'clamp(12px, 4vw, 16px)',
+                                        minHeight: 'clamp(70px, 18vw, 90px)'
                                     }}
                                 >
                                     <div style={{ 
                                         display: 'flex', 
-                                        alignItems: 'center', 
-                                        gap: 'clamp(10px, 4vw, 15px)',
+                                        alignItems: 'flex-start', 
+                                        gap: 'clamp(12px, 4vw, 16px)',
                                         flex: 1,
-                                        minWidth: 0 // Permet la compression du texte si nécessaire
+                                        minWidth: 0
                                     }}>
                                         <div style={{
                                             backgroundColor: index === 0 ? '#fbbf24' : 
                                                            index === 1 ? '#9ca3af' : 
                                                            index === 2 ? '#cd7c2f' : '#4b5563',
                                             borderRadius: '50%',
-                                            width: 'clamp(26px, 8vw, 30px)',
-                                            height: 'clamp(26px, 8vw, 30px)',
+                                            width: 'clamp(32px, 9vw, 36px)',
+                                            height: 'clamp(32px, 9vw, 36px)',
                                             display: 'flex',
                                             alignItems: 'center',
                                             justifyContent: 'center',
-                                            fontSize: 'clamp(12px, 3.5vw, 14px)',
+                                            fontSize: 'clamp(14px, 4vw, 16px)',
                                             fontWeight: 'bold',
                                             color: 'white',
-                                            flexShrink: 0 // Empêche la compression du numéro
+                                            flexShrink: 0,
+                                            marginTop: '4px'
                                         }}>
                                             {index + 1}
                                         </div>
                                         <div style={{ 
                                             flex: 1,
                                             minWidth: 0,
-                                            overflow: 'hidden'
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            justifyContent: 'flex-start',
+                                            paddingTop: '4px'
                                         }}>
                                             <div style={{ 
                                                 color: 'white', 
                                                 fontWeight: 'bold', 
-                                                fontSize: 'clamp(14px, 4vw, 16px)',
-                                                lineHeight: '1.2',
+                                                fontSize: 'clamp(16px, 4.5vw, 18px)',
+                                                lineHeight: '1.3',
+                                                marginBottom: '6px',
                                                 wordWrap: 'break-word',
-                                                overflowWrap: 'break-word',
-                                                wordBreak: 'break-word',
-                                                hyphens: 'auto'
+                                                overflowWrap: 'anywhere',
+                                                hyphens: 'auto',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                flexWrap: 'wrap',
+                                                gap: '4px'
                                             }}>
-                                                {member.username || 'Utilisateur'}
+                                                <span>{member.username || 'Utilisateur'}</span>
                                                 {isAdmin && (
                                                     <span style={{ 
                                                         color: '#fbbf24', 
-                                                        fontSize: 'clamp(10px, 3vw, 12px)', 
-                                                        marginLeft: '8px' 
+                                                        fontSize: 'clamp(12px, 3.5vw, 14px)'
                                                     }}>
                                                         👑
                                                     </span>
@@ -316,12 +399,10 @@ export default function GroupStats({ groupId }) {
                                             </div>
                                             <div style={{ 
                                                 color: '#9ca3af', 
-                                                fontSize: 'clamp(10px, 3vw, 12px)',
-                                                lineHeight: '1.2',
+                                                fontSize: 'clamp(12px, 3.5vw, 14px)',
+                                                lineHeight: '1.3',
                                                 wordWrap: 'break-word',
-                                                overflowWrap: 'break-word',
-                                                wordBreak: 'break-word',
-                                                hyphens: 'auto'
+                                                overflowWrap: 'anywhere'
                                             }}>
                                                 {levelInfo.levelName}
                                             </div>
@@ -331,22 +412,30 @@ export default function GroupStats({ groupId }) {
                                     <div style={{ 
                                         textAlign: 'right',
                                         flexShrink: 0,
-                                        marginLeft: 'clamp(8px, 3vw, 10px)'
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        alignItems: 'flex-end',
+                                        justifyContent: 'flex-start',
+                                        paddingTop: '4px',
+                                        minWidth: 'clamp(70px, 22vw, 90px)'
                                     }}>
                                         <div style={{ 
                                             color: 'white', 
                                             fontWeight: 'bold',
-                                            fontSize: 'clamp(13px, 3.5vw, 14px)'
+                                            fontSize: 'clamp(14px, 4vw, 16px)',
+                                            lineHeight: '1.3',
+                                            marginBottom: '4px'
                                         }}>
                                             {levelInfo.currentXp} XP
                                         </div>
                                         <div style={{ 
                                             color: '#9ca3af', 
-                                            fontSize: 'clamp(10px, 3vw, 12px)',
+                                            fontSize: 'clamp(11px, 3vw, 12px)',
+                                            lineHeight: '1.3',
                                             display: 'flex',
-                                            gap: 'clamp(6px, 2vw, 10px)',
-                                            justifyContent: 'flex-end',
-                                            flexWrap: 'wrap'
+                                            flexDirection: 'column',
+                                            alignItems: 'flex-end',
+                                            gap: '2px'
                                         }}>
                                             <span>🍺 {member.totalDrinks || 0}</span>
                                             <span>🎉 {member.totalParties || 0}</span>
