@@ -354,19 +354,37 @@ const FeedPage = () => {
                             padding: '12px',
                             marginBottom: '8px',
                             display: 'flex',
-                            gap: '10px'
+                            gap: '10px',
+                            width: '100%',
+                            maxWidth: '100%',
+                            overflow: 'hidden' // Empêche le débordement
                         }}>
-                            <UserAvatar user={commentUser} size={24} />
-                            <div style={{ flex: 1 }}>
+                            <UserAvatar user={commentUser} size={24} style={{ flexShrink: 0 }} />
+                            <div style={{ 
+                                flex: 1, 
+                                minWidth: 0, // Permet la compression du contenu
+                                overflow: 'hidden'
+                            }}>
                                 <div style={{ 
                                     color: '#60a5fa', 
-                                    fontSize: '12px', 
+                                    fontSize: 'clamp(11px, 3vw, 12px)', // Responsive
                                     fontWeight: '600', 
-                                    marginBottom: '4px' 
+                                    marginBottom: '4px',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap' // Tronque si trop long
                                 }}>
                                     {comment.username}
                                 </div>
-                                <div style={{ color: 'white', fontSize: '14px' }}>
+                                <div style={{ 
+                                    color: 'white', 
+                                    fontSize: 'clamp(13px, 3.5vw, 14px)', // Responsive
+                                    lineHeight: '1.4',
+                                    wordWrap: 'break-word',
+                                    overflowWrap: 'break-word',
+                                    wordBreak: 'break-word',
+                                    hyphens: 'auto' // Césure automatique
+                                }}>
                                     {comment.text || comment.content}
                                 </div>
                             </div>
@@ -378,8 +396,10 @@ const FeedPage = () => {
                 <div style={{ 
                     display: 'flex', 
                     gap: '8px', 
-                    marginTop: '8px',
-                    width: '100%'
+                    marginTop: '12px',
+                    width: '100%',
+                    maxWidth: '100%',
+                    overflow: 'hidden' // Empêche le débordement
                 }}>
                     <input
                         type="text"
@@ -394,13 +414,15 @@ const FeedPage = () => {
                         style={{
                             flex: 1,
                             minWidth: 0, // Important pour éviter le débordement
-                            padding: '8px 12px',
+                            maxWidth: '100%',
+                            padding: 'clamp(6px, 2vw, 8px) clamp(8px, 3vw, 12px)', // Responsive padding
                             backgroundColor: 'rgba(255, 255, 255, 0.1)',
                             border: '1px solid rgba(255, 255, 255, 0.2)',
                             borderRadius: '6px',
                             color: 'white',
-                            fontSize: '14px',
-                            outline: 'none'
+                            fontSize: 'clamp(12px, 3.5vw, 14px)', // Responsive font size
+                            outline: 'none',
+                            boxSizing: 'border-box' // Inclut padding/border dans la largeur
                         }}
                     />
                     <button
@@ -413,15 +435,16 @@ const FeedPage = () => {
                             }
                         }}
                         style={{
-                            padding: '8px 16px',
+                            padding: 'clamp(6px, 2vw, 8px) clamp(12px, 4vw, 16px)', // Responsive padding
                             backgroundColor: '#3b82f6',
                             border: 'none',
                             borderRadius: '6px',
                             color: 'white',
-                            fontSize: '12px',
+                            fontSize: 'clamp(11px, 3vw, 12px)', // Responsive font size
                             cursor: 'pointer',
                             whiteSpace: 'nowrap',
-                            flexShrink: 0 // Empêche le bouton de rétrécir
+                            flexShrink: 0, // Empêche le bouton de rétrécir
+                            minWidth: 'clamp(40px, 12vw, 60px)' // Taille minimum responsive
                         }}
                     >
                         📨
@@ -462,32 +485,50 @@ const FeedPage = () => {
                 <div style={{
                     display: 'flex',
                     alignItems: 'center',
-                    marginBottom: '16px'
+                    marginBottom: '16px',
+                    width: '100%',
+                    maxWidth: '100%',
+                    overflow: 'hidden'
                 }}>
                     <UserAvatar 
                         user={item.isOwn ? userProfile : friendsData[item.userId]}
                         size={40}
-                        style={{ marginRight: '12px' }}
+                        style={{ marginRight: '12px', flexShrink: 0 }}
                     />
-                    <div style={{ flex: 1 }}>
+                    <div style={{ 
+                        flex: 1, 
+                        minWidth: 0, // Permet la compression
+                        overflow: 'hidden'
+                    }}>
                         <div style={{ 
                             color: 'white', 
                             fontWeight: '600', 
-                            fontSize: '16px',
+                            fontSize: 'clamp(14px, 4vw, 16px)', // Responsive font size
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '8px'
+                            gap: '6px',
+                            flexWrap: 'wrap', // Permet le passage à la ligne
+                            overflow: 'hidden'
                         }}>
-                            {item.isOwn ? 'Vous' : item.username}
+                            <span style={{
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                                maxWidth: '150px' // Limite la largeur du nom
+                            }}>
+                                {item.isOwn ? 'Vous' : item.username}
+                            </span>
                             {/* Indicateur de photos */}
                             {(party.photoURLs && party.photoURLs.length > 0) && (
                                 <span style={{
                                     backgroundColor: '#8b45ff',
                                     color: 'white',
-                                    fontSize: '10px',
-                                    padding: '2px 6px',
-                                    borderRadius: '8px',
-                                    fontWeight: '600'
+                                    fontSize: 'clamp(9px, 2.5vw, 10px)', // Responsive
+                                    padding: '2px 4px',
+                                    borderRadius: '6px',
+                                    fontWeight: '600',
+                                    flexShrink: 0,
+                                    whiteSpace: 'nowrap'
                                 }}>
                                     📸 {party.photoURLs.length}
                                 </span>
@@ -497,10 +538,12 @@ const FeedPage = () => {
                                 <span style={{
                                     backgroundColor: '#ef4444',
                                     color: 'white',
-                                    fontSize: '10px',
-                                    padding: '2px 6px',
-                                    borderRadius: '8px',
-                                    fontWeight: '600'
+                                    fontSize: 'clamp(9px, 2.5vw, 10px)', // Responsive
+                                    padding: '2px 4px',
+                                    borderRadius: '6px',
+                                    fontWeight: '600',
+                                    flexShrink: 0,
+                                    whiteSpace: 'nowrap'
                                 }}>
                                     🎥 {party.videoURLs.length}
                                 </span>
@@ -510,18 +553,30 @@ const FeedPage = () => {
                                 <span style={{
                                     backgroundColor: '#8b45ff',
                                     color: 'white',
-                                    fontSize: '10px',
-                                    padding: '2px 6px',
-                                    borderRadius: '8px',
-                                    fontWeight: '600'
+                                    fontSize: 'clamp(9px, 2.5vw, 10px)', // Responsive
+                                    padding: '2px 4px',
+                                    borderRadius: '6px',
+                                    fontWeight: '600',
+                                    flexShrink: 0,
+                                    whiteSpace: 'nowrap'
                                 }}>
                                     📸 1
                                 </span>
                             )}
                         </div>
-                        <div style={{ color: '#9ca3af', fontSize: '14px', display: 'flex', alignItems: 'center' }}>
-                            <Calendar size={14} style={{ marginRight: '4px' }} />
-                            {item.isOwn ? 'avez fait une soirée' : 'a fait une soirée'} • {timeAgo}
+                        <div style={{ 
+                            color: '#9ca3af', 
+                            fontSize: 'clamp(12px, 3.5vw, 14px)', // Responsive
+                            display: 'flex', 
+                            alignItems: 'center',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap'
+                        }}>
+                            <Calendar size={14} style={{ marginRight: '4px', flexShrink: 0 }} />
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {item.isOwn ? 'avez fait une soirée' : 'a fait une soirée'} • {timeAgo}
+                            </span>
                         </div>
                     </div>
                 </div>
@@ -530,33 +585,66 @@ const FeedPage = () => {
                 <div style={{
                     backgroundColor: 'rgba(0, 0, 0, 0.3)',
                     borderRadius: '12px',
-                    padding: '16px',
-                    marginBottom: '12px'
+                    padding: 'clamp(12px, 4vw, 16px)', // Responsive padding
+                    marginBottom: '12px',
+                    width: '100%',
+                    maxWidth: '100%',
+                    overflow: 'hidden',
+                    boxSizing: 'border-box'
                 }}>
                     <h4 style={{
                         color: 'white',
-                        fontSize: '16px',
+                        fontSize: 'clamp(14px, 4vw, 16px)', // Responsive
                         fontWeight: '600',
-                        margin: '0 0 12px 0'
+                        margin: '0 0 12px 0',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        wordWrap: 'break-word'
                     }}>
                         {party.category} - {party.date}
                     </h4>
 
                     <div style={{
                         display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
-                        gap: '12px'
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', // Plus petit minmax pour mobile
+                        gap: 'clamp(8px, 3vw, 12px)', // Responsive gap
+                        width: '100%'
                     }}>
-                        <div style={{ color: '#9ca3af', fontSize: '14px' }}>
+                        <div style={{ 
+                            color: '#9ca3af', 
+                            fontSize: 'clamp(12px, 3.5vw, 14px)', // Responsive
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap'
+                        }}>
                             🍺 {totalDrinks} boissons
                         </div>
-                        <div style={{ color: '#9ca3af', fontSize: '14px' }}>
+                        <div style={{ 
+                            color: '#9ca3af', 
+                            fontSize: 'clamp(12px, 3.5vw, 14px)', // Responsive
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap'
+                        }}>
                             👥 {party.girlsTalkedTo || 0} filles
                         </div>
-                        <div style={{ color: '#9ca3af', fontSize: '14px' }}>
+                        <div style={{ 
+                            color: '#9ca3af', 
+                            fontSize: 'clamp(12px, 3.5vw, 14px)', // Responsive
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap'
+                        }}>
                             🤮 {party.vomi || 0} vomis
                         </div>
-                        <div style={{ color: '#9ca3af', fontSize: '14px' }}>
+                        <div style={{ 
+                            color: '#9ca3af', 
+                            fontSize: 'clamp(12px, 3.5vw, 14px)', // Responsive
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap'
+                        }}>
                             👊 {party.fights || 0} bagarres
                         </div>
                     </div>
@@ -566,14 +654,23 @@ const FeedPage = () => {
                             backgroundColor: 'rgba(139, 69, 255, 0.1)',
                             border: '1px solid rgba(139, 69, 255, 0.3)',
                             borderRadius: '8px',
-                            padding: '12px',
-                            marginTop: '12px'
+                            padding: 'clamp(10px, 3vw, 12px)', // Responsive padding
+                            marginTop: '12px',
+                            width: '100%',
+                            maxWidth: '100%',
+                            overflow: 'hidden',
+                            boxSizing: 'border-box'
                         }}>
                             <p style={{
                                 color: '#c4b5fd',
-                                fontSize: '14px',
+                                fontSize: 'clamp(12px, 3.5vw, 14px)', // Responsive
                                 fontStyle: 'italic',
-                                margin: 0
+                                margin: 0,
+                                lineHeight: '1.4',
+                                wordWrap: 'break-word',
+                                overflowWrap: 'break-word',
+                                wordBreak: 'break-word',
+                                hyphens: 'auto'
                             }}>
                                 "{party.summary}"
                             </p>
@@ -780,23 +877,38 @@ const FeedPage = () => {
                 )}
 
                 {/* Actions */}
-                <div style={{ display: 'flex', gap: '16px', paddingTop: '8px' }}>
+                <div style={{ 
+                    display: 'flex', 
+                    gap: 'clamp(8px, 4vw, 16px)', // Responsive gap
+                    paddingTop: '8px',
+                    flexWrap: 'wrap', // Permet le passage à la ligne
+                    width: '100%',
+                    maxWidth: '100%',
+                    overflow: 'hidden'
+                }}>
                     <button 
                         onClick={() => handleInteraction(item.id, 'like')}
                         style={{
                             background: 'none',
                             border: 'none',
                             color: hasUserInteracted(item.id, 'like') ? '#ef4444' : '#9ca3af',
-                            fontSize: '14px',
+                            fontSize: 'clamp(12px, 3.5vw, 14px)', // Responsive
                             cursor: 'pointer',
                             display: 'flex',
                             alignItems: 'center',
                             gap: '4px',
-                            transition: 'color 0.2s ease'
+                            transition: 'color 0.2s ease',
+                            padding: 'clamp(4px, 2vw, 8px)', // Responsive padding
+                            minHeight: '44px', // Touch-friendly
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis'
                         }}
                     >
-                        <Heart size={16} fill={hasUserInteracted(item.id, 'like') ? '#ef4444' : 'none'} />
-                        J'aime {interactions[item.id]?.likes?.length > 0 && `(${interactions[item.id].likes.length})`}
+                        <Heart size={16} fill={hasUserInteracted(item.id, 'like') ? '#ef4444' : 'none'} style={{ flexShrink: 0 }} />
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            J'aime {interactions[item.id]?.likes?.length > 0 && `(${interactions[item.id].likes.length})`}
+                        </span>
                     </button>
                     
                     <button 
@@ -805,15 +917,22 @@ const FeedPage = () => {
                             background: 'none',
                             border: 'none',
                             color: interactions[item.id]?.comments?.length > 0 ? '#60a5fa' : '#9ca3af',
-                            fontSize: '14px',
+                            fontSize: 'clamp(12px, 3.5vw, 14px)', // Responsive
                             cursor: 'pointer',
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '4px'
+                            gap: '4px',
+                            padding: 'clamp(4px, 2vw, 8px)', // Responsive padding
+                            minHeight: '44px', // Touch-friendly
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis'
                         }}
                     >
-                        <MessageCircle size={16} />
-                        Commenter {interactions[item.id]?.comments?.length > 0 && `(${interactions[item.id].comments.length})`}
+                        <MessageCircle size={16} style={{ flexShrink: 0 }} />
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            Commenter {interactions[item.id]?.comments?.length > 0 && `(${interactions[item.id].comments.length})`}
+                        </span>
                     </button>
                 </div>
 
@@ -896,65 +1015,6 @@ const FeedPage = () => {
                 </h2>
                 
                 <div style={{ display: 'flex', gap: '8px' }}>
-                    <button 
-                        onClick={() => {
-                            console.log('🔄 Rechargement feed complet...');
-                            loadFeed();
-                        }}
-                        style={{
-                            padding: '8px 12px',
-                            backgroundColor: '#8b45ff',
-                            border: 'none',
-                            borderRadius: '8px',
-                            color: 'white',
-                            fontSize: '12px',
-                            cursor: 'pointer'
-                        }}
-                    >
-                        🎥 Recharger Feed
-                    </button>
-                    
-                    <button 
-                        onClick={() => {
-                            console.log('🔄 Rechargement interactions...');
-                            feedItems.forEach(item => loadInteractions(item.id));
-                        }}
-                        style={{
-                            padding: '8px 12px',
-                            backgroundColor: '#10b981',
-                            border: 'none',
-                            borderRadius: '8px',
-                            color: 'white',
-                            fontSize: '12px',
-                            cursor: 'pointer'
-                        }}
-                    >
-                        🔄 Recharger
-                    </button>
-                    
-                    <button 
-                        onClick={() => {
-                            console.log('👁️ AFFICHAGE AUTOMATIQUE DES COMMENTAIRES');
-                            Object.keys(interactions).forEach(itemId => {
-                                if (interactions[itemId]?.comments?.length > 0) {
-                                    console.log(`Ouverture commentaires pour ${itemId}:`, interactions[itemId].comments.length);
-                                    setShowComments(prev => ({ ...prev, [itemId]: true }));
-                                }
-                            });
-                        }}
-                        style={{
-                            padding: '8px 12px',
-                            backgroundColor: '#3b82f6',
-                            border: 'none',
-                            borderRadius: '8px',
-                            color: 'white',
-                            fontSize: '12px',
-                            cursor: 'pointer'
-                        }}
-                    >
-                        👁️ Voir Commentaires ({Object.keys(interactions).filter(id => interactions[id]?.comments?.length > 0).length})
-                    </button>
-                    
                     <button 
                         onClick={async () => {
                             setRefreshing(true);

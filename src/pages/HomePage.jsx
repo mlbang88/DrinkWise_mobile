@@ -122,12 +122,13 @@ const HomePage = () => {
                     onClick={() => setShowAddPartyModal(true)}
                     className="w-full font-bold transition-transform transform active:scale-95 flex items-center justify-center shadow-lg"
                     style={{ 
-                        padding: '20px 24px',
+                        padding: 'clamp(16px, 5vw, 20px) clamp(20px, 6vw, 24px)',
                         backgroundColor: '#7c3aed',
                         color: 'white',
-                        fontSize: '1.125rem',
+                        fontSize: 'clamp(16px, 4.5vw, 18px)',
                         borderRadius: '12px',
-                        border: 'none'
+                        border: 'none',
+                        minHeight: '44px'
                     }}
                 >
                     <PlusCircle size={24} className="flex-shrink-0" style={{ color: 'white', marginRight: '12px' }} /> 
@@ -138,24 +139,49 @@ const HomePage = () => {
             {/* Stats et Badges */}
             <div className="mobile-grid">
                 <div className={`mobile-card p-6 ${containerClassName}`} style={{ ...containerStyle, border: '2px solid rgba(255, 255, 255, 0.2)' }}>
-                    <ThemedText style={{ fontSize: '1.25rem', fontWeight: 'bold', marginBottom: '16px', textAlign: 'center' }}>
+                    <ThemedText style={{ 
+                        fontSize: 'clamp(16px, 4.5vw, 20px)', 
+                        fontWeight: 'bold', 
+                        marginBottom: '16px', 
+                        textAlign: 'center' 
+                    }}>
                         📊 Semaine
                     </ThemedText>
                     {weeklyStats && weeklyStats.totalParties > 0 ? (
                         <div className="space-y-3">
-                            <ThemedText style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.95rem' }}>
+                            <ThemedText style={{ 
+                                display: 'flex', 
+                                justifyContent: 'space-between', 
+                                fontSize: 'clamp(13px, 3.5vw, 15px)' 
+                            }}>
                                 <span>🎉 Soirées :</span> <span style={{ fontWeight: 'bold' }}>{weeklyStats.totalParties}</span>
                             </ThemedText>
-                            <ThemedText style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.95rem' }}>
+                            <ThemedText style={{ 
+                                display: 'flex', 
+                                justifyContent: 'space-between', 
+                                fontSize: 'clamp(13px, 3.5vw, 15px)' 
+                            }}>
                                 <span>🍻 Verres :</span> <span style={{ fontWeight: 'bold' }}>{weeklyStats.totalDrinks}</span>
                             </ThemedText>
-                            <ThemedText style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.95rem' }}>
+                            <ThemedText style={{ 
+                                display: 'flex', 
+                                justifyContent: 'space-between', 
+                                fontSize: 'clamp(13px, 3.5vw, 15px)' 
+                            }}>
                                 <span>🍺 Volume :</span> <span style={{ fontWeight: 'bold' }}>{weeklyStats.totalVolume ? `${(weeklyStats.totalVolume / 100).toFixed(1)}L` : '0L'}</span>
                             </ThemedText>
-                            <ThemedText style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.95rem' }}>
+                            <ThemedText style={{ 
+                                display: 'flex', 
+                                justifyContent: 'space-between', 
+                                fontSize: 'clamp(13px, 3.5vw, 15px)' 
+                            }}>
                                 <span>🥊 Bagarres :</span> <span style={{ fontWeight: 'bold' }}>{weeklyStats.totalFights}</span>
                             </ThemedText>
-                            <ThemedText style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.95rem' }}>
+                            <ThemedText style={{ 
+                                display: 'flex', 
+                                justifyContent: 'space-between', 
+                                fontSize: 'clamp(13px, 3.5vw, 15px)' 
+                            }}>
                                 <span>🤢 Vomis :</span> <span style={{ fontWeight: 'bold' }}>{weeklyStats.totalVomi}</span>
                             </ThemedText>
                         </div>

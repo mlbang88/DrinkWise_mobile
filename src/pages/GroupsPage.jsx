@@ -1,6 +1,5 @@
 // src/pages/GroupsPage.jsx
-import React, { useState } from 'react';
-import { useContext } from 'react';
+import React, { useState, useContext } from 'react';
 import { FirebaseContext } from '../contexts/FirebaseContext';
 import GroupManager from '../components/GroupManager';
 import GroupStats from '../components/GroupStats';
@@ -29,7 +28,7 @@ export default function GroupsPage() {
         <div style={{
             minHeight: '100vh',
             background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            padding: '20px'
+            padding: 'clamp(16px, 5vw, 20px)'
         }}>
             {/* En-tête */}
             <div style={{
@@ -37,7 +36,7 @@ export default function GroupsPage() {
             }}>
                 <h1 style={{
                     color: 'white',
-                    fontSize: '28px',
+                    fontSize: 'clamp(20px, 6vw, 28px)',
                     fontWeight: '600',
                     margin: '0 0 8px 0'
                 }}>
@@ -45,8 +44,10 @@ export default function GroupsPage() {
                 </h1>
                 <p style={{
                     color: '#ccc',
-                    fontSize: '16px',
-                    margin: 0
+                    fontSize: 'clamp(14px, 4vw, 16px)',
+                    margin: 0,
+                    wordWrap: 'break-word',
+                    overflowWrap: 'break-word'
                 }}>
                     Créez des groupes avec vos amis et suivez vos statistiques collectives !
                 </p>
@@ -68,14 +69,24 @@ export default function GroupsPage() {
                 <div style={{
                     backgroundColor: 'rgba(255, 255, 255, 0.05)',
                     borderRadius: '15px',
-                    padding: '40px',
+                    padding: 'clamp(32px, 8vw, 40px)',
                     textAlign: 'center',
                     color: '#9ca3af'
                 }}>
-                    <h3 style={{ color: '#ccc', marginBottom: '15px' }}>
+                    <h3 style={{ 
+                        color: '#ccc', 
+                        marginBottom: '15px',
+                        fontSize: 'clamp(16px, 4.5vw, 18px)'
+                    }}>
                         🎯 Sélectionnez un groupe
                     </h3>
-                    <p style={{ fontSize: '14px', margin: 0 }}>
+                    <p style={{ 
+                        fontSize: 'clamp(12px, 3.5vw, 14px)', 
+                        margin: 0,
+                        lineHeight: '1.4',
+                        wordWrap: 'break-word',
+                        overflowWrap: 'break-word'
+                    }}>
                         Choisissez un groupe ci-dessus pour voir ses statistiques détaillées et créer des défis collectifs.
                     </p>
                 </div>

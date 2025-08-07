@@ -482,16 +482,22 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    padding: '24px 24px 0 24px',
-                    marginBottom: '24px'
+                    padding: 'clamp(16px, 5vw, 24px) clamp(16px, 5vw, 24px) 0 clamp(16px, 5vw, 24px)', // Responsive padding
+                    marginBottom: 'clamp(16px, 5vw, 24px)', // Responsive margin
+                    flexWrap: 'wrap',
+                    gap: '8px'
                 }}>
                     <h2 style={{
                         color: 'white',
-                        fontSize: '24px',
+                        fontSize: 'clamp(18px, 5vw, 24px)', // Responsive font size
                         fontWeight: '600',
                         margin: 0,
                         textAlign: 'center',
-                        flex: 1
+                        flex: 1,
+                        minWidth: 0,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap'
                     }}>
                         {draftData ? '📝 Finaliser la Soirée' : 'Enregistrer une Soirée'}
                     </h2>

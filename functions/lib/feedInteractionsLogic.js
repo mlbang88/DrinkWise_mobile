@@ -7,6 +7,8 @@
  * @param {string} appId - ID de l'application
  * @returns {Promise<{likes: Array, congratulations: Array, comments: Array}>}
  */
+const notificationService = require('./notificationService');
+
 async function getFeedInteractionsLogic(db, currentUserId, itemId, appId) {
   if (!currentUserId) {
     throw new Error('Utilisateur non authentifié');
@@ -36,20 +38,28 @@ async function getFeedInteractionsLogic(db, currentUserId, itemId, appId) {
     const data = doc.data();
     const interactionUserId = data.userId;
 
-    // Vérifier visibilité : soi-même ou ami bidirectionnel
-    let canSeeInteraction = interactionUserId === currentUserId;
-    if (!canSeeInteraction && userFriends.includes(interactionUserId)) {
-      try {
-        const interactionUserStatsRef = db.doc(`artifacts/${appId}/public_user_stats/${interactionUserId}`);
-        const interactionUserStatsDoc = await interactionUserStatsRef.get();
-        if (interactionUserStatsDoc.exists) {
-          const interactionUserFriends = interactionUserStatsDoc.data().friends || [];
-          canSeeInteraction = interactionUserFriends.includes(currentUserId);
-        }
-      } catch {
-        canSeeInteraction = false;
-      }
+    // Logique de visibilité assouplie :
+    // 1. L'utilisateur peut toujours voir ses propres interactions
+    // 2. L'utilisateur peut voir les interactions de ses amis (même si pas bidirectionnel)
+    // 3. L'utilisateur peut voir les interactions sur ses propres posts (ownerId)
+    
+    let canSeeInteraction = false;
+    
+    // Cas 1: Ses propres interactions
+    if (interactionUserId === currentUserId) {
+      canSeeInteraction = true;
     }
+    // Cas 2: Interactions de ses amis 
+    else if (userFriends.includes(interactionUserId)) {
+      canSeeInteraction = true;
+    }
+    // Cas 3: Interactions sur ses propres posts (récupérer ownerId depuis l'item)
+    else {
+      // Pour plus de sécurité, on pourrait vérifier si c'est un commentaire sur son propre post
+      // Mais pour l'instant, on autorise la visibilité si l'utilisateur est ami
+      canSeeInteraction = false;
+    }
+    
     if (!canSeeInteraction) continue;
 
     // Ajouter l'interaction au bon tableau
@@ -69,4 +79,29 @@ async function getFeedInteractionsLogic(db, currentUserId, itemId, appId) {
   return interactions;
 }
 
-module.exports = { getFeedInteractionsLogic };
+/**
+ * Ajouter une interaction et déclencher une notification si approprié
+ */
+async function addInteractionWithNotification(db, appId, interactionData) {
+  try {
+    // Ajouter l'interaction
+    const interactionRef = await db.collection(`artifacts/${appId}/feed_interactions`).add(interactionData);
+    
+    // Déclencher la notification appropriée
+    if (interactionData.type === 'like') {
+      await notificationService.onLikeAdded(db, appId, interactionData);
+    } else if (interactionData.type === 'comment') {
+      await notificationService.onCommentAdded(db, appId, interactionData);
+    }
+    
+    return interactionRef;
+  } catch (error) {
+    console.error('❌ Erreur ajout interaction avec notification:', error);
+    throw error;
+  }
+}
+
+module.exports = { 
+  getFeedInteractionsLogic,
+  addInteractionWithNotification
+};

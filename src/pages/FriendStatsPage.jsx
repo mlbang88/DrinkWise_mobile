@@ -5,7 +5,7 @@ import { badgeList, gameplayConfig } from '../utils/data';
 import { badgeService } from '../services/badgeService';
 import LoadingSpinner from '../components/LoadingSpinner';
 
-export default function FriendStatsPage({ friendId, setCurrentPage }) {
+export default function FriendStatsPage({ friendId }) {
     const { db, user, appId, userProfile, setMessageBox } = useContext(FirebaseContext);
     const [friendStats, setFriendStats] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -17,8 +17,7 @@ export default function FriendStatsPage({ friendId, setCurrentPage }) {
         const parties = stats.totalParties || stats.parties || 0;
         const drinks = stats.totalDrinks || stats.drinks || 0;
         const defis = stats.challengesCompleted || stats.defis || 0;
-        const badges = stats.unlockedBadges?.length || stats.badgesUnlocked || stats.badges || 0;
-        
+        const badges = stats.badgesUnlocked || stats.badges || 0;
         const totalXp =
             parties * (gameplayConfig.xpParSoiree || gameplayConfig.xpPerParty || 0) +
             drinks * (gameplayConfig.xpParVerre || gameplayConfig.xpPerDrink || 0) +
@@ -56,6 +55,7 @@ export default function FriendStatsPage({ friendId, setCurrentPage }) {
 
         // Mettre à jour les stats publiques de l'utilisateur actuel si nécessaire
         if (user && userProfile) {
+            console.log("🔍 Vérification des stats publiques:", userProfile.publicStats);
             badgeService.updatePublicStats(db, user, appId, userProfile);
         }
 
@@ -64,6 +64,7 @@ export default function FriendStatsPage({ friendId, setCurrentPage }) {
             console.log("📊 Données ami reçues:", doc.exists(), doc.data());
             if (doc.exists()) {
                 const friendData = doc.data();
+                console.log("🏆 Badges ami:", friendData.unlockedBadges);
                 setFriendStats(friendData);
             } else {
                 console.log("❌ Document ami non trouvé pour:", friendId);
@@ -81,20 +82,15 @@ export default function FriendStatsPage({ friendId, setCurrentPage }) {
 
     if (loading) return <LoadingSpinner />;
 
+    // Fallback si stats absentes
     const userLevelInfo = calculateLevelInfo({
         totalParties: userProfile?.publicStats?.totalParties ?? 0,
-        totalDrinks: userProfile?.publicStats?.totalDrinks ?? 0,
-        challengesCompleted: userProfile?.publicStats?.challengesCompleted ?? 0,
-        unlockedBadges: userProfile?.publicStats?.unlockedBadges ?? userProfile?.unlockedBadges ?? [],
-        badgesUnlocked: userProfile?.publicStats?.badgesUnlocked ?? (userProfile?.unlockedBadges ? userProfile.unlockedBadges.length : 0)
+        totalDrinks: userProfile?.publicStats?.totalDrinks ?? 0
     });
 
     const friendLevelInfo = calculateLevelInfo({
         totalParties: friendStats?.totalParties ?? 0,
-        totalDrinks: friendStats?.totalDrinks ?? 0,
-        challengesCompleted: friendStats?.challengesCompleted ?? 0,
-        unlockedBadges: friendStats?.unlockedBadges ?? [],
-        badgesUnlocked: friendStats?.badgesUnlocked ?? (friendStats?.unlockedBadges ? friendStats.unlockedBadges.length : 0)
+        totalDrinks: friendStats?.totalDrinks ?? 0
     });
 
     return (
@@ -107,31 +103,25 @@ export default function FriendStatsPage({ friendId, setCurrentPage }) {
             <div style={{
                 display: 'flex',
                 alignItems: 'center',
+                justifyContent: 'space-between',
                 marginBottom: '20px',
                 color: 'white'
             }}>
-                <button
-                    onClick={() => setCurrentPage('friends')}
-                    style={{
-                        background: 'rgba(255, 255, 255, 0.2)',
-                        border: 'none',
-                        borderRadius: '8px',
-                        color: 'white',
-                        padding: '8px 12px',
-                        marginRight: '15px',
-                        cursor: 'pointer',
-                        fontSize: '16px'
-                    }}
-                >
-                    ← Retour
-                </button>
-                <h1 style={{
-                    fontSize: '24px',
-                    fontWeight: 'bold',
-                    margin: 0
-                }}>
+                <div style={{ textAlign: 'left' }}>
+                    <div style={{ fontSize: '1rem', color: '#10b981', fontWeight: 'bold' }}>Moi</div>
+                    <div style={{ fontSize: '1.1rem', color: '#a78bfa', fontWeight: 'bold' }}>
+                        Niveau {userLevelInfo.level + 1} - {userLevelInfo.levelName}
+                    </div>
+                </div>
+                <h1 style={{ fontSize: '24px', fontWeight: 'bold', margin: 0 }}>
                     🏆 Battle vs {friendStats?.username || 'Ami'}
                 </h1>
+                <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: '1rem', color: '#8b5cf6', fontWeight: 'bold' }}>{friendStats?.username}</div>
+                    <div style={{ fontSize: '1.1rem', color: '#a78bfa', fontWeight: 'bold' }}>
+                        Niveau {friendLevelInfo.level + 1} - {friendLevelInfo.levelName}
+                    </div>
+                </div>
             </div>
 
             {friendStats ? (
@@ -162,7 +152,7 @@ export default function FriendStatsPage({ friendId, setCurrentPage }) {
                             <div style={{ textAlign: 'center' }}>
                                 <div style={{ fontSize: '14px', color: '#10b981', marginBottom: '8px' }}>Vous</div>
                                 <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#10b981', marginBottom: '5px' }}>
-                                    {userLevelInfo.levelName}
+                                    Niveau {userLevelInfo.level + 1} - {userLevelInfo.levelName}
                                 </div>
                                 <div style={{ fontSize: '12px', color: '#9ca3af', marginBottom: '10px' }}>
                                     {userLevelInfo.currentXp} XP
@@ -199,7 +189,7 @@ export default function FriendStatsPage({ friendId, setCurrentPage }) {
                                     {friendStats.username}
                                 </div>
                                 <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#8b5cf6', marginBottom: '5px' }}>
-                                    {friendLevelInfo.levelName}
+                                    Niveau {friendLevelInfo.level + 1} - {friendLevelInfo.levelName}
                                 </div>
                                 <div style={{ fontSize: '12px', color: '#9ca3af', marginBottom: '10px' }}>
                                     {friendLevelInfo.currentXp} XP
@@ -271,76 +261,30 @@ export default function FriendStatsPage({ friendId, setCurrentPage }) {
                         gap: '15px',
                         marginBottom: '30px'
                     }}>
-                        <div style={{
-                            backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                            padding: '15px',
-                            borderRadius: '12px',
-                            textAlign: 'center'
-                        }}>
-                            <div style={{ fontSize: '18px', fontWeight: 'bold' }}>
-                                {userProfile?.publicStats?.totalParties || 0} vs {friendStats.totalParties || 0}
-                            </div>
+                        {/* Soirées */}
+                        <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.05)', padding: '15px', borderRadius: '12px', textAlign: 'center' }}>
+                            <div style={{ fontSize: '18px', fontWeight: 'bold' }}>{userProfile?.publicStats?.totalParties || 0} vs {friendStats.totalParties || 0}</div>
                             <div style={{ fontSize: '12px', color: '#9ca3af', marginTop: '5px' }}>Soirées</div>
                         </div>
-                        
-                        <div style={{
-                            backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                            padding: '15px',
-                            borderRadius: '12px',
-                            textAlign: 'center'
-                        }}>
-                            <div style={{ fontSize: '18px', fontWeight: 'bold' }}>
-                                {Math.round((userProfile?.publicStats?.totalVolume || 0) / 100) / 10}L vs {Math.round((friendStats.totalVolume || 0) / 100) / 10}L
-                            </div>
+                        {/* Verres */}
+                        <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.05)', padding: '15px', borderRadius: '12px', textAlign: 'center' }}>
+                            <div style={{ fontSize: '18px', fontWeight: 'bold' }}>{userProfile?.publicStats?.totalDrinks || 0} vs {friendStats.totalDrinks || 0}</div>
+                            <div style={{ fontSize: '12px', color: '#9ca3af', marginTop: '5px' }}>Verres</div>
+                        </div>
+                        {/* Volume */}
+                        <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.05)', padding: '15px', borderRadius: '12px', textAlign: 'center' }}>
+                            <div style={{ fontSize: '18px', fontWeight: 'bold' }}>{Math.round((userProfile?.publicStats?.totalVolume || 0) / 100) / 10}L vs {Math.round((friendStats.totalVolume || 0) / 100) / 10}L</div>
                             <div style={{ fontSize: '12px', color: '#9ca3af', marginTop: '5px' }}>Volume total</div>
                         </div>
-                        
-                        <div style={{
-                            backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                            padding: '15px',
-                            borderRadius: '12px',
-                            textAlign: 'center'
-                        }}>
-                            <div style={{ fontSize: '18px', fontWeight: 'bold' }}>
-                                {userProfile?.publicStats?.totalVomi || 0} vs {friendStats.totalVomi || 0}
-                            </div>
-                            <div style={{ fontSize: '12px', color: '#9ca3af', marginTop: '5px' }}>Vomis 🤮</div>
+                        {/* Bagarres */}
+                        <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.05)', padding: '15px', borderRadius: '12px', textAlign: 'center' }}>
+                            <div style={{ fontSize: '18px', fontWeight: 'bold' }}>{userProfile?.publicStats?.totalFights || 0} vs {friendStats.totalFights || 0}</div>
+                            <div style={{ fontSize: '12px', color: '#9ca3af', marginTop: '5px' }}>Bagarres</div>
                         </div>
-                        
-                        <div style={{
-                            backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                            padding: '15px',
-                            borderRadius: '12px',
-                            textAlign: 'center'
-                        }}>
-                            <div style={{ fontSize: '18px', fontWeight: 'bold' }}>
-                                {userProfile?.publicStats?.totalFights || 0} vs {friendStats.totalFights || 0}
-                            </div>
-                            <div style={{ fontSize: '12px', color: '#9ca3af', marginTop: '5px' }}>Bagarres 🥊</div>
-                        </div>
-                        
-                        <div style={{
-                            backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                            padding: '15px',
-                            borderRadius: '12px',
-                            textAlign: 'center'
-                        }}>
-                            <div style={{ fontSize: '18px', fontWeight: 'bold' }}>
-                                {userProfile?.publicStats?.totalRecal || 0} vs {friendStats.totalRecal || 0}
-                            </div>
-                            <div style={{ fontSize: '12px', color: '#9ca3af', marginTop: '5px' }}>Recalés 🚫</div>
-                        </div>
-                        
-                        <div style={{
-                            backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                            padding: '15px',
-                            borderRadius: '12px',
-                            textAlign: 'center'
-                        }}>
-                            <div style={{ fontSize: '18px', fontWeight: 'bold' }}>
-                                {userProfile?.publicStats?.challengesCompleted || 0} vs {friendStats.challengesCompleted || 0}
-                            </div>
-                            <div style={{ fontSize: '12px', color: '#9ca3af', marginTop: '5px' }}>Défis complétés ⚡</div>
+                        {/* Vomis */}
+                        <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.05)', padding: '15px', borderRadius: '12px', textAlign: 'center' }}>
+                            <div style={{ fontSize: '18px', fontWeight: 'bold' }}>{userProfile?.publicStats?.totalVomi || 0} vs {friendStats.totalVomi || 0}</div>
+                            <div style={{ fontSize: '12px', color: '#9ca3af', marginTop: '5px' }}>Vomis</div>
                         </div>
                     </div>
 
@@ -391,9 +335,15 @@ export default function FriendStatsPage({ friendId, setCurrentPage }) {
                             maxHeight: '300px',
                             overflowY: 'auto'
                         }}>
-                            {Object.entries(badgeList).map(([badgeId, badge]) => {
-                                const userHas = userProfile?.unlockedBadges?.includes(badgeId) || false;
-                                const friendHas = friendStats.unlockedBadges?.includes(badgeId) || false;
+                            {(() => {
+                                console.log("🎯 Debug badges:", {
+                                    userBadges: userProfile?.unlockedBadges,
+                                    friendBadges: friendStats.unlockedBadges,
+                                    friendStats: friendStats
+                                });
+                                return Object.entries(badgeList).map(([badgeId, badge]) => {
+                                    const userHas = userProfile?.unlockedBadges?.includes(badgeId) || false;
+                                    const friendHas = friendStats.unlockedBadges?.includes(badgeId) || false;
                                     
                                     let borderColor = 'rgba(75, 85, 99, 0.5)'; // Gris par défaut
                                     let bgColor = 'rgba(0, 0, 0, 0.3)';
@@ -442,7 +392,8 @@ export default function FriendStatsPage({ friendId, setCurrentPage }) {
                                             )}
                                         </div>
                                     );
-                                })}
+                                });
+                            })()}
                         </div>
                         
                         {/* Légende */}

@@ -880,6 +880,60 @@ exports.getFeedInteractions = onCall({
   }
 });
 
+// Fonction pour marquer toutes les notifications comme lues
+exports.markAllNotificationsAsRead = onCall({
+  region: 'us-central1',
+  cors: corsOptions
+}, async (request) => {
+  try {
+    // Vérifier l'authentification
+    if (!request.auth) {
+      throw new Error('Utilisateur non authentifié');
+    }
+
+    const { userId } = request.data;
+    const appId = 'drinkwise-mobile-app';
+    
+    // Vérifier que l'utilisateur peut modifier ses propres notifications
+    if (request.auth.uid !== userId) {
+      throw new Error('Vous ne pouvez modifier que vos propres notifications');
+    }
+
+    // Récupérer toutes les notifications non lues
+    const notificationsRef = db.collection(`artifacts/${appId}/users/${userId}/notifications`);
+    const unreadSnapshot = await notificationsRef
+      .where('read', '==', false)
+      .get();
+
+    if (unreadSnapshot.empty) {
+      return { success: true, message: 'Aucune notification à marquer' };
+    }
+
+    // Marquer toutes comme lues en batch
+    const batch = db.batch();
+    unreadSnapshot.docs.forEach(doc => {
+      batch.update(doc.ref, {
+        read: true,
+        readAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+    });
+
+    await batch.commit();
+
+    logger.info(`✅ ${unreadSnapshot.size} notifications marquées comme lues pour ${userId}`);
+    
+    return { 
+      success: true, 
+      count: unreadSnapshot.size,
+      message: `${unreadSnapshot.size} notifications marquées comme lues` 
+    };
+
+  } catch (error) {
+    logger.error('❌ Erreur markAllNotificationsAsRead:', error);
+    throw new Error(`Erreur: ${error.message}`);
+  }
+});
+
 // Fonction de test pour vérifier le fonctionnement
 exports.helloWorld = onRequest((request, response) => {
   corsHandler(request, response, () => {

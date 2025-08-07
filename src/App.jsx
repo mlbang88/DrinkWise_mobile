@@ -12,7 +12,7 @@ import HomePage from './pages/HomePage';
 import StatsPage from './pages/StatsPage';
 import BadgesPage from './pages/BadgesPage';
 import ChallengesPage from './pages/ChallengesPage';
-import FriendsPage from './pages/FriendsPage_NEW';
+import FriendsPage from './pages/FriendsPage';
 import ProfilePage from './pages/ProfilePage';
 import FriendStatsPage from './pages/FriendStatsPage';
 import FeedPage from './pages/FeedPage';
@@ -144,6 +144,7 @@ const AppContent = () => {
                     </footer>
                 </div>
             )}
+            
             <MessageBox 
                 message={messageBox.message} 
                 type={messageBox.type} 

@@ -308,7 +308,34 @@ body {
   word-wrap: break-word;
   overflow-wrap: break-word;
   word-break: break-word;
+  hyphens: auto;
 }
+
+/* Conteneurs flexibles qui évitent le débordement */
+.flex-no-overflow {
+  display: flex;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.flex-item-no-overflow {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* Texte responsive avec tailles optimisées mobile */
+.text-mobile-xs { font-size: clamp(10px, 2.5vw, 11px); line-height: 1.3; }
+.text-mobile-sm { font-size: clamp(11px, 3vw, 12px); line-height: 1.3; }
+.text-mobile-base { font-size: clamp(12px, 3.5vw, 14px); line-height: 1.4; }
+.text-mobile-lg { font-size: clamp(14px, 4vw, 16px); line-height: 1.4; }
+.text-mobile-xl { font-size: clamp(16px, 4.5vw, 18px); line-height: 1.4; }
+
+/* Padding mobile optimisé */
+.padding-mobile-xs { padding: clamp(4px, 2vw, 6px); }
+.padding-mobile-sm { padding: clamp(6px, 2vw, 8px); }
+.padding-mobile-base { padding: clamp(8px, 3vw, 12px); }
+.padding-mobile-lg { padding: clamp(12px, 4vw, 16px); }
 
 /* Safe area pour iPhone */
 @supports (padding: max(0px)) {
@@ -353,4 +380,167 @@ body {
   opacity: 1 !important;
   visibility: visible !important;
   display: block !important;
+}
+
+/* ===== ANIMATIONS POUR NOTIFICATIONS ===== */
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideOutRight {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+@keyframes notificationProgress {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0%;
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-2px); }
+  20%, 40%, 60%, 80% { transform: translateX(2px); }
+}
+
+@keyframes glow {
+  0%, 100% {
+    box-shadow: 0 0 5px rgba(59, 130, 246, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.6);
+  }
+}
+
+/* Classes pour les notifications */
+.notification-enter {
+  animation: slideInRight 0.3s ease-out forwards;
+}
+
+.notification-exit {
+  animation: slideOutRight 0.3s ease-out forwards;
+}
+
+.notification-shake {
+  animation: shake 0.5s ease-in-out;
+}
+
+.notification-pulse {
+  animation: pulse 1s ease-in-out infinite;
+}
+
+.notification-glow {
+  animation: glow 2s ease-in-out infinite;
+}
+
+.notification-progress {
+  animation: notificationProgress linear forwards;
+}
+
+/* Container pour notifications mobiles */
+.notification-container {
+  position: fixed;
+  top: env(safe-area-inset-top, 20px);
+  right: 1rem;
+  z-index: 9999;
+  pointer-events: none;
+  width: calc(100vw - 2rem);
+  max-width: 400px;
+}
+
+.notification-item {
+  pointer-events: auto;
+  margin-bottom: 0.5rem;
+  transform: translateX(100%);
+  opacity: 0;
+}
+
+.notification-item.show {
+  animation: slideInRight 0.3s ease-out forwards;
+}
+
+.notification-item.hide {
+  animation: slideOutRight 0.3s ease-out forwards;
+}
+
+/* Badge de notification */
+.notification-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 18px;
+  height: 18px;
+  background: #ef4444;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: bold;
+  animation: pulse 1s ease-in-out infinite;
+}
+
+/* Styles pour différents types de notifications */
+.notification-like {
+  border-left: 4px solid #f59e0b;
+}
+
+.notification-comment {
+  border-left: 4px solid #3b82f6;
+}
+
+.notification-friend {
+  border-left: 4px solid #10b981;
+}
+
+.notification-achievement {
+  border-left: 4px solid #8b5cf6;
+}
+
+/* Progress bar pour auto-close */
+.notification-progress-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #3b82f6, #10b981);
+  border-radius: 0 0 0.5rem 0.5rem;
 }

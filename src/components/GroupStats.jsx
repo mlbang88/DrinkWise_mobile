@@ -225,10 +225,15 @@ export default function GroupStats({ groupId }) {
             <div style={{
                 backgroundColor: 'rgba(255, 255, 255, 0.05)',
                 borderRadius: '12px',
-                padding: '20px',
+                padding: 'clamp(16px, 5vw, 20px)',
                 marginBottom: '25px'
             }}>
-                <h3 style={{ color: '#ccc', marginBottom: '20px', textAlign: 'center' }}>
+                <h3 style={{ 
+                    color: '#ccc', 
+                    marginBottom: '20px', 
+                    textAlign: 'center',
+                    fontSize: 'clamp(16px, 4.5vw, 18px)'
+                }}>
                     🏆 Classement des membres
                 </h3>
                 
@@ -249,19 +254,20 @@ export default function GroupStats({ groupId }) {
                                     style={{
                                         backgroundColor: 'rgba(255, 255, 255, 0.05)',
                                         borderRadius: '8px',
-                                        padding: '15px',
+                                        padding: 'clamp(12px, 4vw, 15px)',
                                         display: 'flex',
                                         flexDirection: 'row',
                                         justifyContent: 'space-between',
                                         alignItems: 'center',
                                         width: '100%',
-                                        boxSizing: 'border-box'
+                                        boxSizing: 'border-box',
+                                        gap: 'clamp(8px, 3vw, 15px)'
                                     }}
                                 >
                                     <div style={{ 
                                         display: 'flex', 
                                         alignItems: 'center', 
-                                        gap: '15px',
+                                        gap: 'clamp(10px, 4vw, 15px)',
                                         flex: 1,
                                         minWidth: 0 // Permet la compression du texte si nécessaire
                                     }}>
@@ -270,12 +276,12 @@ export default function GroupStats({ groupId }) {
                                                            index === 1 ? '#9ca3af' : 
                                                            index === 2 ? '#cd7c2f' : '#4b5563',
                                             borderRadius: '50%',
-                                            width: '30px',
-                                            height: '30px',
+                                            width: 'clamp(26px, 8vw, 30px)',
+                                            height: 'clamp(26px, 8vw, 30px)',
                                             display: 'flex',
                                             alignItems: 'center',
                                             justifyContent: 'center',
-                                            fontSize: '14px',
+                                            fontSize: 'clamp(12px, 3.5vw, 14px)',
                                             fontWeight: 'bold',
                                             color: 'white',
                                             flexShrink: 0 // Empêche la compression du numéro
@@ -290,16 +296,18 @@ export default function GroupStats({ groupId }) {
                                             <div style={{ 
                                                 color: 'white', 
                                                 fontWeight: 'bold', 
-                                                fontSize: '16px',
-                                                whiteSpace: 'nowrap',
-                                                overflow: 'hidden',
-                                                textOverflow: 'ellipsis'
+                                                fontSize: 'clamp(14px, 4vw, 16px)',
+                                                lineHeight: '1.2',
+                                                wordWrap: 'break-word',
+                                                overflowWrap: 'break-word',
+                                                wordBreak: 'break-word',
+                                                hyphens: 'auto'
                                             }}>
                                                 {member.username || 'Utilisateur'}
                                                 {isAdmin && (
                                                     <span style={{ 
                                                         color: '#fbbf24', 
-                                                        fontSize: '12px', 
+                                                        fontSize: 'clamp(10px, 3vw, 12px)', 
                                                         marginLeft: '8px' 
                                                     }}>
                                                         👑
@@ -308,10 +316,12 @@ export default function GroupStats({ groupId }) {
                                             </div>
                                             <div style={{ 
                                                 color: '#9ca3af', 
-                                                fontSize: '12px',
-                                                whiteSpace: 'nowrap',
-                                                overflow: 'hidden',
-                                                textOverflow: 'ellipsis'
+                                                fontSize: 'clamp(10px, 3vw, 12px)',
+                                                lineHeight: '1.2',
+                                                wordWrap: 'break-word',
+                                                overflowWrap: 'break-word',
+                                                wordBreak: 'break-word',
+                                                hyphens: 'auto'
                                             }}>
                                                 {levelInfo.levelName}
                                             </div>
@@ -321,16 +331,22 @@ export default function GroupStats({ groupId }) {
                                     <div style={{ 
                                         textAlign: 'right',
                                         flexShrink: 0,
-                                        marginLeft: '10px'
+                                        marginLeft: 'clamp(8px, 3vw, 10px)'
                                     }}>
-                                        <div style={{ color: 'white', fontWeight: 'bold' }}>
+                                        <div style={{ 
+                                            color: 'white', 
+                                            fontWeight: 'bold',
+                                            fontSize: 'clamp(13px, 3.5vw, 14px)'
+                                        }}>
                                             {levelInfo.currentXp} XP
                                         </div>
                                         <div style={{ 
                                             color: '#9ca3af', 
-                                            fontSize: '12px',
+                                            fontSize: 'clamp(10px, 3vw, 12px)',
                                             display: 'flex',
-                                            gap: '10px'
+                                            gap: 'clamp(6px, 2vw, 10px)',
+                                            justifyContent: 'flex-end',
+                                            flexWrap: 'wrap'
                                         }}>
                                             <span>🍺 {member.totalDrinks || 0}</span>
                                             <span>🎉 {member.totalParties || 0}</span>

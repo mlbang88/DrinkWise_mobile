@@ -1,5 +1,6 @@
 // src/utils/data.jsx
 
+import React from 'react';
 import { Award, Beer, GlassWater, Bomb, Shield, Heart, Sparkles, HelpCircle, Users, HeartOff, PartyPopper, Wine, MapPin, ShieldCheck, Trophy, Calendar, Star } from 'lucide-react';
 
 export const localImageData = {

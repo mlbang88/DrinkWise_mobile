@@ -55,6 +55,11 @@ self.addEventListener('activate', (event) => {
 
 // Stratégie de cache Network First pour les mises à jour rapides
 self.addEventListener('fetch', (event) => {
+  // Filtrer seulement les requêtes GET pour éviter l'erreur de cache
+  if (event.request.method !== 'GET') {
+    return;
+  }
+  
   event.respondWith(
     fetch(event.request)
       .then((response) => {

@@ -1,15 +1,30 @@
 import React, { useState, useContext } from 'react';
-import { collection, query, where, getDocs, updateDoc, doc, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { collection, query, where, getDocs, updateDoc, doc, arrayUnion, arrayRemove, addDoc, getDoc, deleteDoc } from 'firebase/firestore';
+import { httpsCallable } from 'firebase/functions';
 import { FirebaseContext } from '../contexts/FirebaseContext.jsx';
 import FriendItem from '../components/FriendItem';
 import LoadingIcon from '../components/LoadingIcon';
+import GroupSection from '../components/GroupSection.jsx';
+import FriendRequestSystem from '../components/FriendRequestSystem.jsx';
 import { badgeService } from '../services/badgeService';
 
 const FriendsPage = ({ setCurrentPage, setSelectedFriendId }) => {
-    const { db, user, appId, userProfile, setMessageBox } = useContext(FirebaseContext);
+    const { db, user, appId, userProfile, setMessageBox, functions } = useContext(FirebaseContext);
     const [searchTerm, setSearchTerm] = useState('');
     const [searchResults, setSearchResults] = useState([]);
     const [loadingSearch, setLoadingSearch] = useState(false);
+    const [friendIdInput, setFriendIdInput] = useState('');
+    const [loadingAddById, setLoadingAddById] = useState(false);
+
+    // Fonction de diagnostic
+    const runDiagnostic = async () => {
+        console.log("🔍 Fonctionnalité désactivée");
+    };
+
+    // Fonction d'ajout forcé d'ami (désactivée)
+    const forceAddFriend = async (friendId) => {
+        console.log('🔧 Fonctionnalité désactivée');
+    };
 
     const handleSearch = async () => {
         if (!searchTerm.trim()) return setSearchResults([]);
@@ -36,26 +51,150 @@ const FriendsPage = ({ setCurrentPage, setSelectedFriendId }) => {
         }
     };
 
-    const handleAddFriend = async (friendId) => {
-        console.log("➕ Ajout d'ami:", friendId);
-        const userProfileRef = doc(db, `artifacts/${appId}/users/${user.uid}/profile`, 'data');
+    const handleSendFriendRequestById = async () => {
+        if (!friendIdInput.trim()) {
+            setMessageBox({ message: "Veuillez entrer un ID d'utilisateur.", type: "error" });
+            return;
+        }
+
+        if (friendIdInput === user.uid) {
+            setMessageBox({ message: "Vous ne pouvez pas vous ajouter vous-même.", type: "error" });
+            return;
+        }
+
+        setLoadingAddById(true);
         try {
-            await updateDoc(userProfileRef, { friends: arrayUnion(friendId) });
-            console.log("✅ Ami ajouté avec succès");
-            setMessageBox({ message: "Ami ajouté !", type: "success" });
+            // Vérifier que l'utilisateur existe
+            const friendStatsRef = doc(db, `artifacts/${appId}/public_user_stats`, friendIdInput);
+            const friendDoc = await getDoc(friendStatsRef);
+            
+            if (!friendDoc.exists()) {
+                setMessageBox({ message: "Utilisateur introuvable avec cet ID.", type: "error" });
+                setLoadingAddById(false);
+                return;
+            }
+
+            // Vérifier si déjà ami
+            const currentUserStatsRef = doc(db, `artifacts/${appId}/public_user_stats`, user.uid);
+            const currentUserDoc = await getDoc(currentUserStatsRef);
+            
+            if (currentUserDoc.exists()) {
+                const currentFriends = currentUserDoc.data().friends || [];
+                if (currentFriends.includes(friendIdInput)) {
+                    setMessageBox({ message: "Cet utilisateur est déjà votre ami.", type: "info" });
+                    setLoadingAddById(false);
+                    return;
+                }
+            }
+
+            // Vérifier si une demande existe déjà
+            const requestQuery = query(
+                collection(db, `artifacts/${appId}/friend_requests`),
+                where('from', '==', user.uid),
+                where('to', '==', friendIdInput),
+                where('status', 'in', ['pending', 'accepted'])
+            );
+            const existingRequests = await getDocs(requestQuery);
+            
+            if (!existingRequests.empty) {
+                setMessageBox({ message: "Demande d'ami déjà envoyée ou ami déjà accepté.", type: "info" });
+                setLoadingAddById(false);
+                return;
+            }
+
+            // Envoyer la demande d'ami
+            await addDoc(collection(db, `artifacts/${appId}/friend_requests`), {
+                from: user.uid,
+                to: friendIdInput,
+                status: 'pending',
+                timestamp: new Date(),
+                fromUsername: currentUserDoc.data()?.username || 'Utilisateur',
+                toUsername: friendDoc.data()?.username || 'Utilisateur'
+            });
+            
+            setMessageBox({ 
+                message: `Demande d'ami envoyée à ${friendDoc.data()?.username || friendIdInput}!`, 
+                type: "success" 
+            });
+            setFriendIdInput('');
+            
         } catch (error) {
-            console.error("❌ Erreur ajout ami:", error);
-            setMessageBox({ message: "Erreur ajout ami.", type: "error" });
+            console.error("❌ Erreur envoi demande ami:", error);
+            setMessageBox({ message: "Erreur lors de l'envoi de la demande.", type: "error" });
+        } finally {
+            setLoadingAddById(false);
+        }
+    };
+
+    const handleSendFriendRequest = async (friendId) => {
+        console.log("📤 Envoi demande d'ami à:", friendId);
+        try {
+            // Vérifier si déjà ami
+            const currentUserStatsRef = doc(db, `artifacts/${appId}/public_user_stats`, user.uid);
+            const currentUserDoc = await getDoc(currentUserStatsRef);
+            
+            if (currentUserDoc.exists()) {
+                const currentFriends = currentUserDoc.data().friends || [];
+                if (currentFriends.includes(friendId)) {
+                    setMessageBox({ message: "Cet utilisateur est déjà votre ami.", type: "info" });
+                    return;
+                }
+            }
+
+            // Vérifier si une demande existe déjà
+            const requestQuery = query(
+                collection(db, `artifacts/${appId}/friend_requests`),
+                where('from', '==', user.uid),
+                where('to', '==', friendId),
+                where('status', 'in', ['pending', 'accepted'])
+            );
+            const existingRequests = await getDocs(requestQuery);
+            
+            if (!existingRequests.empty) {
+                setMessageBox({ message: "Demande d'ami déjà envoyée.", type: "info" });
+                return;
+            }
+
+            // Obtenir les informations des utilisateurs
+            const friendStatsRef = doc(db, `artifacts/${appId}/public_user_stats`, friendId);
+            const friendDoc = await getDoc(friendStatsRef);
+
+            // Envoyer la demande d'ami
+            await addDoc(collection(db, `artifacts/${appId}/friend_requests`), {
+                from: user.uid,
+                to: friendId,
+                status: 'pending',
+                timestamp: new Date(),
+                fromUsername: currentUserDoc.data()?.username || 'Utilisateur',
+                toUsername: friendDoc.exists() ? friendDoc.data()?.username || 'Utilisateur' : 'Utilisateur'
+            });
+
+            console.log("✅ Demande d'ami envoyée avec succès");
+            setMessageBox({ message: "Demande d'ami envoyée !", type: "success" });
+        } catch (error) {
+            console.error("❌ Erreur envoi demande ami:", error);
+            setMessageBox({ message: "Erreur envoi demande ami.", type: "error" });
         }
     };
 
     const handleRemoveFriend = async (friendId) => {
-        const userProfileRef = doc(db, `artifacts/${appId}/users/${user.uid}/profile`, 'data');
         try {
-            await updateDoc(userProfileRef, { friends: arrayRemove(friendId) });
-            setMessageBox({ message: "Ami supprimé.", type: "info" });
+            console.log("🗑️ Suppression bidirectionnelle de l'ami:", friendId);
+            
+            // Appeler la Firebase Function pour supprimer de manière bidirectionnelle
+            const removeFriendship = httpsCallable(functions, 'removeFriendship');
+            const result = await removeFriendship({ friendId, appId });
+            
+            if (result.data.success) {
+                console.log("✅ Suppression bidirectionnelle réussie:", result.data.message);
+                setMessageBox({ message: "Ami supprimé des deux côtés !", type: "success" });
+            } else {
+                console.error("❌ Échec suppression:", result.data.error);
+                setMessageBox({ message: "Erreur lors de la suppression.", type: "error" });
+            }
         } catch (error) {
-            setMessageBox({ message: "Erreur suppression ami.", type: "error" });
+            console.error("❌ Erreur suppression ami:", error);
+            setMessageBox({ message: "Erreur lors de la suppression.", type: "error" });
         }
     };
 
@@ -86,6 +225,9 @@ const FriendsPage = ({ setCurrentPage, setSelectedFriendId }) => {
             }}>
                 Amis
             </h2>
+
+            {/* Système de demandes d'amis */}
+            <FriendRequestSystem />
 
             {/* Bouton de debug */}
             <div style={{ textAlign: 'center', marginBottom: '20px' }}>
@@ -201,7 +343,7 @@ const FriendsPage = ({ setCurrentPage, setSelectedFriendId }) => {
                                 </span>
                                 {!(userProfile?.friends || []).includes(result.id) && (
                                     <button 
-                                        onClick={() => handleAddFriend(result.id)}
+                                        onClick={() => handleSendFriendRequest(result.id)}
                                         style={{
                                             padding: '8px 16px',
                                             backgroundColor: '#10b981',
@@ -213,14 +355,95 @@ const FriendsPage = ({ setCurrentPage, setSelectedFriendId }) => {
                                             fontWeight: '600'
                                         }}
                                     >
-                                        + Ajouter
+                                        📤 Inviter
                                     </button>
                                 )}
                             </div>
                         ))}
                     </div>
                 )}
+
+                {/* Section d'ajout par ID */}
+                <div style={{
+                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                    borderRadius: '16px',
+                    padding: '20px',
+                    marginBottom: '20px',
+                    border: '1px solid rgba(255, 255, 255, 0.2)'
+                }}>
+                    <h3 style={{
+                        color: 'white',
+                        fontSize: '18px',
+                        fontWeight: '600',
+                        margin: '0 0 16px 0',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                    }}>
+                        🆔 Ajouter un ami par ID
+                    </h3>
+                    
+                    <div style={{
+                        display: 'flex',
+                        gap: '12px',
+                        alignItems: 'stretch'
+                    }}>
+                        <input 
+                            type="text" 
+                            placeholder="ID de l'utilisateur (ex: T4mDJvOVKFPJEzBVr3VuWQPPA2x2)" 
+                            value={friendIdInput} 
+                            onChange={(e) => setFriendIdInput(e.target.value)}
+                            style={{
+                                flex: 1,
+                                padding: '16px',
+                                fontSize: '14px',
+                                backgroundColor: '#1a1a2e',
+                                color: 'white',
+                                border: '1px solid rgba(255, 255, 255, 0.2)',
+                                borderRadius: '12px',
+                                outline: 'none',
+                                minWidth: 0,
+                                fontFamily: 'monospace'
+                            }}
+                        />
+                        <button 
+                            onClick={handleSendFriendRequestById} 
+                            disabled={loadingAddById || !friendIdInput.trim()}
+                            style={{
+                                padding: '16px 20px',
+                                fontSize: '14px',
+                                fontWeight: '600',
+                                color: 'white',
+                                backgroundColor: loadingAddById || !friendIdInput.trim() ? '#666' : '#10b981',
+                                border: 'none',
+                                borderRadius: '12px',
+                                cursor: loadingAddById || !friendIdInput.trim() ? 'not-allowed' : 'pointer',
+                                opacity: loadingAddById || !friendIdInput.trim() ? 0.7 : 1,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                flexShrink: 0,
+                                whiteSpace: 'nowrap'
+                            }}
+                        >
+                            {loadingAddById ? <LoadingIcon /> : null}
+                            📤 Inviter
+                        </button>
+                    </div>
+                    
+                    <p style={{
+                        color: 'rgba(255, 255, 255, 0.7)',
+                        fontSize: '12px',
+                        margin: '12px 0 0 0',
+                        fontStyle: 'italic'
+                    }}>
+                        Votre ID utilisateur : <span style={{ fontFamily: 'monospace', color: '#10b981' }}>{user?.uid}</span>
+                    </p>
+                </div>
             </div>
+
+            {/* Section Groupes */}
+            <GroupSection />
 
             {/* Section Votre Liste d'Amis */}
             <div style={{

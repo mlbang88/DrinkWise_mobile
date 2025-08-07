@@ -10,7 +10,6 @@ import { drinkImageLibrary } from '../utils/data';
 import { PieChart, Pie, Cell, BarChart as ReBarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import LoadingSpinner from '../components/LoadingSpinner';
 import LoadingIcon from '../components/LoadingIcon';
-import FriendshipFixer from '../components/FriendshipFixer';
 import { BarChart, Trophy, Sparkles, Lightbulb, Calendar, Camera } from 'lucide-react';
 
 const StatsPage = () => {
@@ -234,13 +233,10 @@ const StatsPage = () => {
             flexDirection: 'column'
         }}>
 
-            {/* Composant de correction d'amitié (temporaire) */}
-            <FriendshipFixer />
-
             {/* Titre principal */}
             <h2 style={{
                 color: 'white',
-                fontSize: '28px',
+                fontSize: 'clamp(20px, 6vw, 28px)',
                 fontWeight: '600',
                 margin: '0 0 32px 0',
                 textAlign: 'left'
@@ -253,7 +249,7 @@ const StatsPage = () => {
                 backgroundColor: 'rgba(255, 255, 255, 0.05)',
                 borderRadius: '20px',
                 border: '1px solid rgba(255, 255, 255, 0.1)',
-                padding: '24px',
+                padding: 'clamp(16px, 5vw, 24px)',
                 marginBottom: '24px'
             }}>
                 {memorySummary ? (
@@ -293,9 +289,11 @@ const StatsPage = () => {
                         {/* Titre principal */}
                         <h1 style={{
                             textAlign: 'center',
-                            fontSize: '24px',
+                            fontSize: 'clamp(18px, 5vw, 24px)',
                             fontWeight: '600',
-                            margin: '20px 0 32px 0'
+                            margin: '20px 0 32px 0',
+                            wordWrap: 'break-word',
+                            overflowWrap: 'break-word'
                         }}>
                             {memorySummary.title}
                         </h1>
@@ -344,7 +342,7 @@ const StatsPage = () => {
                         {/* Titre boisson */}
                         <h2 style={{
                             textAlign: 'center',
-                            fontSize: '16px',
+                            fontSize: 'clamp(14px, 4vw, 16px)',
                             color: 'rgba(255, 255, 255, 0.8)',
                             margin: '0 0 8px 0'
                         }}>
@@ -354,9 +352,12 @@ const StatsPage = () => {
                         {/* Nom de la boisson */}
                         <h3 style={{
                             textAlign: 'center',
-                            fontSize: '28px',
+                            fontSize: 'clamp(20px, 6vw, 28px)',
                             fontWeight: '700',
-                            margin: '0 0 8px 0'
+                            margin: '0 0 8px 0',
+                            wordWrap: 'break-word',
+                            overflowWrap: 'break-word',
+                            lineHeight: '1.2'
                         }}>
                             {memorySummary.stats.mostConsumedDrink.brand || memorySummary.stats.mostConsumedDrink.type}
                         </h3>
@@ -364,7 +365,7 @@ const StatsPage = () => {
                         {/* Quantité */}
                         <p style={{
                             textAlign: 'center',
-                            fontSize: '18px',
+                            fontSize: 'clamp(16px, 4.5vw, 18px)',
                             color: 'rgba(255, 255, 255, 0.9)',
                             margin: '0 0 32px 0'
                         }}>
@@ -375,31 +376,49 @@ const StatsPage = () => {
                         <div style={{
                             display: 'grid',
                             gridTemplateColumns: '1fr 1fr',
-                            gap: '16px',
+                            gap: 'clamp(12px, 4vw, 16px)',
                             marginBottom: '24px'
                         }}>
                             <div style={{ textAlign: 'center' }}>
-                                <div style={{ fontSize: '18px', fontWeight: '600' }}>Soirées: {memorySummary.stats.totalParties}</div>
+                                <div style={{ 
+                                    fontSize: 'clamp(14px, 4.5vw, 18px)', 
+                                    fontWeight: '600',
+                                    wordWrap: 'break-word'
+                                }}>Soirées: {memorySummary.stats.totalParties}</div>
                             </div>
                             <div style={{ textAlign: 'center' }}>
-                                <div style={{ fontSize: '18px', fontWeight: '600' }}>Lieux visités: {Object.keys(memorySummary.stats.locationTypes || {}).length}</div>
+                                <div style={{ 
+                                    fontSize: 'clamp(14px, 4.5vw, 18px)', 
+                                    fontWeight: '600',
+                                    wordWrap: 'break-word'
+                                }}>Lieux visités: {Object.keys(memorySummary.stats.locationTypes || {}).length}</div>
                             </div>
                             <div style={{ textAlign: 'center' }}>
-                                <div style={{ fontSize: '18px', fontWeight: '600' }}>Bagarres: {memorySummary.stats.totalFights || 0}</div>
+                                <div style={{ 
+                                    fontSize: 'clamp(14px, 4.5vw, 18px)', 
+                                    fontWeight: '600',
+                                    wordWrap: 'break-word'
+                                }}>Bagarres: {memorySummary.stats.totalFights || 0}</div>
                             </div>
                             <div style={{ textAlign: 'center' }}>
-                                <div style={{ fontSize: '18px', fontWeight: '600' }}>Vomis: {memorySummary.stats.totalVomi || 0}</div>
+                                <div style={{ 
+                                    fontSize: 'clamp(14px, 4.5vw, 18px)', 
+                                    fontWeight: '600',
+                                    wordWrap: 'break-word'
+                                }}>Vomis: {memorySummary.stats.totalVomi || 0}</div>
                             </div>
                         </div>
 
                         {/* Texte narratif */}
                         <p style={{
                             textAlign: 'center',
-                            fontSize: '14px',
+                            fontSize: 'clamp(12px, 3.5vw, 14px)',
                             fontStyle: 'italic',
                             color: 'rgba(255, 255, 255, 0.9)',
                             lineHeight: '1.4',
-                            margin: 0
+                            margin: 0,
+                            wordWrap: 'break-word',
+                            overflowWrap: 'break-word'
                         }}>
                             {memorySummary.narrative}
                         </p>
