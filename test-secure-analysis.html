@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Analyse Images Sécurisée - DrinkWise</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #fff;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        button {
+            background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            margin: 10px 5px;
+            transition: transform 0.2s;
+        }
+        button:hover {
+            transform: translateY(-2px);
+        }
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .log {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .success { color: #2ecc71; }
+        .error { color: #e74c3c; }
+        .info { color: #3498db; }
+        .warning { color: #f39c12; }
+        input[type="file"] {
+            margin: 10px 0;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            color: white;
+        }
+        #imagePreview {
+            max-width: 200px;
+            max-height: 200px;
+            border-radius: 8px;
+            margin: 10px 0;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔒 Test Analyse Images Sécurisée</h1>
+        
+        <div class="test-section">
+            <h3>🔧 Configuration</h3>
+            <button onclick="initFirebase()">Initialiser Firebase</button>
+            <button onclick="authenticateUser()">S'authentifier</button>
+            <div id="configLog" class="log"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>🧪 Test avec image de test</h3>
+            <button onclick="testWithSampleImage()">Tester avec image simple</button>
+            <div id="testLog" class="log"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>📸 Test avec votre image</h3>
+            <input type="file" id="imageInput" accept="image/*" onchange="previewImage(this)">
+            <br>
+            <img id="imagePreview" style="display: none;">
+            <br>
+            <button onclick="analyzeUploadedImage()" id="analyzeBtn" disabled>Analyser cette image</button>
+            <div id="uploadLog" class="log"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>📊 Résultats</h3>
+            <div id="results" class="log"></div>
+        </div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getAuth, signInAnonymously } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+        import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-functions.js';
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyD_Gi_m1IRhl8SfgfIU6x0erT5pxeaUM5o",
+            authDomain: "drinkwise-31d3a.firebaseapp.com",
+            projectId: "drinkwise-31d3a",
+            storageBucket: "drinkwise-31d3a.firebasestorage.app",
+            messagingSenderId: "210028837880",
+            appId: "1:210028837880:web:0177bf8f388354b4a0f40d"
+        };
+
+        let app, auth, functions, analyzeImageSecure;
+        let currentImageBase64 = null;
+
+        function log(message, type = 'info', targetId = 'configLog') {
+            const logElement = document.getElementById(targetId);
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type;
+            logElement.innerHTML += `<div class="${className}">[${timestamp}] ${message}</div>`;
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+
+        window.initFirebase = function() {
+            try {
+                app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                functions = getFunctions(app);
+                analyzeImageSecure = httpsCallable(functions, 'analyzeImageSecure');
+                log('✅ Firebase initialisé avec succès', 'success');
+            } catch (error) {
+                log(`❌ Erreur Firebase: ${error.message}`, 'error');
+            }
+        };
+
+        window.authenticateUser = async function() {
+            try {
+                if (!auth) {
+                    log('❌ Firebase non initialisé', 'error');
+                    return;
+                }
+                log('🔑 Authentification en cours...', 'info');
+                await signInAnonymously(auth);
+                log('✅ Authentifié avec succès', 'success');
+            } catch (error) {
+                log(`❌ Erreur authentification: ${error.message}`, 'error');
+            }
+        };
+
+        window.testWithSampleImage = async function() {
+            const testLog = document.getElementById('testLog');
+            testLog.innerHTML = '';
+            
+            try {
+                if (!analyzeImageSecure) {
+                    log('❌ Firebase non initialisé', 'error', 'testLog');
+                    return;
+                }
+
+                log('🧪 Test avec image 1x1 pixel...', 'info', 'testLog');
+                
+                // Image de test simple (1x1 pixel rouge)
+                const testImageBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==';
+                
+                log('🤖 Appel de analyzeImageSecure...', 'info', 'testLog');
+                
+                const result = await analyzeImageSecure({
+                    imageBase64: testImageBase64,
+                    mimeType: 'image/png'
+                });
+
+                log('📡 Réponse reçue:', 'info', 'testLog');
+                log(JSON.stringify(result.data, null, 2), 'info', 'testLog');
+
+                if (result.data.success) {
+                    log('🎉 SUCCÈS ! L\'analyse sécurisée fonctionne !', 'success', 'testLog');
+                    log(`🍹 Résultat: ${result.data.drinkInfo.type} - ${result.data.drinkInfo.brand || 'Marque inconnue'}`, 'success', 'results');
+                } else {
+                    log('⚠️ Échec de l\'analyse', 'warning', 'testLog');
+                }
+
+            } catch (error) {
+                log(`❌ Erreur: ${error.code} - ${error.message}`, 'error', 'testLog');
+                
+                if (error.code === 'functions/unauthenticated') {
+                    log('🔑 Veuillez vous authentifier d\'abord', 'warning', 'testLog');
+                } else if (error.code === 'functions/internal') {
+                    log('⚙️ Erreur serveur - vérifiez la clé API Gemini', 'warning', 'testLog');
+                }
+            }
+        };
+
+        window.previewImage = function(input) {
+            const preview = document.getElementById('imagePreview');
+            const analyzeBtn = document.getElementById('analyzeBtn');
+            
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                
+                reader.onload = function(e) {
+                    preview.src = e.target.result;
+                    preview.style.display = 'block';
+                    
+                    // Convertir en base64 pour l'analyse
+                    currentImageBase64 = e.target.result.split(',')[1];
+                    analyzeBtn.disabled = false;
+                    
+                    log('📸 Image chargée et prête pour analyse', 'success', 'uploadLog');
+                };
+                
+                reader.readAsDataURL(input.files[0]);
+            }
+        };
+
+        window.analyzeUploadedImage = async function() {
+            const uploadLog = document.getElementById('uploadLog');
+            
+            try {
+                if (!currentImageBase64) {
+                    log('❌ Aucune image sélectionnée', 'error', 'uploadLog');
+                    return;
+                }
+
+                if (!analyzeImageSecure) {
+                    log('❌ Firebase non initialisé', 'error', 'uploadLog');
+                    return;
+                }
+
+                log('🔍 Analyse de votre image en cours...', 'info', 'uploadLog');
+                
+                const result = await analyzeImageSecure({
+                    imageBase64: currentImageBase64,
+                    mimeType: 'image/jpeg'
+                });
+
+                log('📡 Analyse terminée:', 'info', 'uploadLog');
+                log(JSON.stringify(result.data, null, 2), 'info', 'uploadLog');
+
+                if (result.data.success) {
+                    const drinkInfo = result.data.drinkInfo;
+                    log(`🍹 Boisson détectée: ${drinkInfo.type}`, 'success', 'results');
+                    if (drinkInfo.brand) {
+                        log(`🏷️ Marque: ${drinkInfo.brand}`, 'success', 'results');
+                    }
+                    log('✅ Analyse réussie avec la configuration sécurisée !', 'success', 'uploadLog');
+                } else {
+                    log('⚠️ Aucune boisson détectée dans cette image', 'warning', 'uploadLog');
+                }
+
+            } catch (error) {
+                log(`❌ Erreur analyse: ${error.code} - ${error.message}`, 'error', 'uploadLog');
+            }
+        };
+
+        // Auto-initialisation
+        log('🚀 Page de test chargée. Cliquez sur "Initialiser Firebase" pour commencer.', 'info');
+    </script>
+</body>
+</html>

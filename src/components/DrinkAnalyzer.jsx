@@ -1,10 +1,14 @@
 ﻿import React, { useState } from 'react';
 import { GeminiService } from '../services/geminiService';
+import { useFirebase } from '../contexts/FirebaseContext';
 
 const DrinkAnalyzer = ({ onDrinkDetected }) => {
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [messageBox, setMessageBox] = useState(null);
-    const geminiService = new GeminiService();
+    const { functions } = useFirebase();
+    
+    // Service sécurisé avec Firebase Functions
+    const geminiService = new GeminiService(functions);
 
     const handleFileChange = (event) => {
         const file = event.target.files[0];

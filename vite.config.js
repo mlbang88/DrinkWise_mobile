@@ -18,5 +18,17 @@ export default defineConfig({
   server: {
     host: '0.0.0.0', // Pour permettre l'accès depuis le téléphone
     port: 5173
+  },
+  // Configuration PWA optimisée
+  define: {
+    'process.env': {},
+    '__SW_ENABLED__': true
+  },
+  // Headers pour PWA
+  preview: {
+    headers: {
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Service-Worker-Allowed': '/'
+    }
   }
 })

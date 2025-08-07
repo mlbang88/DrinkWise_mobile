@@ -48,6 +48,125 @@ exports.generateSummary = onCall({
     // Vérifier l'authentification
     if (!request.auth) {
       throw new Error('Utilisateur non authentifié');
+    }
+    
+    // TODO: Implémenter la génération de résumé
+    return { success: false, message: "À implémenter" };
+    
+  } catch (error) {
+    logger.error('❌ Erreur generateSummary:', error);
+    throw new Error(`Erreur génération résumé: ${error.message}`);
+  }
+});
+
+// Fonction pour analyser une image avec Gemini de manière sécurisée
+exports.analyzeImageSecure = onCall({
+  region: 'us-central1',
+  cors: corsOptions
+}, async (request) => {
+  try {
+    const { imageBase64 } = request.data;
+    
+    // Vérifier l'authentification
+    if (!request.auth) {
+      throw new Error('Utilisateur non authentifié');
+    }
+    
+    // Clé API stockée de manière sécurisée côté serveur
+    const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+    
+    if (!GEMINI_API_KEY) {
+      throw new Error('Configuration API manquante');
+    }
+    
+    logger.info('🤖 Analyse d\'image sécurisée pour utilisateur:', request.auth.uid);
+    
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+    
+    const payload = {
+      contents: [{
+        parts: [
+          {
+            text: `Analyse cette image et identifie la boisson visible. 
+            Réponds au format JSON avec les clés "type" et "brand" (marque).
+            
+            Pour le type, utilise l'un de ces termes : "Bière", "Vin", "Spiritueux", "Cocktail", "Autre"
+            Pour la marque, identifie la marque visible sur l'étiquette/bouteille (ex: "Heineken", "Corona", "Absolut", "Jack Daniel's", etc.)
+            Si aucune marque n'est visible ou identifiable, mets "brand": null
+            
+            Exemple de réponse:
+            {"type": "Bière", "brand": "Heineken"}
+            {"type": "Spiritueux", "brand": "Jack Daniel's"}
+            {"type": "Vin", "brand": null}
+            
+            Si aucune boisson n'est visible, réponds: {"type": "Autre", "brand": null}`
+          },
+          {
+            inline_data: {
+              mime_type: "image/jpeg",
+              data: imageBase64
+            }
+          }
+        ]
+      }],
+      generationConfig: {
+        temperature: 0.1,
+        topK: 1,
+        topP: 0.8,
+        maxOutputTokens: 200
+      }
+    };
+    
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Erreur API Gemini: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    
+    if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) {
+      throw new Error('Réponse API invalide');
+    }
+    
+    const text = data.candidates[0].content.parts[0].text;
+    logger.info('Réponse Gemini brute:', text);
+    
+    // Parser la réponse JSON
+    let drinkInfo;
+    try {
+      const cleanedText = text.replace(/```json|```/g, '').replace(/\n/g, '').trim();
+      drinkInfo = JSON.parse(cleanedText);
+      
+      // Standardiser le format de réponse
+      drinkInfo = {
+        type: drinkInfo.type || 'Autre',
+        brand: drinkInfo.brand || null
+      };
+    } catch (parseError) {
+      logger.warn('Parsing JSON échoué, fallback:', parseError);
+      // Fallback si parsing échoue
+      drinkInfo = { type: 'Autre', brand: null };
+    }
+    
+    logger.info('✅ Analyse terminée:', drinkInfo);
+    
+    return {
+      success: true,
+      drinkInfo: drinkInfo
+    };
+    
+  } catch (error) {
+    logger.error('❌ Erreur analyse image:', error);
+    throw new Error(`Erreur analyse: ${error.message}`);
+  }
+});
 
 // Fonction pour forcer l'ajout d'un ami (avec privilèges admin)
 exports.forceAddFriend = onCall({
@@ -181,77 +300,113 @@ exports.forceAddFriend = onCall({
     throw new Error(`Erreur: ${error.message}`);
   }
 });
-    }
 
-    logger.info('Génération de résumé pour:', { 
-      userId: request.auth.uid, 
-      drunkLevel,
-      drinksCount: partyData?.drinks?.length || 0 
+// Fonction pour analyser une image avec Gemini de manière sécurisée
+exports.analyzeImageSecure = onCall({
+  region: 'us-central1',
+  cors: corsOptions
+}, async (request) => {
+  try {
+    const { imageBase64, mimeType } = request.data;
+    
+    // Vérifier l'authentification
+    if (!request.auth) {
+      throw new Error('Utilisateur non authentifié');
+    }
+    
+    // Clé API stockée de manière sécurisée côté serveur
+    const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+    
+    if (!GEMINI_API_KEY) {
+      throw new Error('Configuration API manquante');
+    }
+    
+    logger.info('🤖 Analyse d\'image sécurisée pour utilisateur:', request.auth.uid);
+    
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+    
+    const payload = {
+      contents: [{
+        parts: [
+          {
+            text: `Analyse cette image et identifie la boisson visible. 
+            Réponds au format JSON avec les clés "type" et "brand" (marque).
+            
+            Pour le type, utilise l'un de ces termes : "Bière", "Vin", "Spiritueux", "Cocktail", "Autre"
+            Pour la marque, identifie la marque visible sur l'étiquette/bouteille (ex: "Heineken", "Corona", "Absolut", "Jack Daniel's", etc.)
+            Si aucune marque n'est visible ou identifiable, mets "brand": null
+            
+            Exemple de réponse:
+            {"type": "Bière", "brand": "Heineken"}
+            {"type": "Spiritueux", "brand": "Jack Daniel's"}
+            {"type": "Vin", "brand": null}
+            
+            Si aucune boisson n'est visible, réponds: {"type": "Autre", "brand": null}`
+          },
+          {
+            inline_data: {
+              mime_type: mimeType || "image/jpeg",
+              data: imageBase64
+            }
+          }
+        ]
+      }],
+      generationConfig: {
+        temperature: 0.1,
+        topK: 1,
+        topP: 0.8,
+        maxOutputTokens: 100
+      }
+    };
+    
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
     });
-
-    // Analyser les données de la soirée
-    const totalDrinks = partyData?.drinks?.length || 0;
-    const drinkTypes = {};
-    const events = partyData?.events || [];
     
-    // Compter les types de boissons
-    partyData?.drinks?.forEach(drink => {
-      const type = drink.type || 'Inconnu';
-      drinkTypes[type] = (drinkTypes[type] || 0) + 1;
-    });
-
-    // Créer un résumé basé sur les données
-    let summary = `🎉 Résumé de votre soirée !\n\n`;
-    
-    summary += `🍸 Consommation: ${totalDrinks} boisson${totalDrinks > 1 ? 's' : ''}\n`;
-    
-    if (Object.keys(drinkTypes).length > 0) {
-      summary += `📊 Répartition:\n`;
-      Object.entries(drinkTypes).forEach(([type, count]) => {
-        summary += `  • ${type}: ${count}\n`;
-      });
+    if (!response.ok) {
+      throw new Error(`Erreur API Gemini: ${response.status}`);
     }
     
-    if (events.length > 0) {
-      summary += `\n🎊 Événements: ${events.length} moment${events.length > 1 ? 's' : ''} marquant${events.length > 1 ? 's' : ''}\n`;
+    const data = await response.json();
+    
+    if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) {
+      throw new Error('Réponse API invalide');
     }
     
-    summary += `\n🎯 Niveau de soirée: ${drunkLevel}\n`;
+    const text = data.candidates[0].content.parts[0].text;
+    logger.info('Réponse Gemini brute:', text);
     
-    // Ajouter un conseil basé sur le niveau
-    switch(drunkLevel) {
-      case 'Soirée Sage':
-        summary += `\n💡 Belle soirée contrôlée ! Continuez comme ça ! 🌟`;
-        break;
-      case 'Soirée Correcte':
-        summary += `\n💡 Soirée équilibrée, vous savez vous amuser tout en restant raisonnable ! 👍`;
-        break;
-      case 'Soirée Arrosée':
-        summary += `\n💡 Soirée festive ! N'oubliez pas de boire de l'eau et de bien vous reposer. 💧`;
-        break;
-      case 'Soirée Excessive':
-        summary += `\n💡 Soirée intense ! Prenez soin de vous et hydratez-vous bien. 🚰`;
-        break;
-      default:
-        summary += `\n💡 Merci d'avoir utilisé DrinkWise pour suivre votre soirée ! 🎉`;
+    // Parser la réponse JSON
+    let drinkInfo;
+    try {
+      const cleanedText = text.replace(/```json|```/g, '').replace(/\n/g, '').trim();
+      drinkInfo = JSON.parse(cleanedText);
+      
+      // Standardiser le format de réponse
+      drinkInfo = {
+        type: drinkInfo.type || 'Autre',
+        brand: drinkInfo.brand || null
+      };
+    } catch (parseError) {
+      logger.warn('Parsing JSON échoué, fallback:', parseError);
+      // Fallback si parsing échoue
+      drinkInfo = { type: 'Autre', brand: null };
     }
-
-    logger.info('Résumé généré avec succès');
-
+    
+    logger.info('✅ Analyse terminée:', drinkInfo);
+    
     return {
       success: true,
-      summary: summary,
-      timestamp: new Date().toISOString()
+      drinkInfo: drinkInfo
     };
-
-  } catch (error) {
-    logger.error('Erreur lors de la génération du résumé:', error);
     
-    return {
-      success: false,
-      error: error.message,
-      summary: "🎉 Votre soirée a été enregistrée ! Merci d'avoir utilisé DrinkWise."
-    };
+  } catch (error) {
+    logger.error('❌ Erreur analyse image:', error);
+    throw new Error(`Erreur analyse: ${error.message}`);
   }
 });
 

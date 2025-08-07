@@ -7,6 +7,12 @@
   "background_color": "#000000",
   "theme_color": "#8b5cf6",
   "orientation": "portrait-primary",
+  "scope": "/",
+  "prefer_related_applications": false,
+  "categories": ["lifestyle", "health"],
+  "lang": "fr",
+  "dir": "ltr",
+  "update_mode": "background",
   "icons": [
     {
       "src": "icon-48.webp",

@@ -1,5 +1,5 @@
 // src/contexts/FirebaseContext.js
-import { createContext, useState, useEffect } from 'react';
+import { createContext, useState, useEffect, useContext } from 'react';
 import { auth, db, functions, appId } from '../firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, setDoc, onSnapshot } from 'firebase/firestore';
@@ -7,6 +7,15 @@ import { generateUniqueUsername } from '../utils/usernameUtils';
 import { friendshipListenerService } from '../services/friendshipListenerService.js';
 
 export const FirebaseContext = createContext(null);
+
+// Hook personnalisé pour utiliser le contexte Firebase
+export const useFirebase = () => {
+    const context = useContext(FirebaseContext);
+    if (!context) {
+        throw new Error('useFirebase must be used within a FirebaseProvider');
+    }
+    return context;
+};
 
 export const FirebaseProvider = ({ children }) => {
     const [user, setUser] = useState(null);
