@@ -479,7 +479,9 @@ const FeedPage = () => {
                 borderRadius: '16px',
                 border: '1px solid rgba(255, 255, 255, 0.1)',
                 padding: '20px',
-                marginBottom: '16px'
+                marginBottom: '16px',
+                width: '100%',
+                boxSizing: 'border-box'
             }}>
                 {/* Header */}
                 <div style={{
@@ -997,18 +999,15 @@ const FeedPage = () => {
     if (loading) return <LoadingSpinner />;
 
     return (
-        <div style={{
-            minHeight: '100vh',
-            background: 'linear-gradient(rgba(0,0,0,0.75), rgba(0,0,0,0.75)), url("https://images.unsplash.com/photo-1522202176988-66273c2fd55f?q=80&w=1171&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D") center/cover',
-            padding: '20px',
-            fontFamily: 'Arial, sans-serif'
-        }}>
+        <>
             {/* Header */}
             <div style={{
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                marginBottom: '24px'
+                marginBottom: '24px',
+                width: '100%',
+                boxSizing: 'border-box'
             }}>
                 <h2 style={{ color: 'white', fontSize: '28px', fontWeight: '600', margin: 0 }}>
                     Fil d'actualité
@@ -1049,7 +1048,9 @@ const FeedPage = () => {
                     borderRadius: '16px',
                     padding: '32px',
                     textAlign: 'center',
-                    color: 'white'
+                    color: 'white',
+                    width: '100%',
+                    boxSizing: 'border-box'
                 }}>
                     <Calendar size={48} style={{ margin: '0 auto 16px auto', color: '#9ca3af' }} />
                     <h3 style={{ fontSize: '20px', fontWeight: '600', margin: '0 0 8px 0' }}>
@@ -1062,7 +1063,9 @@ const FeedPage = () => {
             ) : (
                 <div style={{
                     maxHeight: 'calc(100vh - 200px)',
-                    overflowY: 'auto'
+                    overflowY: 'auto',
+                    width: '100%',
+                    boxSizing: 'border-box'
                 }}>
                     {feedItems.map((item) => (
                         <div key={item.id}>
@@ -1199,7 +1202,7 @@ const FeedPage = () => {
                     </div>
                 </div>
             )}
-        </div>
+        </>
     );
 };
 

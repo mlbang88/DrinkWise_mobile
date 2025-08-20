@@ -95,9 +95,8 @@ export default function GroupStats({ groupId }) {
         <div style={{
             backgroundColor: 'rgba(255, 255, 255, 0.05)',
             borderRadius: '15px',
-            padding: 'clamp(16px, 5vw, 20px)',
-            margin: '0 auto',
-            maxWidth: '100%',
+            padding: 'clamp(12px, 3vw, 16px)',
+            width: '100%',
             boxSizing: 'border-box'
         }}>
             {/* En-tête du groupe */}
@@ -145,12 +144,14 @@ export default function GroupStats({ groupId }) {
             <div style={{
                 backgroundColor: 'rgba(255, 255, 255, 0.05)',
                 borderRadius: '12px',
-                padding: 'clamp(16px, 5vw, 20px)',
-                marginBottom: '25px'
+                padding: 'clamp(12px, 3vw, 16px)',
+                marginBottom: '20px',
+                width: '100%',
+                boxSizing: 'border-box'
             }}>
                 <h3 style={{ 
                     color: '#ccc', 
-                    marginBottom: '20px', 
+                    marginBottom: '16px', 
                     textAlign: 'center',
                     fontSize: 'clamp(16px, 4.5vw, 18px)'
                 }}>
@@ -160,7 +161,8 @@ export default function GroupStats({ groupId }) {
                 <div style={{
                     display: 'grid',
                     gridTemplateColumns: 'repeat(2, 1fr)',
-                    gap: 'clamp(12px, 3vw, 15px)'
+                    gap: 'clamp(10px, 2.5vw, 12px)',
+                    width: '100%'
                 }}>
                     <div style={{
                         backgroundColor: 'rgba(16, 185, 129, 0.1)',
@@ -300,12 +302,14 @@ export default function GroupStats({ groupId }) {
             <div style={{
                 backgroundColor: 'rgba(255, 255, 255, 0.05)',
                 borderRadius: '12px',
-                padding: 'clamp(16px, 5vw, 20px)',
-                marginBottom: '25px'
+                padding: 'clamp(12px, 3vw, 16px)',
+                marginBottom: '20px',
+                width: '100%',
+                boxSizing: 'border-box'
             }}>
                 <h3 style={{ 
                     color: '#ccc', 
-                    marginBottom: '20px', 
+                    marginBottom: '16px', 
                     textAlign: 'center',
                     fontSize: 'clamp(16px, 4.5vw, 18px)'
                 }}>
@@ -371,40 +375,61 @@ export default function GroupStats({ groupId }) {
                                             display: 'flex',
                                             flexDirection: 'column',
                                             justifyContent: 'flex-start',
-                                            paddingTop: '4px'
+                                            paddingTop: '2px',
+                                            width: '100%'
                                         }}>
+                                            {/* Zone dédiée au nom en haut */}
                                             <div style={{ 
-                                                color: 'white', 
-                                                fontWeight: 'bold', 
-                                                fontSize: 'clamp(16px, 4.5vw, 18px)',
-                                                lineHeight: '1.3',
-                                                marginBottom: '6px',
-                                                wordWrap: 'break-word',
-                                                overflowWrap: 'anywhere',
-                                                hyphens: 'auto',
+                                                width: '100%',
+                                                minHeight: 'clamp(24px, 6vw, 28px)',
                                                 display: 'flex',
                                                 alignItems: 'center',
-                                                flexWrap: 'wrap',
-                                                gap: '4px'
+                                                marginBottom: '8px',
+                                                backgroundColor: 'transparent',
+                                                borderRadius: '4px',
+                                                padding: '4px 8px',
+                                                boxSizing: 'border-box'
                                             }}>
-                                                <span>{member.username || 'Utilisateur'}</span>
-                                                {isAdmin && (
+                                                <div style={{ 
+                                                    color: 'white', 
+                                                    fontWeight: 'bold', 
+                                                    fontSize: `clamp(${Math.max(10, 16 - (member.username || 'Utilisateur').length * 0.3)}px, 4vw, ${Math.max(14, 18 - (member.username || 'Utilisateur').length * 0.2)}px)`,
+                                                    lineHeight: '1.2',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    width: '100%',
+                                                    whiteSpace: 'nowrap'
+                                                }}>
                                                     <span style={{ 
-                                                        color: '#fbbf24', 
-                                                        fontSize: 'clamp(12px, 3.5vw, 14px)'
+                                                        flex: '1 1 auto',
+                                                        minWidth: 0
                                                     }}>
-                                                        👑
+                                                        {member.username || 'Utilisateur'}
                                                     </span>
-                                                )}
+                                                </div>
                                             </div>
+                                            {/* Zone dédiée au niveau */}
                                             <div style={{ 
-                                                color: '#9ca3af', 
-                                                fontSize: 'clamp(12px, 3.5vw, 14px)',
-                                                lineHeight: '1.3',
-                                                wordWrap: 'break-word',
-                                                overflowWrap: 'anywhere'
+                                                width: '100%',
+                                                minHeight: 'clamp(20px, 5vw, 24px)',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                backgroundColor: 'transparent',
+                                                borderRadius: '4px',
+                                                padding: '4px 8px',
+                                                boxSizing: 'border-box'
                                             }}>
-                                                {levelInfo.levelName}
+                                                <div style={{ 
+                                                    color: '#9ca3af', 
+                                                    fontSize: `clamp(${Math.max(8, 12 - levelInfo.levelName.length * 0.2)}px, 3.5vw, ${Math.max(10, 14 - levelInfo.levelName.length * 0.15)}px)`,
+                                                    lineHeight: '1.2',
+                                                    width: '100%',
+                                                    whiteSpace: 'nowrap',
+                                                    display: 'flex',
+                                                    alignItems: 'center'
+                                                }}>
+                                                    {levelInfo.levelName}
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -420,13 +445,28 @@ export default function GroupStats({ groupId }) {
                                         minWidth: 'clamp(70px, 22vw, 90px)'
                                     }}>
                                         <div style={{ 
-                                            color: 'white', 
-                                            fontWeight: 'bold',
-                                            fontSize: 'clamp(14px, 4vw, 16px)',
-                                            lineHeight: '1.3',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '6px',
                                             marginBottom: '4px'
                                         }}>
-                                            {levelInfo.currentXp} XP
+                                            <div style={{ 
+                                                color: 'white', 
+                                                fontWeight: 'bold',
+                                                fontSize: 'clamp(14px, 4vw, 16px)',
+                                                lineHeight: '1.3'
+                                            }}>
+                                                {levelInfo.currentXp} XP
+                                            </div>
+                                            {isAdmin && (
+                                                <span style={{ 
+                                                    color: '#fbbf24', 
+                                                    fontSize: 'clamp(14px, 3.5vw, 16px)',
+                                                    flexShrink: 0
+                                                }}>
+                                                    👑
+                                                </span>
+                                            )}
                                         </div>
                                         <div style={{ 
                                             color: '#9ca3af', 

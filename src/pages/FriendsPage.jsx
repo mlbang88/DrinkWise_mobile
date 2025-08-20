@@ -210,12 +210,7 @@ const FriendsPage = ({ setCurrentPage, setSelectedFriendId }) => {
     };
 
     return (
-        <div style={{
-            minHeight: '100vh',
-            background: 'linear-gradient(rgba(0,0,0,0.75), rgba(0,0,0,0.75)), url("https://plus.unsplash.com/premium_photo-1661715804059-cc71a28f2c34?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D") center/cover',
-            padding: '20px',
-            fontFamily: 'Arial, sans-serif'
-        }}>
+        <>
             <h2 style={{
                 color: 'white',
                 fontSize: '32px',
@@ -253,7 +248,9 @@ const FriendsPage = ({ setCurrentPage, setSelectedFriendId }) => {
                 borderRadius: '20px',
                 border: '1px solid rgba(255, 255, 255, 0.1)',
                 padding: '24px',
-                marginBottom: '24px'
+                marginBottom: '24px',
+                width: '100%',
+                boxSizing: 'border-box'
             }}>
                 <h3 style={{
                     color: 'white',
@@ -369,7 +366,9 @@ const FriendsPage = ({ setCurrentPage, setSelectedFriendId }) => {
                     borderRadius: '16px',
                     padding: '20px',
                     marginBottom: '20px',
-                    border: '1px solid rgba(255, 255, 255, 0.2)'
+                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                    width: '100%',
+                    boxSizing: 'border-box'
                 }}>
                     <h3 style={{
                         color: 'white',
@@ -450,7 +449,9 @@ const FriendsPage = ({ setCurrentPage, setSelectedFriendId }) => {
                 backgroundColor: 'rgba(0, 0, 0, 0.4)',
                 borderRadius: '20px',
                 border: '1px solid rgba(255, 255, 255, 0.1)',
-                padding: '24px'
+                padding: '24px',
+                width: '100%',
+                boxSizing: 'border-box'
             }}>
                 <h3 style={{
                     color: 'white',
@@ -493,7 +494,7 @@ const FriendsPage = ({ setCurrentPage, setSelectedFriendId }) => {
                     )}
                 </div>
             </div>
-        </div>
+        </>
     );
 };
 
