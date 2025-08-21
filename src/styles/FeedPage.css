@@ -1,0 +1,50 @@
+/* Styles pour le défilement horizontal des médias */
+
+/* Scrollbar pour les photos */
+.photo-scroll::-webkit-scrollbar {
+    height: 6px;
+}
+
+.photo-scroll::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+}
+
+.photo-scroll::-webkit-scrollbar-thumb {
+    background: #8b45ff;
+    border-radius: 3px;
+}
+
+.photo-scroll::-webkit-scrollbar-thumb:hover {
+    background: #7c3aed;
+}
+
+/* Scrollbar pour les vidéos */
+.video-scroll::-webkit-scrollbar {
+    height: 6px;
+}
+
+.video-scroll::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+}
+
+.video-scroll::-webkit-scrollbar-thumb {
+    background: #ef4444;
+    border-radius: 3px;
+}
+
+.video-scroll::-webkit-scrollbar-thumb:hover {
+    background: #dc2626;
+}
+
+/* Support Firefox */
+.photo-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: #8b45ff rgba(255, 255, 255, 0.1);
+}
+
+.video-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: #ef4444 rgba(255, 255, 255, 0.1);
+}
