@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext, useCallback } from 'react';
+import React, { useState, useEffect, useContext, useCallback, useRef } from 'react';
 import { collection, query, where, getDocs, orderBy, limit, doc, getDoc } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { FirebaseContext } from '../contexts/FirebaseContext.jsx';
@@ -35,6 +35,67 @@ const FeedPage = () => {
     const getFeedInteractions = httpsCallable(functions, 'getFeedInteractions');
 
     console.log('🚀 FeedPage initialisé - User:', user?.uid, 'Profile:', userProfile?.username);
+
+    // Composant VideoPlayer avec autoplay
+    const VideoPlayer = ({ src, style, onClick, isInScroll = false }) => {
+        const videoRef = useRef(null);
+        const [isVisible, setIsVisible] = useState(false);
+        const [isPlaying, setIsPlaying] = useState(false);
+
+        useEffect(() => {
+            const video = videoRef.current;
+            if (!video) return;
+
+            const observer = new IntersectionObserver(
+                (entries) => {
+                    entries.forEach((entry) => {
+                        if (entry.isIntersecting) {
+                            setIsVisible(true);
+                            // Démarrer la vidéo automatiquement
+                            video.play().then(() => {
+                                setIsPlaying(true);
+                            }).catch((error) => {
+                                console.log('Autoplay bloqué:', error);
+                            });
+                        } else {
+                            setIsVisible(false);
+                            // Arrêter la vidéo quand elle sort de la vue
+                            video.pause();
+                            video.currentTime = 0;
+                            setIsPlaying(false);
+                        }
+                    });
+                },
+                {
+                    threshold: 0.5, // Démarre quand 50% de la vidéo est visible
+                    rootMargin: '0px'
+                }
+            );
+
+            observer.observe(video);
+
+            return () => {
+                observer.disconnect();
+            };
+        }, []);
+
+        return (
+            <video 
+                ref={videoRef}
+                src={src}
+                style={style}
+                muted={true} // Toujours sans son pour l'autoplay
+                playsInline
+                preload="metadata"
+                loop={true} // Boucle infinie
+                onClick={onClick}
+                onError={(e) => {
+                    e.target.style.display = 'none';
+                    console.error('Erreur chargement vidéo:', src);
+                }}
+            />
+        );
+    };
 
     // ===== CHARGEMENT DES DONNÉES =====
 
@@ -667,45 +728,60 @@ const FeedPage = () => {
                             overflow: 'hidden',
                             boxSizing: 'border-box'
                         }}>
-                            <p style={{
-                                color: '#c4b5fd',
-                                fontSize: 'clamp(12px, 3.5vw, 14px)', // Responsive
-                                fontStyle: 'italic',
-                                margin: 0,
-                                lineHeight: '1.4',
-                                wordWrap: 'break-word',
-                                overflowWrap: 'break-word',
-                                wordBreak: 'break-word',
-                                hyphens: 'auto',
-                                display: expandedSummaries[item.id] ? 'block' : '-webkit-box',
-                                WebkitLineClamp: expandedSummaries[item.id] ? 'none' : 1,
-                                WebkitBoxOrient: 'vertical',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis'
-                            }}>
-                                "{party.summary}"
-                            </p>
-                            {party.summary.length > 100 && (
-                                <button
-                                    onClick={() => setExpandedSummaries(prev => ({
-                                        ...prev,
-                                        [item.id]: !prev[item.id]
-                                    }))}
-                                    style={{
-                                        backgroundColor: 'transparent',
-                                        border: 'none',
-                                        color: '#8b45ff',
-                                        fontSize: 'clamp(10px, 3vw, 12px)',
-                                        fontWeight: '600',
-                                        cursor: 'pointer',
-                                        marginTop: '8px',
-                                        padding: '4px 0',
-                                        textDecoration: 'underline'
-                                    }}
-                                >
-                                    {expandedSummaries[item.id] ? 'Voir moins' : 'Voir plus'}
-                                </button>
-                            )}
+                            {(() => {
+                                // Vérifier s'il y a des médias (photos ou vidéos)
+                                const hasMedia = (party.photoURLs && party.photoURLs.length > 0) || 
+                                                party.photoURL || 
+                                                (party.videoURLs && party.videoURLs.length > 0);
+                                
+                                // Si pas de média, afficher le résumé en entier
+                                const shouldShowFull = !hasMedia || expandedSummaries[item.id];
+                                
+                                return (
+                                    <>
+                                        <p style={{
+                                            color: '#c4b5fd',
+                                            fontSize: 'clamp(12px, 3.5vw, 14px)', // Responsive
+                                            fontStyle: 'italic',
+                                            margin: 0,
+                                            lineHeight: '1.4',
+                                            wordWrap: 'break-word',
+                                            overflowWrap: 'break-word',
+                                            wordBreak: 'break-word',
+                                            hyphens: 'auto',
+                                            display: shouldShowFull ? 'block' : '-webkit-box',
+                                            WebkitLineClamp: shouldShowFull ? 'none' : 1,
+                                            WebkitBoxOrient: 'vertical',
+                                            overflow: 'hidden',
+                                            textOverflow: 'ellipsis'
+                                        }}>
+                                            "{party.summary}"
+                                        </p>
+                                        {/* Bouton "voir plus" seulement si il y a des médias et le texte est long */}
+                                        {hasMedia && party.summary.length > 100 && (
+                                            <button
+                                                onClick={() => setExpandedSummaries(prev => ({
+                                                    ...prev,
+                                                    [item.id]: !prev[item.id]
+                                                }))}
+                                                style={{
+                                                    backgroundColor: 'transparent',
+                                                    border: 'none',
+                                                    color: '#8b45ff',
+                                                    fontSize: 'clamp(10px, 3vw, 12px)',
+                                                    fontWeight: '600',
+                                                    cursor: 'pointer',
+                                                    marginTop: '8px',
+                                                    padding: '4px 0',
+                                                    textDecoration: 'underline'
+                                                }}
+                                            >
+                                                {expandedSummaries[item.id] ? 'Voir moins' : 'Voir plus'}
+                                            </button>
+                                        )}
+                                    </>
+                                );
+                            })()}
                         </div>
                     )}
                 </div>
@@ -769,7 +845,7 @@ const FeedPage = () => {
                                                 style={{
                                                     position: 'relative',
                                                     width: '300px', // Largeur fixe pour chaque photo
-                                                    height: '200px',
+                                                    height: '400px', // Même hauteur que photo unique
                                                     flexShrink: 0,
                                                     cursor: 'pointer',
                                                     borderRadius: '8px',
@@ -857,7 +933,7 @@ const FeedPage = () => {
                                     }}
                                     onClick={() => setSelectedVideo(party.videoURLs[0])}
                                 >
-                                    <video 
+                                    <VideoPlayer 
                                         src={party.videoURLs[0]}
                                         style={{
                                             width: '100%',
@@ -865,24 +941,9 @@ const FeedPage = () => {
                                             objectFit: 'cover',
                                             transition: 'transform 0.2s ease'
                                         }}
-                                        muted
-                                        playsInline
-                                        preload="metadata"
-                                        onError={(e) => {
-                                            e.target.style.display = 'none';
-                                            console.error('Erreur chargement vidéo:', party.videoURLs[0]);
-                                        }}
-                                        onMouseEnter={(e) => {
-                                            e.target.style.transform = 'scale(1.02)';
-                                            e.target.play().catch(console.error);
-                                        }}
-                                        onMouseLeave={(e) => {
-                                            e.target.style.transform = 'scale(1)';
-                                            e.target.pause();
-                                            e.target.currentTime = 0;
-                                        }}
+                                        onClick={() => setSelectedVideo(party.videoURLs[0])}
                                     />
-                                    {/* Bouton play */}
+                                    {/* Bouton play pour indiquer qu'on peut cliquer */}
                                     <div style={{
                                         position: 'absolute',
                                         top: '50%',
@@ -890,7 +951,7 @@ const FeedPage = () => {
                                         transform: 'translate(-50%, -50%)',
                                         width: '60px',
                                         height: '60px',
-                                        backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                                        backgroundColor: 'rgba(0, 0, 0, 0.5)',
                                         borderRadius: '50%',
                                         display: 'flex',
                                         alignItems: 'center',
@@ -898,9 +959,10 @@ const FeedPage = () => {
                                         color: 'white',
                                         fontSize: '20px',
                                         pointerEvents: 'none',
-                                        border: '2px solid rgba(255, 255, 255, 0.8)'
+                                        border: '2px solid rgba(255, 255, 255, 0.8)',
+                                        opacity: '0.8'
                                     }}>
-                                        ▶️
+                                        🔊
                                     </div>
                                 </div>
                             </div>
@@ -928,7 +990,7 @@ const FeedPage = () => {
                                             style={{
                                                 position: 'relative',
                                                 width: '300px', // Largeur fixe pour chaque vidéo
-                                                height: '200px',
+                                                height: '300px', // Même hauteur que vidéo unique
                                                 flexShrink: 0,
                                                 cursor: 'pointer',
                                                 borderRadius: '8px',
@@ -938,7 +1000,7 @@ const FeedPage = () => {
                                             }}
                                             onClick={() => setSelectedVideo(videoURL)}
                                         >
-                                            <video 
+                                            <VideoPlayer 
                                                 src={videoURL}
                                                 style={{
                                                     width: '100%',
@@ -946,24 +1008,10 @@ const FeedPage = () => {
                                                     objectFit: 'cover',
                                                     transition: 'transform 0.2s ease'
                                                 }}
-                                                muted
-                                                playsInline
-                                                preload="metadata"
-                                                onError={(e) => {
-                                                    e.target.style.display = 'none';
-                                                    console.error('Erreur chargement vidéo:', videoURL);
-                                                }}
-                                                onMouseEnter={(e) => {
-                                                    e.target.style.transform = 'scale(1.05)';
-                                                    e.target.play().catch(console.error);
-                                                }}
-                                                onMouseLeave={(e) => {
-                                                    e.target.style.transform = 'scale(1)';
-                                                    e.target.pause();
-                                                    e.target.currentTime = 0;
-                                                }}
+                                                onClick={() => setSelectedVideo(videoURL)}
+                                                isInScroll={true}
                                             />
-                                            {/* Bouton play */}
+                                            {/* Bouton pour indiquer qu'on peut cliquer pour le son */}
                                             <div style={{
                                                 position: 'absolute',
                                                 top: '50%',
@@ -971,7 +1019,7 @@ const FeedPage = () => {
                                                 transform: 'translate(-50%, -50%)',
                                                 width: '48px',
                                                 height: '48px',
-                                                backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                                                backgroundColor: 'rgba(0, 0, 0, 0.5)',
                                                 borderRadius: '50%',
                                                 display: 'flex',
                                                 alignItems: 'center',
@@ -979,9 +1027,10 @@ const FeedPage = () => {
                                                 color: 'white',
                                                 fontSize: '16px',
                                                 pointerEvents: 'none',
-                                                border: '2px solid rgba(255, 255, 255, 0.8)'
+                                                border: '2px solid rgba(255, 255, 255, 0.8)',
+                                                opacity: '0.8'
                                             }}>
-                                                ▶️
+                                                🔊
                                             </div>
                                         </div>
                                     ))}
