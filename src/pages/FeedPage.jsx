@@ -5,10 +5,9 @@ import { FirebaseContext } from '../contexts/FirebaseContext.jsx';
 import { badgeService } from '../services/badgeService';
 import LoadingSpinner from '../components/LoadingSpinner';
 import LoadingIcon from '../components/LoadingIcon';
-import { Calendar, Users, Trophy, MapPin, Heart, MessageCircle, MoreHorizontal, Volume2 } from 'lucide-react';
+import { Calendar, Users, Trophy, MapPin, Heart, MessageCircle } from 'lucide-react';
 import UserAvatar from '../components/UserAvatar';
 import '../styles/FeedPage.css';
-import '../styles/ModernFeed.css';
 
 const FeedPage = () => {
     const { db, user, appId, userProfile, setMessageBox, functions } = useContext(FirebaseContext);
@@ -520,7 +519,7 @@ const FeedPage = () => {
         );
     };
 
-    // Item de soirée avec design moderne
+    // Item de soirée
     const PartyItem = ({ item }) => {
         const party = item.data;
         const totalDrinks = party.drinks?.reduce((sum, drink) => sum + drink.quantity, 0) || 0;
@@ -534,272 +533,38 @@ const FeedPage = () => {
             hasVideos: !!(party.videoURLs && party.videoURLs.length > 0),
             videosCount: party.videoURLs?.length || 0,
             videoURLs: party.videoURLs,
+            // Rétrocompatibilité avec l'ancien format
             hasOldPhoto: !!party.photoURL,
             partyData: party
         });
 
         return (
-            <div className="modern-card">
-                {/* Header moderne */}
-                <div className="post-header">
+            <div style={{
+                backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                borderRadius: '16px',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                padding: '20px',
+                marginBottom: '16px',
+                width: '100%',
+                boxSizing: 'border-box'
+            }}>
+                {/* Header */}
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    marginBottom: '16px',
+                    width: '100%',
+                    maxWidth: '100%',
+                    overflow: 'hidden'
+                }}>
                     <UserAvatar 
                         user={item.isOwn ? userProfile : friendsData[item.userId]}
-                        size={44}
-                        className="skeleton-avatar"
+                        size={40}
+                        style={{ marginRight: '12px', flexShrink: 0 }}
                     />
-                    <div className="user-info">
-                        <div className="username">
-                            {item.isOwn ? userProfile?.username : friendsData[item.userId]?.username || 'Utilisateur'}
-                        </div>
-                        <div className="metadata">
-                            {item.isOwn ? 'avez fait une soirée' : 'a fait une soirée'} • {timeAgo}
-                        </div>
-                    </div>
-                    <button className="menu-btn">
-                        <MoreHorizontal size={20} />
-                    </button>
-                </div>
-
-                {/* Contenu de la soirée */}
-                <div className="post-content">
-                    <h4 className="post-title">
-                        {party.category} - {party.date}
-                    </h4>
-                    
-                    {party.location && (
-                        <div style={{ 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            gap: '4px',
-                            color: 'var(--text-secondary)',
-                            fontSize: '14px',
-                            marginBottom: '12px'
-                        }}>
-                            <MapPin size={14} />
-                            {party.location}
-                        </div>
-                    )}
-
-                    {/* Stats modernes */}
-                    <div className="post-stats">
-                        <div className="stat-item">
-                            <span className="emoji">🍺</span>
-                            <span>{totalDrinks} boissons</span>
-                        </div>
-                        <div className="stat-item">
-                            <span className="emoji">👥</span>
-                            <span>{party.girlsTalkedTo || 0} filles</span>
-                        </div>
-                        <div className="stat-item">
-                            <span className="emoji">🤮</span>
-                            <span>{party.vomi || 0} vomis</span>
-                        </div>
-                        <div className="stat-item">
-                            <span className="emoji">👊</span>
-                            <span>{party.fights || 0} bagarres</span>
-                        </div>
-                    </div>
-
-                    {/* Participants */}
-                    {party.companions && party.companions.selectedNames.length > 0 && (
-                        <div style={{
-                            background: 'linear-gradient(135deg, rgba(139, 69, 255, 0.08), rgba(99, 102, 241, 0.08))',
-                            border: '1px solid rgba(139, 69, 255, 0.15)',
-                            borderRadius: 'var(--radius-lg)',
-                            padding: 'var(--space-md)',
-                            margin: 'var(--space-md) 0',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 'var(--space-xs)'
-                        }}>
-                            <Users size={16} style={{ color: '#8b5cf6' }} />
-                            <span style={{ color: '#6b46c1', fontSize: '14px' }}>
-                                Avec: {party.companions.selectedNames.join(', ')}
-                            </span>
-                        </div>
-                    )}
-
-                    {/* Résumé moderne */}
-                    {party.summary && (
-                        <div className="summary-container">
-                            {(() => {
-                                // Vérifier s'il y a des médias (photos ou vidéos)
-                                const hasMedia = (party.photoURLs && party.photoURLs.length > 0) || 
-                                                party.photoURL || 
-                                                (party.videoURLs && party.videoURLs.length > 0);
-                                
-                                // Si pas de média, afficher le résumé en entier
-                                const shouldShowFull = !hasMedia || expandedSummaries[item.id];
-                                
-                                return (
-                                    <>
-                                        <p className="summary-text" style={{
-                                            display: shouldShowFull ? 'block' : '-webkit-box',
-                                            WebkitLineClamp: shouldShowFull ? 'none' : 1,
-                                            WebkitBoxOrient: 'vertical',
-                                            overflow: 'hidden',
-                                            textOverflow: 'ellipsis'
-                                        }}>
-                                            "{party.summary}"
-                                        </p>
-                                        {/* Bouton "voir plus" seulement si il y a des médias et le texte est long */}
-                                        {hasMedia && party.summary.length > 100 && (
-                                            <button
-                                                className="summary-toggle"
-                                                onClick={() => setExpandedSummaries(prev => ({
-                                                    ...prev,
-                                                    [item.id]: !prev[item.id]
-                                                }))}
-                                            >
-                                                {expandedSummaries[item.id] ? 'Voir moins' : 'Voir plus'}
-                                            </button>
-                                        )}
-                                    </>
-                                );
-                            })()}
-                        </div>
-                    )}
-                </div>
-
-                {/* Photos de la soirée */}
-                {((party.photoURLs && party.photoURLs.length > 0) || party.photoURL) && (
-                    <div className="media-container">
-                        {/* Grille de photos pour le nouveau format */}
-                        {party.photoURLs && party.photoURLs.length > 0 ? (
-                            party.photoURLs.length === 1 ? (
-                                // Une seule photo : pleine largeur
-                                <img 
-                                    src={party.photoURLs[0]}
-                                    alt="Photo de soirée"
-                                    onClick={() => setSelectedPhoto(party.photoURLs[0])}
-                                    className="media-single"
-                                    style={{ cursor: 'pointer' }}
-                                    onError={(e) => {
-                                        e.target.style.display = 'none';
-                                        console.error('Erreur chargement image:', party.photoURLs[0]);
-                                    }}
-                                    loading="lazy"
-                                />
-                            ) : (
-                                // Plusieurs photos : défilement horizontal
-                                <div className="media-scroll photo-scroll">
-                                    {party.photoURLs.map((photoURL, index) => (
-                                        <div
-                                            key={index}
-                                            className="media-item"
-                                            onClick={() => setSelectedPhoto(photoURL)}
-                                        >
-                                            <img 
-                                                src={photoURL}
-                                                alt={`Photo ${index + 1}`}
-                                                style={{
-                                                    width: '100%',
-                                                    height: '100%',
-                                                    objectFit: 'cover'
-                                                }}
-                                                onError={(e) => {
-                                                    e.target.style.display = 'none';
-                                                    console.error('Erreur chargement image:', photoURL);
-                                                }}
-                                                loading="lazy"
-                                            />
-                                        </div>
-                                    ))}
-                                </div>
-                            )
-                        ) : (
-                            /* Rétrocompatibilité avec l'ancien format */
-                            party.photoURL && (
-                                <img 
-                                    src={party.photoURL}
-                                    alt="Photo de soirée"
-                                    onClick={() => setSelectedPhoto(party.photoURL)}
-                                    className="media-single"
-                                    style={{ cursor: 'pointer' }}
-                                    onError={(e) => {
-                                        e.target.style.display = 'none';
-                                        console.error('Erreur chargement image:', party.photoURL);
-                                    }}
-                                    loading="lazy"
-                                />
-                            )
-                        )}
-                    </div>
-                )}
-
-                {/* Vidéos de la soirée */}
-                {(party.videoURLs && party.videoURLs.length > 0) && (
-                    <div className="media-container">
-                        {party.videoURLs.length === 1 ? (
-                            // Une seule vidéo : pleine largeur
-                            <div style={{ position: 'relative' }}>
-                                <VideoPlayer 
-                                    src={party.videoURLs[0]}
-                                    style={{
-                                        width: '100%',
-                                        height: '300px',
-                                        objectFit: 'cover',
-                                        borderRadius: 'var(--radius-lg)'
-                                    }}
-                                    onClick={() => setSelectedVideo(party.videoURLs[0])}
-                                />
-                                <div className="video-overlay large">
-                                    <Volume2 size={20} />
-                                </div>
-                            </div>
-                        ) : (
-                            // Plusieurs vidéos : défilement horizontal
-                            <div className="media-scroll video-scroll">
-                                {party.videoURLs.map((videoURL, index) => (
-                                    <div
-                                        key={index}
-                                        className="media-item"
-                                        onClick={() => setSelectedVideo(videoURL)}
-                                        style={{ position: 'relative' }}
-                                    >
-                                        <VideoPlayer 
-                                            src={videoURL}
-                                            style={{
-                                                width: '100%',
-                                                height: '100%',
-                                                objectFit: 'cover'
-                                            }}
-                                            onClick={() => setSelectedVideo(videoURL)}
-                                            isInScroll={true}
-                                        />
-                                        <div className="video-overlay">
-                                            <Volume2 size={16} />
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                {/* Actions Bar */}
-                <div className="actions-bar">
-                    <button 
-                        className={`action-btn ${interactions[item.id]?.userLiked ? 'active' : ''}`}
-                        onClick={() => handleInteraction(item.id, 'like')}
-                        disabled={isLoadingInteraction[item.id]}
-                    >
-                        <Heart className="icon" fill={interactions[item.id]?.userLiked ? 'currentColor' : 'none'} />
-                        <span className="action-count">{interactions[item.id]?.likes || 0}</span>
-                    </button>
-                    <button 
-                        className="action-btn"
-                        onClick={() => setShowComments(prev => ({ ...prev, [item.id]: !prev[item.id] }))}
-                    >
-                        <MessageCircle className="icon" />
-                        <span className="action-count">{interactions[item.id]?.comments?.length || 0}</span>
-                    </button>
-                </div>
-
-                {/* Section commentaires */}
-                <CommentSection itemId={item.id} />
-            </div>
-        );
+                    <div style={{ 
+                        flex: 1, 
+                        minWidth: 0, // Permet la compression
                         overflow: 'hidden'
                     }}>
                         <div style={{ 
