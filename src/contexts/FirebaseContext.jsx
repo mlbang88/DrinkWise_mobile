@@ -2,11 +2,41 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { auth, db, functions, appId } from '../firebase';
 import { onAuthStateChanged } from 'firebase/auth';
-import { doc, setDoc, onSnapshot } from 'firebase/firestore';
+import { doc, setDoc, onSnapshot, updateDoc } from 'firebase/firestore';
 import { generateUniqueUsername } from '../utils/usernameUtils';
 import { friendshipListenerService } from '../services/friendshipListenerService.js';
+import { levelUtils } from '../utils/levelUtils';
 
 export const FirebaseContext = createContext(null);
+
+// Fonction pour vérifier et corriger le niveau utilisateur
+const verifyAndFixUserLevel = async (userProfileRef, profileData) => {
+    try {
+        const currentXp = profileData.xp || 0;
+        const currentLevel = profileData.level || 1;
+        const correctLevel = levelUtils.calculateLevel(currentXp);
+        
+        // Vérifier si le niveau numérique correspond à l'XP
+        if (typeof currentLevel === 'number' && currentLevel !== correctLevel) {
+            console.log(`🔧 Correction du niveau: ${currentLevel} → ${correctLevel} (XP: ${currentXp})`);
+            
+            await updateDoc(userProfileRef, {
+                level: correctLevel
+            });
+            
+            // Retourner le profil corrigé
+            return {
+                ...profileData,
+                level: correctLevel
+            };
+        }
+        
+        return profileData;
+    } catch (error) {
+        console.error("❌ Erreur lors de la vérification du niveau:", error);
+        return profileData;
+    }
+};
 
 // Hook personnalisé pour utiliser le contexte Firebase
 export const useFirebase = () => {
@@ -127,10 +157,14 @@ export const FirebaseProvider = ({ children }) => {
                                 });
                             } catch (error) {
                                 console.error("❌ Erreur réparation username:", error);
-                                setUserProfile(profileData);
+                                // Vérifier et corriger le niveau même en cas d'erreur username
+                                const correctedProfile = await verifyAndFixUserLevel(userProfileRef, profileData);
+                                setUserProfile(correctedProfile);
                             }
                         } else {
-                            setUserProfile(profileData);
+                            // Vérifier et corriger le niveau si nécessaire
+                            const correctedProfile = await verifyAndFixUserLevel(userProfileRef, profileData);
+                            setUserProfile(correctedProfile);
                         }
                     }
                     

@@ -128,11 +128,13 @@ const QuizManagerSimple = ({ partyData, partyId, onQuizComplete, uploadingPhotos
                     feedData.levelUp = {
                         oldLevel: levelUpData.oldLevel,
                         newLevel: levelUpData.newLevel,
-                        newLevelName: levelUpData.newLevelInfo.name
+                        newLevelName: levelUpData.newLevelInfo.name,
+                        levelsGained: levelUpData.levelsGained || 1
                     };
                     console.log("⬆️ MONTÉE DE NIVEAU DÉTECTÉE:", {
                         oldLevel: levelUpData.oldLevel,
                         newLevel: levelUpData.newLevel,
+                        levelsGained: levelUpData.levelsGained,
                         oldXp,
                         newXp,
                         levelUpData

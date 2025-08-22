@@ -63,6 +63,28 @@ export const levelUtils = {
         return totalXp;
     },
 
+    // Détecter toutes les montées de niveau entre deux points XP
+    detectAllLevelUps: (oldXp, newXp) => {
+        const oldLevel = levelUtils.calculateLevel(oldXp);
+        const newLevel = levelUtils.calculateLevel(newXp);
+        
+        if (newLevel <= oldLevel) {
+            return [];
+        }
+        
+        const levelUps = [];
+        for (let level = oldLevel + 1; level <= newLevel; level++) {
+            const levelInfo = levelUtils.getLevelInfo(gameplayConfig.levels[level - 1].xp);
+            levelUps.push({
+                level,
+                levelInfo,
+                name: gameplayConfig.levels[level - 1].name
+            });
+        }
+        
+        return levelUps;
+    },
+
     // Détecter si un niveau a été franchi
     detectLevelUp: (oldXp, newXp) => {
         const oldLevel = levelUtils.calculateLevel(oldXp);
