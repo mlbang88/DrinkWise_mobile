@@ -1,0 +1,86 @@
+// Utilitaires pour le système XP et niveaux
+import { gameplayConfig } from '../utils/data';
+
+export const levelUtils = {
+    // Calculer le niveau basé sur l'XP
+    calculateLevel: (xp) => {
+        const levels = gameplayConfig.levels;
+        let currentLevel = 1;
+        
+        for (let i = levels.length - 1; i >= 0; i--) {
+            if (xp >= levels[i].xp) {
+                currentLevel = i + 1;
+                break;
+            }
+        }
+        
+        return currentLevel;
+    },
+
+    // Obtenir les infos du niveau actuel
+    getLevelInfo: (xp) => {
+        const level = levelUtils.calculateLevel(xp);
+        const levelIndex = level - 1;
+        const currentLevelData = gameplayConfig.levels[levelIndex];
+        const nextLevelData = gameplayConfig.levels[levelIndex + 1];
+        
+        return {
+            level,
+            name: currentLevelData.name,
+            currentXp: xp,
+            levelXp: currentLevelData.xp,
+            nextLevelXp: nextLevelData ? nextLevelData.xp : null,
+            xpToNext: nextLevelData ? nextLevelData.xp - xp : 0,
+            isMaxLevel: !nextLevelData
+        };
+    },
+
+    // Calculer l'XP total gagné pour une action
+    calculateTotalXp: (action, data = {}) => {
+        let totalXp = 0;
+        
+        switch (action) {
+            case 'party':
+                totalXp += gameplayConfig.xpPerParty;
+                // XP bonus pour les questions du quiz
+                if (data.questionsAnswered) {
+                    totalXp += data.questionsAnswered * 10;
+                }
+                break;
+            
+            case 'badge':
+                totalXp += gameplayConfig.xpPerBadge * (data.badgeCount || 1);
+                break;
+            
+            case 'challenge':
+                totalXp += gameplayConfig.xpPerChallenge * (data.challengeCount || 1);
+                break;
+                
+            default:
+                break;
+        }
+        
+        return totalXp;
+    },
+
+    // Détecter si un niveau a été franchi
+    detectLevelUp: (oldXp, newXp) => {
+        const oldLevel = levelUtils.calculateLevel(oldXp);
+        const newLevel = levelUtils.calculateLevel(newXp);
+        
+        console.log("🎯 detectLevelUp:", { oldXp, newXp, oldLevel, newLevel });
+        
+        if (newLevel > oldLevel) {
+            console.log("✅ LEVEL UP DÉTECTÉ !");
+            return {
+                leveledUp: true,
+                oldLevel,
+                newLevel,
+                newLevelInfo: levelUtils.getLevelInfo(newXp)
+            };
+        }
+        
+        console.log("❌ Pas de level up");
+        return { leveledUp: false };
+    }
+};

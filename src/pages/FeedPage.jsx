@@ -3,11 +3,11 @@ import { collection, query, where, getDocs, orderBy, limit, doc, getDoc } from '
 import { httpsCallable } from 'firebase/functions';
 import { FirebaseContext } from '../contexts/FirebaseContext.jsx';
 import { badgeService } from '../services/badgeService';
+import { challengeService } from '../services/challengeService';
 import LoadingSpinner from '../components/LoadingSpinner';
 import LoadingIcon from '../components/LoadingIcon';
 import { Calendar, Users, Trophy, MapPin, Heart, MessageCircle } from 'lucide-react';
 import UserAvatar from '../components/UserAvatar';
-import '../styles/FeedPage.css';
 
 const FeedPage = () => {
     const { db, user, appId, userProfile, setMessageBox, functions } = useContext(FirebaseContext);
@@ -27,7 +27,7 @@ const FeedPage = () => {
     const [selectedPhoto, setSelectedPhoto] = useState(null);
     const [selectedVideo, setSelectedVideo] = useState(null);
     
-    // États pour les résumés expandus
+    // États pour l'affichage des résumés
     const [expandedSummaries, setExpandedSummaries] = useState({});
     
     // Fonctions Firebase
@@ -464,17 +464,22 @@ const FeedPage = () => {
         const totalDrinks = party.drinks?.reduce((sum, drink) => sum + drink.quantity, 0) || 0;
         const timeAgo = getTimeAgo(item.timestamp?.toDate());
 
-        // Debug: vérifier si la soirée a des photos
+        // Debug: vérifier si la soirée a des photos et des badges
         console.log(`🔍 PartyItem ${item.id}:`, {
             hasPhotos: !!(party.photoURLs && party.photoURLs.length > 0),
             photosCount: party.photoURLs?.length || 0,
-            photoURLs: party.photoURLs,
             hasVideos: !!(party.videoURLs && party.videoURLs.length > 0),
             videosCount: party.videoURLs?.length || 0,
-            videoURLs: party.videoURLs,
-            // Rétrocompatibilité avec l'ancien format
-            hasOldPhoto: !!party.photoURL,
-            partyData: party
+            // Debug badges
+            hasBadges: !!(party.unlockedBadges && party.unlockedBadges.length > 0),
+            badgesCount: party.unlockedBadges?.length || 0,
+            badges: party.unlockedBadges,
+            // Debug level-up
+            hasLevelUp: !!party.levelUp,
+            levelUp: party.levelUp,
+            // Debug challenges
+            hasChallenges: !!(party.completedChallenges && party.completedChallenges.length > 0),
+            challenges: party.completedChallenges
         });
 
         return (
@@ -611,6 +616,175 @@ const FeedPage = () => {
                         {party.category} - {party.date}
                     </h4>
 
+                    {/* Badges débloqués - Affichage juste au-dessus des stats */}
+                    {party.unlockedBadges && party.unlockedBadges.length > 0 && (
+                        <div style={{
+                            backgroundColor: 'rgba(255, 215, 0, 0.1)',
+                            border: '1px solid rgba(255, 215, 0, 0.3)',
+                            borderRadius: '12px',
+                            padding: '12px',
+                            marginBottom: '16px',
+                            width: '100%',
+                            boxSizing: 'border-box'
+                        }}>
+                            <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                marginBottom: '8px'
+                            }}>
+                                <Trophy size={16} style={{ color: '#ffd700' }} />
+                                <span style={{
+                                    color: '#ffd700',
+                                    fontSize: 'clamp(13px, 3.5vw, 14px)',
+                                    fontWeight: '600'
+                                }}>
+                                    {party.unlockedBadges.length === 1 ? 'Badge débloqué !' : 'Badges débloqués !'}
+                                </span>
+                            </div>
+                            <div style={{
+                                display: 'flex',
+                                flexWrap: 'wrap',
+                                gap: '8px'
+                            }}>
+                                {party.unlockedBadges.map((badgeId, index) => {
+                                    const badgeInfo = badgeService.getBadgeInfo(badgeId);
+                                    return (
+                                        <div
+                                            key={index}
+                                            style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '6px',
+                                                backgroundColor: 'rgba(255, 215, 0, 0.2)',
+                                                padding: '6px 10px',
+                                                borderRadius: '20px',
+                                                border: '1px solid rgba(255, 215, 0, 0.4)'
+                                            }}
+                                        >
+                                            <span style={{ fontSize: '14px' }}>
+                                                {React.cloneElement(badgeInfo.icon, { size: 14 })}
+                                            </span>
+                                            <span style={{
+                                                color: '#fff',
+                                                fontSize: 'clamp(11px, 3vw, 12px)',
+                                                fontWeight: '500'
+                                            }}>
+                                                {badgeInfo.name}
+                                            </span>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Challenges complétés */}
+                    {party.completedChallenges && party.completedChallenges.length > 0 && (
+                        <div style={{
+                            backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                            border: '1px solid rgba(34, 197, 94, 0.3)',
+                            borderRadius: '12px',
+                            padding: '12px',
+                            marginBottom: '16px',
+                            width: '100%',
+                            boxSizing: 'border-box'
+                        }}>
+                            <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                marginBottom: '8px'
+                            }}>
+                                <span style={{ fontSize: '16px' }}>🎯</span>
+                                <span style={{
+                                    color: '#22c55e',
+                                    fontSize: 'clamp(13px, 3.5vw, 14px)',
+                                    fontWeight: '600'
+                                }}>
+                                    {party.completedChallenges.length === 1 ? 'Défi accompli !' : 'Défis accomplis !'}
+                                </span>
+                            </div>
+                            <div style={{
+                                display: 'flex',
+                                flexWrap: 'wrap',
+                                gap: '8px'
+                            }}>
+                                {party.completedChallenges.map((challengeId, index) => {
+                                    const challengeInfo = challengeService.getChallengeInfo(challengeId);
+                                    return (
+                                        <div
+                                            key={index}
+                                            style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '6px',
+                                                backgroundColor: 'rgba(34, 197, 94, 0.2)',
+                                                padding: '6px 10px',
+                                                borderRadius: '20px',
+                                                border: '1px solid rgba(34, 197, 94, 0.4)'
+                                            }}
+                                        >
+                                            <span style={{ fontSize: '14px' }}>
+                                                {React.cloneElement(challengeInfo.icon, { size: 14 })}
+                                            </span>
+                                            <span style={{
+                                                color: '#fff',
+                                                fontSize: 'clamp(11px, 3vw, 12px)',
+                                                fontWeight: '500'
+                                            }}>
+                                                {challengeInfo.title}
+                                            </span>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Montée de niveau */}
+                    {party.levelUp && (
+                        <div style={{
+                            backgroundColor: 'rgba(168, 85, 247, 0.1)',
+                            border: '1px solid rgba(168, 85, 247, 0.3)',
+                            borderRadius: '12px',
+                            padding: '12px',
+                            marginBottom: '16px',
+                            width: '100%',
+                            boxSizing: 'border-box'
+                        }}>
+                            <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                marginBottom: '8px'
+                            }}>
+                                <span style={{ fontSize: '18px' }}>⬆️</span>
+                                <span style={{
+                                    color: '#a855f7',
+                                    fontSize: 'clamp(13px, 3.5vw, 14px)',
+                                    fontWeight: '600'
+                                }}>
+                                    Montée de niveau !
+                                </span>
+                            </div>
+                            <div style={{
+                                backgroundColor: 'rgba(168, 85, 247, 0.2)',
+                                padding: '8px 12px',
+                                borderRadius: '20px',
+                                border: '1px solid rgba(168, 85, 247, 0.4)'
+                            }}>
+                                <span style={{
+                                    color: '#fff',
+                                    fontSize: 'clamp(12px, 3.5vw, 14px)',
+                                    fontWeight: '600'
+                                }}>
+                                    Niveau {party.levelUp.newLevel} • {party.levelUp.newLevelName}
+                                </span>
+                            </div>
+                        </div>
+                    )}
+
                     <div style={{
                         display: 'grid',
                         gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', // Plus petit minmax pour mobile
@@ -667,326 +841,215 @@ const FeedPage = () => {
                             overflow: 'hidden',
                             boxSizing: 'border-box'
                         }}>
-                            <p style={{
-                                color: '#c4b5fd',
-                                fontSize: 'clamp(12px, 3.5vw, 14px)', // Responsive
-                                fontStyle: 'italic',
-                                margin: 0,
-                                lineHeight: '1.4',
-                                wordWrap: 'break-word',
-                                overflowWrap: 'break-word',
-                                wordBreak: 'break-word',
-                                hyphens: 'auto',
-                                display: expandedSummaries[item.id] ? 'block' : '-webkit-box',
-                                WebkitLineClamp: expandedSummaries[item.id] ? 'none' : 1,
-                                WebkitBoxOrient: 'vertical',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis'
-                            }}>
-                                "{party.summary}"
-                            </p>
-                            {party.summary.length > 100 && (
-                                <button
-                                    onClick={() => setExpandedSummaries(prev => ({
-                                        ...prev,
-                                        [item.id]: !prev[item.id]
-                                    }))}
-                                    style={{
-                                        backgroundColor: 'transparent',
-                                        border: 'none',
-                                        color: '#8b45ff',
-                                        fontSize: 'clamp(10px, 3vw, 12px)',
-                                        fontWeight: '600',
-                                        cursor: 'pointer',
-                                        marginTop: '8px',
-                                        padding: '4px 0',
-                                        textDecoration: 'underline'
-                                    }}
-                                >
-                                    {expandedSummaries[item.id] ? 'Voir moins' : 'Voir plus'}
-                                </button>
-                            )}
+                            {(() => {
+                                const hasMedia = (party.photoURLs && party.photoURLs.length > 0) || 
+                                                party.photoURL || 
+                                                (party.videoURLs && party.videoURLs.length > 0);
+                                const isExpanded = expandedSummaries[party.id] || false;
+                                const shouldTruncate = hasMedia && party.summary.length > 100;
+                                const truncatedSummary = party.summary.slice(0, 100) + '...';
+                                
+                                return (
+                                    <>
+                                        <p style={{
+                                            color: '#c4b5fd',
+                                            fontSize: 'clamp(12px, 3.5vw, 14px)', // Responsive
+                                            fontStyle: 'italic',
+                                            margin: 0,
+                                            lineHeight: '1.4',
+                                            wordWrap: 'break-word',
+                                            overflowWrap: 'break-word',
+                                            wordBreak: 'break-word',
+                                            hyphens: 'auto'
+                                        }}>
+                                            "{shouldTruncate && !isExpanded ? truncatedSummary : party.summary}"
+                                        </p>
+                                        {shouldTruncate && (
+                                            <button
+                                                onClick={() => setExpandedSummaries(prev => ({
+                                                    ...prev,
+                                                    [party.id]: !isExpanded
+                                                }))}
+                                                style={{
+                                                    background: 'rgba(139, 69, 255, 0.2)',
+                                                    border: '1px solid rgba(139, 69, 255, 0.4)',
+                                                    color: '#c4b5fd',
+                                                    borderRadius: '6px',
+                                                    padding: '4px 8px',
+                                                    fontSize: '12px',
+                                                    fontWeight: '500',
+                                                    marginTop: '8px',
+                                                    cursor: 'pointer',
+                                                    transition: 'all 0.2s ease'
+                                                }}
+                                                onMouseEnter={(e) => {
+                                                    e.target.style.backgroundColor = 'rgba(139, 69, 255, 0.3)';
+                                                }}
+                                                onMouseLeave={(e) => {
+                                                    e.target.style.backgroundColor = 'rgba(139, 69, 255, 0.2)';
+                                                }}
+                                            >
+                                                {isExpanded ? 'Voir moins' : 'Voir davantage'}
+                                            </button>
+                                        )}
+                                    </>
+                                );
+                            })()}
                         </div>
                     )}
                 </div>
 
-                {/* Photos de la soirée */}
-                {((party.photoURLs && party.photoURLs.length > 0) || party.photoURL) && (
-                    <div style={{ marginTop: '16px', width: '100%' }}>
-                        {/* Grille de photos pour le nouveau format */}
-                        {party.photoURLs && party.photoURLs.length > 0 ? (
-                            party.photoURLs.length === 1 ? (
-                                // Une seule photo : pleine largeur
-                                <div style={{
-                                    width: '100%',
-                                    borderRadius: '12px',
-                                    overflow: 'hidden',
-                                    border: '1px solid rgba(255, 255, 255, 0.1)'
-                                }}>
-                                    <img 
-                                        src={party.photoURLs[0]}
-                                        alt="Photo de soirée"
-                                        onClick={() => setSelectedPhoto(party.photoURLs[0])}
+                {/* Photos et vidéos de la soirée */}
+                {((party.photoURLs && party.photoURLs.length > 0) || party.photoURL || (party.videoURLs && party.videoURLs.length > 0)) && (
+                    <div style={{ 
+                        marginTop: '16px',
+                        marginLeft: '-20px',
+                        marginRight: '-20px',
+                        position: 'relative'
+                    }}>
+                        {/* Défilement horizontal pour tous les médias */}
+                        {(party.photoURLs && party.photoURLs.length > 0) || (party.videoURLs && party.videoURLs.length > 0) ? (
+                            <div style={{
+                                display: 'flex',
+                                overflowX: 'auto',
+                                gap: '12px',
+                                paddingLeft: '20px',
+                                paddingRight: '20px',
+                                scrollbarWidth: 'none',
+                                msOverflowStyle: 'none',
+                                WebkitScrollbar: { display: 'none' }
+                            }}>
+                                {/* Photos */}
+                                {party.photoURLs && party.photoURLs.map((photoURL, index) => (
+                                    <div
+                                        key={`photo-${index}`}
                                         style={{
-                                            width: '100%',
-                                            height: 'auto',
-                                            maxHeight: '400px',
-                                            objectFit: 'cover',
-                                            display: 'block',
+                                            minWidth: '85vw',
+                                            maxWidth: '85vw',
+                                            aspectRatio: '16/10',
                                             cursor: 'pointer',
-                                            transition: 'transform 0.2s ease'
+                                            borderRadius: '12px',
+                                            overflow: 'hidden',
+                                            border: '1px solid rgba(255, 255, 255, 0.1)',
+                                            position: 'relative'
                                         }}
-                                        onMouseEnter={(e) => e.target.style.transform = 'scale(1.02)'}
-                                        onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
-                                        onError={(e) => {
-                                            e.target.style.display = 'none';
-                                            console.error('Erreur chargement image:', party.photoURLs[0]);
-                                        }}
-                                        loading="lazy"
-                                    />
-                                </div>
-                            ) : (
-                                // Plusieurs photos : défilement horizontal
-                                <div 
-                                    className="photo-scroll"
-                                    style={{
-                                        width: '100%',
-                                        overflowX: 'auto',
-                                        overflowY: 'hidden',
-                                        scrollBehavior: 'smooth',
-                                        borderRadius: '12px'
-                                    }}
-                                >
-                                    <div style={{
-                                        display: 'flex',
-                                        gap: '8px',
-                                        paddingBottom: '8px',
-                                        minWidth: 'max-content'
-                                    }}>
-                                        {party.photoURLs.map((photoURL, index) => (
-                                            <div
-                                                key={index}
-                                                style={{
-                                                    position: 'relative',
-                                                    width: '300px', // Largeur fixe pour chaque photo
-                                                    height: '200px',
-                                                    flexShrink: 0,
-                                                    cursor: 'pointer',
-                                                    borderRadius: '8px',
-                                                    overflow: 'hidden',
-                                                    border: '1px solid rgba(255, 255, 255, 0.1)'
-                                                }}
-                                                onClick={() => setSelectedPhoto(photoURL)}
-                                            >
-                                                <img 
-                                                    src={photoURL}
-                                                    alt={`Photo ${index + 1}`}
-                                                    style={{
-                                                        width: '100%',
-                                                        height: '100%',
-                                                        objectFit: 'cover',
-                                                        transition: 'transform 0.2s ease'
-                                                    }}
-                                                    onMouseEnter={(e) => e.target.style.transform = 'scale(1.05)'}
-                                                    onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
-                                                    onError={(e) => {
-                                                        e.target.style.display = 'none';
-                                                        console.error('Erreur chargement image:', photoURL);
-                                                    }}
-                                                    loading="lazy"
-                                                />
-                                            </div>
-                                        ))}
+                                        onClick={() => setSelectedPhoto(photoURL)}
+                                    >
+                                        <img 
+                                            src={photoURL}
+                                            alt={`Photo ${index + 1}`}
+                                            style={{
+                                                width: '100%',
+                                                height: '100%',
+                                                objectFit: 'cover',
+                                                transition: 'transform 0.2s ease'
+                                            }}
+                                            onError={(e) => {
+                                                e.target.style.display = 'none';
+                                                console.error('Erreur chargement image:', photoURL);
+                                            }}
+                                            loading="lazy"
+                                        />
+                                        {/* Indicateur de position */}
+                                        <div style={{
+                                            position: 'absolute',
+                                            top: '12px',
+                                            right: '12px',
+                                            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                                            color: 'white',
+                                            padding: '4px 8px',
+                                            borderRadius: '12px',
+                                            fontSize: '12px',
+                                            fontWeight: '500'
+                                        }}>
+                                            {index + 1}/{(party.photoURLs?.length || 0) + (party.videoURLs?.length || 0)}
+                                        </div>
                                     </div>
-                                </div>
-                            )
+                                ))}
+                                
+                                {/* Vidéos */}
+                                {party.videoURLs && party.videoURLs.map((videoURL, index) => (
+                                    <div
+                                        key={`video-${index}`}
+                                        style={{
+                                            minWidth: '85vw',
+                                            maxWidth: '85vw',
+                                            aspectRatio: '16/10',
+                                            borderRadius: '12px',
+                                            overflow: 'hidden',
+                                            border: '1px solid rgba(255, 255, 255, 0.1)',
+                                            position: 'relative'
+                                        }}
+                                    >
+                                        <video 
+                                            src={videoURL}
+                                            controls
+                                            style={{
+                                                width: '100%',
+                                                height: '100%',
+                                                objectFit: 'cover'
+                                            }}
+                                            onError={(e) => {
+                                                e.target.style.display = 'none';
+                                                console.error('Erreur chargement vidéo:', videoURL);
+                                            }}
+                                        />
+                                        {/* Indicateur de position */}
+                                        <div style={{
+                                            position: 'absolute',
+                                            top: '12px',
+                                            right: '12px',
+                                            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                                            color: 'white',
+                                            padding: '4px 8px',
+                                            borderRadius: '12px',
+                                            fontSize: '12px',
+                                            fontWeight: '500'
+                                        }}>
+                                            {(party.photoURLs?.length || 0) + index + 1}/{(party.photoURLs?.length || 0) + (party.videoURLs?.length || 0)}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
                         ) : (
                             /* Rétrocompatibilité avec l'ancien format */
                             party.photoURL && (
                                 <div style={{
-                                    width: '100%',
-                                    borderRadius: '12px',
-                                    overflow: 'hidden',
-                                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                                    cursor: 'pointer'
+                                    marginLeft: '-20px',
+                                    marginRight: '-20px'
                                 }}>
-                                    <img 
-                                        src={party.photoURL}
-                                        alt="Photo de soirée"
-                                        onClick={() => setSelectedPhoto(party.photoURL)}
-                                        style={{
-                                            width: '100%',
-                                            height: 'auto',
-                                            maxHeight: '400px',
-                                            objectFit: 'cover',
-                                            display: 'block',
-                                            transition: 'transform 0.2s ease'
-                                        }}
-                                        onError={(e) => {
-                                            e.target.style.display = 'none';
-                                            console.error('Erreur chargement image:', party.photoURL);
-                                        }}
-                                        onMouseEnter={(e) => e.target.style.transform = 'scale(1.02)'}
-                                        onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
-                                        loading="lazy"
-                                    />
-                                </div>
-                            )
-                        )}
-                    </div>
-                )}
-
-                {/* Vidéos de la soirée */}
-                {(party.videoURLs && party.videoURLs.length > 0) && (
-                    <div style={{ marginTop: '16px', width: '100%' }}>
-                        {party.videoURLs.length === 1 ? (
-                            // Une seule vidéo : pleine largeur
-                            <div style={{
-                                width: '100%',
-                                borderRadius: '12px',
-                                overflow: 'hidden',
-                                border: '1px solid rgba(255, 255, 255, 0.1)',
-                                backgroundColor: '#000'
-                            }}>
-                                <div
-                                    style={{
-                                        position: 'relative',
-                                        width: '100%',
-                                        height: '300px',
-                                        cursor: 'pointer'
-                                    }}
-                                    onClick={() => setSelectedVideo(party.videoURLs[0])}
-                                >
-                                    <video 
-                                        src={party.videoURLs[0]}
-                                        style={{
-                                            width: '100%',
-                                            height: '100%',
-                                            objectFit: 'cover',
-                                            transition: 'transform 0.2s ease'
-                                        }}
-                                        muted
-                                        playsInline
-                                        preload="metadata"
-                                        onError={(e) => {
-                                            e.target.style.display = 'none';
-                                            console.error('Erreur chargement vidéo:', party.videoURLs[0]);
-                                        }}
-                                        onMouseEnter={(e) => {
-                                            e.target.style.transform = 'scale(1.02)';
-                                            e.target.play().catch(console.error);
-                                        }}
-                                        onMouseLeave={(e) => {
-                                            e.target.style.transform = 'scale(1)';
-                                            e.target.pause();
-                                            e.target.currentTime = 0;
-                                        }}
-                                    />
-                                    {/* Bouton play */}
                                     <div style={{
-                                        position: 'absolute',
-                                        top: '50%',
-                                        left: '50%',
-                                        transform: 'translate(-50%, -50%)',
-                                        width: '60px',
-                                        height: '60px',
-                                        backgroundColor: 'rgba(0, 0, 0, 0.7)',
-                                        borderRadius: '50%',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        color: 'white',
-                                        fontSize: '20px',
-                                        pointerEvents: 'none',
-                                        border: '2px solid rgba(255, 255, 255, 0.8)'
+                                        paddingLeft: '20px',
+                                        paddingRight: '20px'
                                     }}>
-                                        ▶️
-                                    </div>
-                                </div>
-                            </div>
-                        ) : (
-                            // Plusieurs vidéos : défilement horizontal
-                            <div 
-                                className="video-scroll"
-                                style={{
-                                    width: '100%',
-                                    overflowX: 'auto',
-                                    overflowY: 'hidden',
-                                    scrollBehavior: 'smooth',
-                                    borderRadius: '12px'
-                                }}
-                            >
-                                <div style={{
-                                    display: 'flex',
-                                    gap: '8px',
-                                    paddingBottom: '8px',
-                                    minWidth: 'max-content'
-                                }}>
-                                    {party.videoURLs.map((videoURL, index) => (
-                                        <div
-                                            key={index}
-                                            style={{
-                                                position: 'relative',
-                                                width: '300px', // Largeur fixe pour chaque vidéo
-                                                height: '200px',
-                                                flexShrink: 0,
-                                                cursor: 'pointer',
-                                                borderRadius: '8px',
-                                                overflow: 'hidden',
-                                                border: '1px solid rgba(255, 255, 255, 0.1)',
-                                                backgroundColor: '#000'
-                                            }}
-                                            onClick={() => setSelectedVideo(videoURL)}
-                                        >
-                                            <video 
-                                                src={videoURL}
+                                        <div style={{
+                                            borderRadius: '12px',
+                                            overflow: 'hidden',
+                                            border: '1px solid rgba(255, 255, 255, 0.1)',
+                                            cursor: 'pointer'
+                                        }}>
+                                            <img 
+                                                src={party.photoURL}
+                                                alt="Photo de soirée"
+                                                onClick={() => setSelectedPhoto(party.photoURL)}
                                                 style={{
                                                     width: '100%',
-                                                    height: '100%',
+                                                    height: 'auto',
+                                                    aspectRatio: '16/10',
                                                     objectFit: 'cover',
+                                                    display: 'block',
                                                     transition: 'transform 0.2s ease'
                                                 }}
-                                                muted
-                                                playsInline
-                                                preload="metadata"
                                                 onError={(e) => {
                                                     e.target.style.display = 'none';
-                                                    console.error('Erreur chargement vidéo:', videoURL);
+                                                    console.error('Erreur chargement image:', party.photoURL);
                                                 }}
-                                                onMouseEnter={(e) => {
-                                                    e.target.style.transform = 'scale(1.05)';
-                                                    e.target.play().catch(console.error);
-                                                }}
-                                                onMouseLeave={(e) => {
-                                                    e.target.style.transform = 'scale(1)';
-                                                    e.target.pause();
-                                                    e.target.currentTime = 0;
-                                                }}
+                                                loading="lazy"
                                             />
-                                            {/* Bouton play */}
-                                            <div style={{
-                                                position: 'absolute',
-                                                top: '50%',
-                                                left: '50%',
-                                                transform: 'translate(-50%, -50%)',
-                                                width: '48px',
-                                                height: '48px',
-                                                backgroundColor: 'rgba(0, 0, 0, 0.7)',
-                                                borderRadius: '50%',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                                color: 'white',
-                                                fontSize: '16px',
-                                                pointerEvents: 'none',
-                                                border: '2px solid rgba(255, 255, 255, 0.8)'
-                                            }}>
-                                                ▶️
-                                            </div>
                                         </div>
-                                    ))}
+                                    </div>
                                 </div>
-                            </div>
+                            )
                         )}
                     </div>
                 )}

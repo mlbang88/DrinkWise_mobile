@@ -18,7 +18,7 @@ import FriendStatsPage from './pages/FriendStatsPage';
 import FeedPage from './pages/FeedPage';
 
 // Import icons for the nav bar
-import { Home, BarChart, Users, Award, User as UserIcon, Shield, Rss } from 'lucide-react';
+import { Home, BarChart, Users, Award, User as UserIcon, Shield, Rss, Target } from 'lucide-react';
 
 const mainBgStyle = {
     backgroundSize: 'cover',
@@ -51,6 +51,7 @@ const AppContent = () => {
         { id: 'feed', icon: Rss, label: 'Fil' },
         { id: 'stats', icon: BarChart, label: 'Stats' },
         { id: 'badges', icon: Award, label: 'Badges' },
+        { id: 'challenges', icon: Target, label: 'Défis' },
         { id: 'friends', icon: Users, label: 'Amis' },
         { id: 'profile', icon: UserIcon, label: 'Profil' }
     ];

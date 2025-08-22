@@ -1,8 +1,10 @@
 import React, { useState, useContext } from 'react';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, collection, getDocs } from 'firebase/firestore';
 import { FirebaseContext } from '../contexts/FirebaseContext.jsx';
 import { gameplayConfig } from '../utils/data';
 import { badgeService } from '../services/badgeService';
+import { challengeService } from '../services/challengeService';
+import { levelUtils } from '../utils/levelUtils';
 import QuizModal from './QuizModalSimple';
 
 const QuizManagerSimple = ({ partyData, partyId, onQuizComplete, uploadingPhotos = false, photosCount = 0 }) => {
@@ -36,25 +38,109 @@ const QuizManagerSimple = ({ partyData, partyId, onQuizComplete, uploadingPhotos
             console.log("✅ Soirée sauvegardée avec les réponses du quiz");
 
             // 2. Calculer et attribuer les récompenses
-            const xpGained = gameplayConfig.xpPerParty + (responses.length * 10); // 10 XP par question
+            const oldXp = userProfile.xp || 0;
+            const oldLevel = levelUtils.calculateLevel(oldXp);
             
             if (userProfile) {
-                const newXp = (userProfile.xp || 0) + xpGained;
-                const newLevel = Math.floor(newXp / 500) + 1; // 500 XP par niveau
+                // XP de base pour la soirée
+                let xpGained = gameplayConfig.xpPerParty + (responses.length * 10); // 10 XP par question
+                
+                // Récupérer toutes les soirées pour vérifier les challenges
+                const userPartiesRef = collection(db, `artifacts/${appId}/users/${user.uid}/parties`);
+                const partiesSnapshot = await getDocs(userPartiesRef);
+                const allParties = partiesSnapshot.docs.map(doc => doc.data());
+                
+                // Vérifier et attribuer les nouveaux badges automatiquement
+                const { newBadgesCount, newBadges } = await badgeService.checkAndAwardBadges(db, user, userProfile, appId, finalPartyData, setMessageBox);
+                
+                // XP pour les badges débloqués
+                if (newBadges && newBadges.length > 0) {
+                    xpGained += newBadges.length * gameplayConfig.xpPerBadge;
+                }
+                
+                // Vérifier les challenges
+                const completedChallenges = userProfile.completedChallenges || {};
+                const newChallenges = challengeService.checkCompletedChallenges(allParties, completedChallenges);
+                
+                // XP pour les challenges complétés
+                if (newChallenges.length > 0) {
+                    xpGained += newChallenges.length * gameplayConfig.xpPerChallenge;
+                }
+                
+                // Calculer le nouveau niveau
+                const newXp = oldXp + xpGained;
+                const newLevel = levelUtils.calculateLevel(newXp);
+                const levelUpData = levelUtils.detectLevelUp(oldXp, newXp);
+                
                 const newTotalParties = (userProfile.totalParties || 0) + 1;
 
                 // Mettre à jour le profil utilisateur
                 const userDoc = doc(db, `artifacts/${appId}/users/${user.uid}/profile`, 'data');
-                await updateDoc(userDoc, {
+                const updateData = {
                     xp: newXp,
                     level: newLevel,
                     totalParties: newTotalParties
-                });
-
-                // Vérifier et attribuer les nouveaux badges automatiquement
-                await badgeService.checkAndAwardBadges(db, user, userProfile, appId, finalPartyData, setMessageBox);
+                };
                 
-                console.log("� Récompenses et badges traités automatiquement");
+                // Ajouter les nouveaux challenges complétés
+                if (newChallenges.length > 0) {
+                    const updatedCompletedChallenges = { ...completedChallenges };
+                    newChallenges.forEach(challengeId => {
+                        updatedCompletedChallenges[challengeId] = true;
+                    });
+                    updateData.completedChallenges = updatedCompletedChallenges;
+                }
+                
+                await updateDoc(userDoc, updateData);
+                
+                // Préparer les données à sauvegarder dans la soirée pour le feed
+                const feedData = {};
+                
+                // Si des badges ont été débloqués, les ajouter à la soirée pour le feed
+                if (newBadges && newBadges.length > 0) {
+                    feedData.unlockedBadges = newBadges;
+                    console.log("🏆 Badges ajoutés à la soirée:", newBadges);
+                }
+                
+                // Si des challenges ont été complétés, les ajouter à la soirée pour le feed
+                if (newChallenges.length > 0) {
+                    feedData.completedChallenges = newChallenges;
+                    console.log("🎯 Challenges complétés:", newChallenges);
+                }
+                
+                // Si montée de niveau, l'ajouter à la soirée pour le feed
+                if (levelUpData.leveledUp) {
+                    feedData.levelUp = {
+                        oldLevel: levelUpData.oldLevel,
+                        newLevel: levelUpData.newLevel,
+                        newLevelName: levelUpData.newLevelInfo.name
+                    };
+                    console.log("⬆️ MONTÉE DE NIVEAU DÉTECTÉE:", {
+                        oldLevel: levelUpData.oldLevel,
+                        newLevel: levelUpData.newLevel,
+                        oldXp,
+                        newXp,
+                        levelUpData
+                    });
+                } else {
+                    console.log("🔍 Pas de montée de niveau:", {
+                        oldLevel,
+                        newLevel,
+                        oldXp,
+                        newXp,
+                        levelUpData
+                    });
+                }
+                
+                // XP gagné pour affichage
+                feedData.xpGained = xpGained;
+                
+                // Sauvegarder les événements dans la soirée
+                if (Object.keys(feedData).length > 0) {
+                    await updateDoc(partyDoc, feedData);
+                }
+                
+                console.log("🎖️ Récompenses et badges traités automatiquement");
             }
 
             // 3. Fermer le quiz et signaler la completion
