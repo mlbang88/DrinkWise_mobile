@@ -71,11 +71,13 @@ export const levelUtils = {
         console.log("🎯 detectLevelUp:", { oldXp, newXp, oldLevel, newLevel });
         
         if (newLevel > oldLevel) {
-            console.log("✅ LEVEL UP DÉTECTÉ !");
+            const levelsGained = newLevel - oldLevel;
+            console.log(`✅ LEVEL UP DÉTECTÉ ! Niveaux gagnés: ${levelsGained} (${oldLevel} → ${newLevel})`);
             return {
                 leveledUp: true,
                 oldLevel,
                 newLevel,
+                levelsGained,
                 newLevelInfo: levelUtils.getLevelInfo(newXp)
             };
         }

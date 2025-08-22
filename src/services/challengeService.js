@@ -4,11 +4,12 @@ import { getWeekId, getMonthId } from '../utils/helpers';
 export const challengeService = {
     // Calculer les stats pour la période actuelle
     calculatePeriodStats: (parties, period = 'weekly') => {
-        const currentWeekId = getWeekId();
-        const currentMonthId = getMonthId();
+        const now = new Date();
+        const currentWeekId = getWeekId(now);
+        const currentMonthId = getMonthId(now);
         
         const periodParties = parties.filter(party => {
-            const partyDate = new Date(party.date || party.timestamp?.toDate());
+            const partyDate = party.timestamp?.toDate ? party.timestamp.toDate() : new Date(party.date || party.timestamp);
             const partyWeekId = getWeekId(partyDate);
             const partyMonthId = getMonthId(partyDate);
             
@@ -59,9 +60,13 @@ export const challengeService = {
 
     // Vérifier quels challenges sont complétés
     checkCompletedChallenges: (parties, completedChallenges = {}) => {
+        console.log("🎯 checkCompletedChallenges called:", { partiesCount: parties.length, completedChallenges });
+        
         const newlyCompleted = [];
         const weeklyStats = challengeService.calculatePeriodStats(parties, 'weekly');
         const monthlyStats = challengeService.calculatePeriodStats(parties, 'monthly');
+
+        console.log("📊 Stats calculées:", { weeklyStats, monthlyStats });
 
         Object.values(challengeList).forEach(challenge => {
             const isAlreadyCompleted = completedChallenges[challenge.id];
@@ -69,12 +74,26 @@ export const challengeService = {
             if (!isAlreadyCompleted) {
                 let stats = challenge.type === 'weekly' ? weeklyStats : monthlyStats;
                 
+                console.log(`🔍 Vérification challenge ${challenge.id}:`, {
+                    title: challenge.title,
+                    type: challenge.type,
+                    stats: stats,
+                    target: challenge.target,
+                    field: challenge.field,
+                    currentValue: challenge.field ? stats[challenge.field] : 'N/A',
+                    meetsCondition: challenge.criteria(stats)
+                });
+                
                 if (challenge.criteria(stats)) {
+                    console.log(`✅ Challenge complété: ${challenge.id}`);
                     newlyCompleted.push(challenge.id);
                 }
+            } else {
+                console.log(`⏭️ Challenge déjà complété: ${challenge.id}`);
             }
         });
 
+        console.log("🎖️ Nouveaux challenges complétés:", newlyCompleted);
         return newlyCompleted;
     },
 

@@ -765,7 +765,9 @@ const FeedPage = () => {
                                     fontSize: 'clamp(13px, 3.5vw, 14px)',
                                     fontWeight: '600'
                                 }}>
-                                    Montée de niveau !
+                                    {party.levelUp.levelsGained > 1 
+                                        ? `Montée de ${party.levelUp.levelsGained} niveaux !` 
+                                        : 'Montée de niveau !'}
                                 </span>
                             </div>
                             <div style={{
@@ -779,7 +781,9 @@ const FeedPage = () => {
                                     fontSize: 'clamp(12px, 3.5vw, 14px)',
                                     fontWeight: '600'
                                 }}>
-                                    Niveau {party.levelUp.newLevel} • {party.levelUp.newLevelName}
+                                    {party.levelUp.levelsGained > 1 
+                                        ? `Niveau ${party.levelUp.oldLevel} → ${party.levelUp.newLevel} • ${party.levelUp.newLevelName}`
+                                        : `Niveau ${party.levelUp.newLevel} • ${party.levelUp.newLevelName}`}
                                 </span>
                             </div>
                         </div>

@@ -34,8 +34,12 @@ const QuizManagerSimple = ({ partyData, partyId, onQuizComplete, uploadingPhotos
                 status: 'completed'
             };
 
+            console.log("💾 Données de la soirée à sauvegarder:", finalPartyData);
             await updateDoc(partyDoc, finalPartyData);
             console.log("✅ Soirée sauvegardée avec les réponses du quiz");
+
+            // Petite pause pour s'assurer que la sauvegarde est complète
+            await new Promise(resolve => setTimeout(resolve, 100));
 
             // 2. Calculer et attribuer les récompenses
             const oldXp = userProfile.xp || 0;
@@ -50,6 +54,9 @@ const QuizManagerSimple = ({ partyData, partyId, onQuizComplete, uploadingPhotos
                 const partiesSnapshot = await getDocs(userPartiesRef);
                 const allParties = partiesSnapshot.docs.map(doc => doc.data());
                 
+                // Ajouter la nouvelle soirée à la liste pour la vérification des challenges
+                const allPartiesWithNew = [...allParties, finalPartyData];
+                
                 // Vérifier et attribuer les nouveaux badges automatiquement
                 const { newBadgesCount, newBadges } = await badgeService.checkAndAwardBadges(db, user, userProfile, appId, finalPartyData, setMessageBox);
                 
@@ -60,11 +67,19 @@ const QuizManagerSimple = ({ partyData, partyId, onQuizComplete, uploadingPhotos
                 
                 // Vérifier les challenges
                 const completedChallenges = userProfile.completedChallenges || {};
-                const newChallenges = challengeService.checkCompletedChallenges(allParties, completedChallenges);
+                console.log("🎯 Vérification des challenges:", {
+                    allPartiesCount: allPartiesWithNew.length,
+                    completedChallenges,
+                    newPartyData: finalPartyData
+                });
+                
+                const newChallenges = challengeService.checkCompletedChallenges(allPartiesWithNew, completedChallenges);
+                console.log("✅ Challenges détectés:", newChallenges);
                 
                 // XP pour les challenges complétés
                 if (newChallenges.length > 0) {
                     xpGained += newChallenges.length * gameplayConfig.xpPerChallenge;
+                    console.log("🎖️ XP pour challenges:", newChallenges.length * gameplayConfig.xpPerChallenge);
                 }
                 
                 // Calculer le nouveau niveau

@@ -58,14 +58,22 @@ const QuizModal = ({ onQuizComplete, onClose, uploadingPhotos = false, photosCou
         }
         
         setIsProcessing(true);
-        console.log("🎯 Quiz terminé avec résultat:", quizResult);
+        console.log("🎯 Quiz terminé avec réponses:", Object.values(answers));
         
-        // Appeler onQuizComplete qui gérera les récompenses et fermera le modal
-        if (onQuizComplete) {
-            await onQuizComplete(quizResult);
+        try {
+            // Appeler onQuizComplete avec les réponses (pas le résultat)
+            if (onQuizComplete) {
+                await onQuizComplete(Object.values(answers));
+            }
+        } catch (error) {
+            console.error("❌ Erreur lors de la finalisation du quiz:", error);
+        } finally {
+            setIsProcessing(false);
+            // Fermer le modal après traitement
+            if (onClose) {
+                onClose();
+            }
         }
-        
-        setIsProcessing(false);
     };
 
     const modalStyles = {
