@@ -1,9 +1,10 @@
 import React, { useState, useContext } from 'react';
 import ThemedText from '../styles/ThemedText.jsx';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, signInWithPopup, GoogleAuthProvider, FacebookAuthProvider } from 'firebase/auth';
 import { FirebaseContext } from '../contexts/FirebaseContext.jsx';
 import LoadingIcon from '../components/LoadingIcon';
 import { validateEmail, validatePassword, getFirebaseErrorMessage, formatEmailForDisplay } from '../utils/authUtils';
+import SocialLoginBenefits from '../components/SocialLoginBenefits';
 
 function AuthPage() {
     const { auth, setMessageBox } = useContext(FirebaseContext);
@@ -16,6 +17,8 @@ function AuthPage() {
     const [resetEmailSent, setResetEmailSent] = useState(false);
     const [emailError, setEmailError] = useState(false);
     const [passwordError, setPasswordError] = useState(false);
+    const [socialLoading, setSocialLoading] = useState('');
+    const [showSocialHelp, setShowSocialHelp] = useState(false);
 
     const handleAuth = async (e) => {
         e.preventDefault();
@@ -92,6 +95,57 @@ function AuthPage() {
         setEmail('');
         setPassword('');
         setUsername('');
+    };
+
+    const handleSocialAuth = async (provider) => {
+        const providerName = provider === 'google' ? 'Google' : 'Facebook';
+        setSocialLoading(provider);
+        
+        try {
+            let authProvider;
+            if (provider === 'google') {
+                authProvider = new GoogleAuthProvider();
+                authProvider.addScope('profile');
+                authProvider.addScope('email');
+            } else if (provider === 'facebook') {
+                authProvider = new FacebookAuthProvider();
+                authProvider.addScope('email');
+                authProvider.addScope('public_profile');
+            }
+
+            const result = await signInWithPopup(auth, authProvider);
+            const user = result.user;
+            
+            // Récupérer les informations du profil
+            const displayName = user.displayName || user.email?.split('@')[0] || 'Utilisateur';
+            const photoURL = user.photoURL;
+            
+            setMessageBox({ 
+                message: `🎉 Connexion réussie avec ${providerName} ! Bienvenue ${displayName}`, 
+                type: 'success' 
+            });
+
+            // Note: Le profil utilisateur sera créé automatiquement par le listener dans App.jsx
+            
+        } catch (error) {
+            console.error(`Erreur ${providerName}:`, error);
+            
+            let errorMessage = `Erreur lors de la connexion avec ${providerName}.`;
+            
+            if (error.code === 'auth/account-exists-with-different-credential') {
+                errorMessage = 'Un compte existe déjà avec cette adresse email mais avec un autre mode de connexion.';
+            } else if (error.code === 'auth/popup-closed-by-user') {
+                errorMessage = 'Connexion annulée par l\'utilisateur.';
+            } else if (error.code === 'auth/popup-blocked') {
+                errorMessage = 'Popup bloqué par le navigateur. Veuillez autoriser les popups pour ce site.';
+            } else if (error.code === 'auth/cancelled-popup-request') {
+                errorMessage = 'Connexion annulée.';
+            }
+            
+            setMessageBox({ message: errorMessage, type: 'error' });
+        } finally {
+            setSocialLoading('');
+        }
     };
 
     return (
@@ -307,6 +361,157 @@ function AuthPage() {
                     </button>
                 </form>
 
+                {/* Connexion sociale - seulement en mode connexion/inscription */}
+                {!showForgotPassword && (
+                    <>
+                        {/* Séparateur */}
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            margin: '32px 0',
+                            width: '100%'
+                        }}>
+                            <div style={{
+                                flex: 1,
+                                height: '1px',
+                                backgroundColor: '#334155'
+                            }}></div>
+                            <span style={{
+                                color: '#9ca3af',
+                                padding: '0 16px',
+                                fontSize: '14px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px'
+                            }}>
+                                ou continuez avec
+                                <button
+                                    type="button"
+                                    onClick={() => setShowSocialHelp(true)}
+                                    style={{
+                                        background: 'none',
+                                        border: 'none',
+                                        color: '#8b45ff',
+                                        fontSize: '12px',
+                                        cursor: 'pointer',
+                                        textDecoration: 'underline',
+                                        padding: 0
+                                    }}
+                                >
+                                    ?
+                                </button>
+                            </span>
+                            <div style={{
+                                flex: 1,
+                                height: '1px',
+                                backgroundColor: '#334155'
+                            }}></div>
+                        </div>
+
+                        {/* Boutons de connexion sociale */}
+                        <div style={{
+                            display: 'flex',
+                            gap: '16px',
+                            width: '100%'
+                        }}>
+                            {/* Bouton Google */}
+                            <button
+                                type="button"
+                                onClick={() => handleSocialAuth('google')}
+                                disabled={loading || socialLoading !== ''}
+                                style={{
+                                    flex: 1,
+                                    padding: '16px 20px',
+                                    backgroundColor: socialLoading === 'google' ? '#6b7280' : '#ffffff',
+                                    border: '2px solid #e5e7eb',
+                                    borderRadius: '12px',
+                                    color: socialLoading === 'google' ? '#ffffff' : '#374151',
+                                    fontSize: '16px',
+                                    fontWeight: '600',
+                                    cursor: loading || socialLoading !== '' ? 'not-allowed' : 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '8px',
+                                    transition: 'all 0.2s ease',
+                                    opacity: loading || socialLoading !== '' ? 0.6 : 1
+                                }}
+                                onMouseEnter={(e) => {
+                                    if (!loading && socialLoading === '') {
+                                        e.target.style.backgroundColor = '#f9fafb';
+                                        e.target.style.borderColor = '#d1d5db';
+                                    }
+                                }}
+                                onMouseLeave={(e) => {
+                                    if (!loading && socialLoading === '') {
+                                        e.target.style.backgroundColor = '#ffffff';
+                                        e.target.style.borderColor = '#e5e7eb';
+                                    }
+                                }}
+                            >
+                                {socialLoading === 'google' ? (
+                                    <LoadingIcon />
+                                ) : (
+                                    <>
+                                        <svg width="20" height="20" viewBox="0 0 24 24">
+                                            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                                            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                                            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                                            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                                        </svg>
+                                        Google
+                                    </>
+                                )}
+                            </button>
+
+                            {/* Bouton Facebook */}
+                            <button
+                                type="button"
+                                onClick={() => handleSocialAuth('facebook')}
+                                disabled={loading || socialLoading !== ''}
+                                style={{
+                                    flex: 1,
+                                    padding: '16px 20px',
+                                    backgroundColor: socialLoading === 'facebook' ? '#6b7280' : '#1877f2',
+                                    border: '2px solid #1877f2',
+                                    borderRadius: '12px',
+                                    color: '#ffffff',
+                                    fontSize: '16px',
+                                    fontWeight: '600',
+                                    cursor: loading || socialLoading !== '' ? 'not-allowed' : 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '8px',
+                                    transition: 'all 0.2s ease',
+                                    opacity: loading || socialLoading !== '' ? 0.6 : 1
+                                }}
+                                onMouseEnter={(e) => {
+                                    if (!loading && socialLoading === '') {
+                                        e.target.style.backgroundColor = '#166fe5';
+                                    }
+                                }}
+                                onMouseLeave={(e) => {
+                                    if (!loading && socialLoading === '') {
+                                        e.target.style.backgroundColor = '#1877f2';
+                                    }
+                                }}
+                            >
+                                {socialLoading === 'facebook' ? (
+                                    <LoadingIcon />
+                                ) : (
+                                    <>
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                            <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                                        </svg>
+                                        Facebook
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    </>
+                )}
+
                 {/* Navigation entre les modes */}
                 <div style={{
                     textAlign: 'center',
@@ -408,6 +613,11 @@ function AuthPage() {
                     )}
                 </div>
             </div>
+
+            {/* Modal d'aide pour la connexion sociale */}
+            {showSocialHelp && (
+                <SocialLoginBenefits onClose={() => setShowSocialHelp(false)} />
+            )}
         </div>
     );
 }

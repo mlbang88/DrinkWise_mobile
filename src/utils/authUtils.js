@@ -29,6 +29,18 @@ export const getFirebaseErrorMessage = (errorCode) => {
             return 'Problème de connexion. Vérifiez votre connexion internet.';
         case 'auth/invalid-credential':
             return 'Identifiants invalides.';
+        case 'auth/account-exists-with-different-credential':
+            return 'Un compte existe déjà avec cette adresse email mais avec un autre mode de connexion.';
+        case 'auth/popup-closed-by-user':
+            return 'Connexion annulée par l\'utilisateur.';
+        case 'auth/popup-blocked':
+            return 'Popup bloqué par le navigateur. Veuillez autoriser les popups pour ce site.';
+        case 'auth/cancelled-popup-request':
+            return 'Connexion annulée.';
+        case 'auth/operation-not-allowed':
+            return 'Ce mode de connexion n\'est pas activé.';
+        case 'auth/operation-not-supported-in-this-environment':
+            return 'Cette opération n\'est pas supportée dans cet environnement.';
         default:
             return 'Une erreur inattendue s\'est produite.';
     }
