@@ -1,25 +1,18 @@
-# Guide d'utilisation - Connexion sociale DrinkWise
+# Guide d'utilisation - Connexion Google DrinkWise
 
-## 🚀 Comment se connecter avec Google ou Facebook ?
+## 🚀 Comment se connecter avec Google ?
 
-### Option 1 : Connexion Google 🟢
-1. Cliquez sur le bouton **"Google"** blanc
+### Connexion Google 🟢
+1. Cliquez sur le bouton **"Continuer avec Google"** blanc
 2. Une popup s'ouvre avec la page de connexion Google
 3. Sélectionnez votre compte Google ou connectez-vous
 4. Autorisez DrinkWise à accéder à votre profil et email
 5. Vous êtes automatiquement connecté !
 
-### Option 2 : Connexion Facebook 🔵
-1. Cliquez sur le bouton **"Facebook"** bleu
-2. Une popup s'ouvre avec la page de connexion Facebook
-3. Connectez-vous à votre compte Facebook
-4. Autorisez DrinkWise à accéder à votre profil et email
-5. Vous êtes automatiquement connecté !
-
-## ✨ Avantages de la connexion sociale
+## ✨ Avantages de la connexion Google
 
 - **⚡ Rapidité** : Connexion en un seul clic
-- **🔒 Sécurité** : Authentification gérée par Google/Facebook
+- **🔒 Sécurité** : Authentification gérée par Google
 - **🎯 Simplicité** : Pas de mot de passe à retenir
 - **👤 Profil auto** : Photo et nom automatiquement importés
 
@@ -30,16 +23,16 @@
 - Réessayez la connexion
 
 ### "Compte existant avec différent provider" ?
-- Vous avez déjà un compte avec le même email
+- Vous avez déjà un compte avec le même email via email/mot de passe
 - Connectez-vous avec votre méthode habituelle
-- Vous pourrez lier les comptes ensuite
+- Vous pourrez lier Google ensuite
 
 ### Connexion annulée ?
-- Vous avez fermé la popup de connexion
+- Vous avez fermé la popup de connexion Google
 - Cliquez à nouveau sur le bouton pour réessayer
 
-### Facebook ne fonctionne pas ?
-- Assurez-vous d'être connecté à Facebook dans votre navigateur
+### Google ne fonctionne pas ?
+- Assurez-vous d'être connecté à Google dans votre navigateur
 - Vérifiez que JavaScript est activé
 - Réessayez dans quelques minutes
 
@@ -47,7 +40,7 @@
 
 - DrinkWise n'a accès qu'aux informations de base (nom, email, photo)
 - Aucun mot de passe n'est stocké
-- Vous pouvez révoquer l'accès depuis votre compte Google/Facebook
+- Vous pouvez révoquer l'accès depuis votre compte Google
 - Toutes les données sont chiffrées et sécurisées
 
 ## 📱 Sur mobile

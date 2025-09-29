@@ -31,7 +31,7 @@ const SocialLoginBenefits = ({ onClose }) => {
                     margin: '0 0 24px 0',
                     textAlign: 'center'
                 }}>
-                    Pourquoi utiliser la connexion sociale ?
+                    Pourquoi se connecter avec Google ?
                 </h3>
 
                 <div style={{
