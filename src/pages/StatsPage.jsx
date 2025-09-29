@@ -26,6 +26,7 @@ const StatsPage = () => {
     const [loadingWhatIf, setLoadingWhatIf] = useState(false);
     const [drinkSuggestion, setDrinkSuggestion] = useState('');
     const [loadingSuggestion, setLoadingSuggestion] = useState(false);
+    const [loadingSystemRepair, setLoadingSystemRepair] = useState(false);
 
     // États pour la section souvenirs
     const [showMemories, setShowMemories] = useState(false);
@@ -121,6 +122,30 @@ const StatsPage = () => {
             setMessageBox({ message: "Erreur de suggestion de boisson.", type: "error" });
         } finally {
             setLoadingSuggestion(false);
+        }
+    };
+
+    // Fonction de réparation du système
+    const repairSystem = async () => {
+        setLoadingSystemRepair(true);
+        const repairFriendshipSystem = httpsCallable(functions, 'repairFriendshipSystem');
+        
+        try {
+            const result = await repairFriendshipSystem({ appId });
+            if (result.data.success) {
+                setMessageBox({ 
+                    message: result.data.message, 
+                    type: "success" 
+                });
+            }
+        } catch (error) {
+            console.error("Erreur réparation système:", error);
+            setMessageBox({ 
+                message: "Erreur lors de la réparation du système.", 
+                type: "error" 
+            });
+        } finally {
+            setLoadingSystemRepair(false);
         }
     };
 
@@ -1114,6 +1139,62 @@ const StatsPage = () => {
                         )}
                     </>
                 )}
+            </div>
+
+            {/* Section Maintenance Système */}
+            <div style={{
+                background: 'rgba(255, 255, 255, 0.1)',
+                borderRadius: '16px',
+                padding: '20px',
+                marginTop: '24px',
+                border: '1px solid rgba(255, 255, 255, 0.2)'
+            }}>
+                <h3 style={{
+                    color: 'white',
+                    fontSize: '20px',
+                    fontWeight: '600',
+                    margin: '0 0 16px 0',
+                    display: 'flex',
+                    alignItems: 'center'
+                }}>
+                    🔧 Maintenance Système
+                </h3>
+                <p style={{
+                    color: 'rgba(255, 255, 255, 0.7)',
+                    fontSize: '14px',
+                    margin: '0 0 16px 0'
+                }}>
+                    Réparer automatiquement les problèmes de synchronisation (amis, niveaux, données)
+                </p>
+                <button 
+                    onClick={repairSystem} 
+                    disabled={loadingSystemRepair}
+                    style={{
+                        width: '100%',
+                        padding: '16px 24px',
+                        backgroundColor: loadingSystemRepair ? '#6b7280' : '#dc2626',
+                        border: 'none',
+                        borderRadius: '12px',
+                        color: 'white',
+                        fontSize: '16px',
+                        fontWeight: '600',
+                        cursor: loadingSystemRepair ? 'not-allowed' : 'pointer',
+                        transition: 'all 0.2s ease',
+                        opacity: loadingSystemRepair ? 0.6 : 1
+                    }}
+                    onMouseEnter={(e) => {
+                        if (!loadingSystemRepair) {
+                            e.target.style.backgroundColor = '#b91c1c';
+                        }
+                    }}
+                    onMouseLeave={(e) => {
+                        if (!loadingSystemRepair) {
+                            e.target.style.backgroundColor = '#dc2626';
+                        }
+                    }}
+                >
+                    {loadingSystemRepair ? <LoadingIcon /> : '🔧 Réparer le Système'}
+                </button>
             </div>
         </div>
     );

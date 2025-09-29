@@ -49,9 +49,42 @@ exports.generateSummary = onCall({
     if (!request.auth) {
       throw new Error('Utilisateur non authentifié');
     }
+
+    // Vérifier les données requises
+    if (!partyData || !appId) {
+      throw new Error('Données de soirée manquantes');
+    }
+
+    // Construire le prompt pour l'IA
+    const totalDrinks = partyData.drinks?.reduce((sum, drink) => sum + drink.quantity, 0) || 0;
+    const drinkTypes = partyData.drinks?.map(drink => `${drink.quantity}x ${drink.type || drink.brand}`).join(', ') || 'Aucune boisson';
     
-    // TODO: Implémenter la génération de résumé
-    return { success: false, message: "À implémenter" };
+    const prompt = `Génère un résumé amusant et créatif de cette soirée en 2-3 phrases maximum :
+    
+    🍻 Lieu: ${partyData.location || 'Lieu inconnu'}
+    🍺 Boissons: ${drinkTypes} (Total: ${totalDrinks} verres)
+    👥 Filles parlées: ${partyData.girlsTalkedTo || 0}
+    🤮 Vomissements: ${partyData.vomi || 0}
+    👊 Bagarres: ${partyData.fights || 0}
+    🔥 Niveau d'alcoolémie: ${drunkLevel || 'Modéré'}
+    
+    Ton: ${partyData.vomi > 0 ? 'Humoristique sur les excès' : 'Positif et amusant'}
+    Style: Comme un ami qui raconte la soirée, avec des emojis.`;
+
+    // Appeler l'API Gemini
+    const result = await callGeminiForText(prompt);
+    
+    if (!result.success) {
+      throw new Error('Erreur lors de la génération du résumé');
+    }
+
+    logger.info(`✅ Résumé généré pour l'utilisateur ${request.auth.uid}`);
+    
+    return { 
+      success: true, 
+      summary: result.text,
+      message: "Résumé généré avec succès" 
+    };
     
   } catch (error) {
     logger.error('❌ Erreur generateSummary:', error);
@@ -167,6 +200,65 @@ exports.analyzeImageSecure = onCall({
     throw new Error(`Erreur analyse: ${error.message}`);
   }
 });
+
+// Fonction helper pour appeler Gemini avec du texte uniquement
+async function callGeminiForText(prompt) {
+  try {
+    const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+    
+    if (!GEMINI_API_KEY) {
+      throw new Error('Configuration API manquante');
+    }
+
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+    
+    const payload = {
+      contents: [{
+        parts: [{
+          text: prompt
+        }]
+      }],
+      generationConfig: {
+        temperature: 0.7,
+        topK: 20,
+        topP: 0.8,
+        maxOutputTokens: 300
+      }
+    };
+    
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Erreur API Gemini: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    
+    if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) {
+      throw new Error('Réponse API invalide');
+    }
+    
+    const text = data.candidates[0].content.parts[0].text.trim();
+    
+    return {
+      success: true,
+      text: text
+    };
+    
+  } catch (error) {
+    logger.error('❌ Erreur callGeminiForText:', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
 
 // Fonction pour forcer l'ajout d'un ami (avec privilèges admin)
 exports.forceAddFriend = onCall({
@@ -931,6 +1023,116 @@ exports.markAllNotificationsAsRead = onCall({
   } catch (error) {
     logger.error('❌ Erreur markAllNotificationsAsRead:', error);
     throw new Error(`Erreur: ${error.message}`);
+  }
+});
+
+// Fonction pour réparer automatiquement le système d'amis
+exports.repairFriendshipSystem = onCall({
+  region: 'us-central1',
+  cors: corsOptions
+}, async (request) => {
+  try {
+    const { appId } = request.data;
+    const userId = request.auth.uid;
+    
+    // Vérifier l'authentification
+    if (!request.auth) {
+      throw new Error('Utilisateur non authentifié');
+    }
+
+    logger.info(`🔧 Réparation du système d'amis pour l'utilisateur ${userId}`);
+
+    const repairResults = {
+      userFixed: false,
+      friendsFixed: 0,
+      errors: []
+    };
+
+    // 1. Récupérer les données actuelles de l'utilisateur
+    const userStatsRef = db.doc(`artifacts/${appId}/public_user_stats/${userId}`);
+    const userDoc = await userStatsRef.get();
+    
+    if (!userDoc.exists()) {
+      throw new Error('Profil utilisateur introuvable');
+    }
+
+    const userData = userDoc.data();
+    const userFriends = userData.friends || [];
+    
+    logger.info(`👤 Utilisateur ${userData.username} a ${userFriends.length} amis: [${userFriends.join(', ')}]`);
+
+    // 2. Vérifier chaque ami et réparer les relations bidirectionnelles
+    for (const friendId of userFriends) {
+      try {
+        const friendStatsRef = db.doc(`artifacts/${appId}/public_user_stats/${friendId}`);
+        const friendDoc = await friendStatsRef.get();
+        
+        if (!friendDoc.exists()) {
+          logger.warn(`⚠️ Ami ${friendId} n'existe plus, nettoyage nécessaire`);
+          // Retirer cet ami inexistant de ma liste
+          await userStatsRef.update({
+            friends: admin.firestore.FieldValue.arrayRemove(friendId)
+          });
+          repairResults.friendsFixed++;
+          continue;
+        }
+
+        const friendData = friendDoc.data();
+        const friendFriends = friendData.friends || [];
+        
+        // Vérifier si la relation est bidirectionnelle
+        if (!friendFriends.includes(userId)) {
+          logger.info(`🔄 Réparation: Ajout de ${userId} à la liste d'amis de ${friendData.username}`);
+          
+          await friendStatsRef.update({
+            friends: admin.firestore.FieldValue.arrayUnion(userId)
+          });
+          
+          repairResults.friendsFixed++;
+        } else {
+          logger.info(`✅ Relation OK avec ${friendData.username}`);
+        }
+        
+      } catch (error) {
+        logger.error(`❌ Erreur lors de la réparation de l'ami ${friendId}:`, error);
+        repairResults.errors.push(`Erreur avec ${friendId}: ${error.message}`);
+      }
+    }
+
+    // 3. Vérifier et corriger le niveau de l'utilisateur
+    const userProfileRef = db.doc(`artifacts/${appId}/users/${userId}/profile/data`);
+    const userProfileDoc = await userProfileRef.get();
+    
+    if (userProfileDoc.exists()) {
+      const profileData = userProfileDoc.data();
+      const currentXp = profileData.xp || 0;
+      const currentLevel = profileData.level || 1;
+      
+      // Calcul simple du niveau basé sur l'XP (100 XP par niveau)
+      const correctLevel = Math.floor(currentXp / 100) + 1;
+      
+      if (currentLevel !== correctLevel) {
+        logger.info(`🔄 Correction niveau: ${currentLevel} → ${correctLevel} (XP: ${currentXp})`);
+        
+        await userProfileRef.update({
+          level: correctLevel
+        });
+        
+        repairResults.userFixed = true;
+      }
+    }
+
+    logger.info(`✅ Réparation terminée:`, repairResults);
+    
+    return {
+      success: true,
+      message: `Réparation terminée - ${repairResults.friendsFixed} amis corrigés`,
+      results: repairResults
+    };
+    
+  } catch (error) {
+    logger.error('❌ Erreur réparation système d\'amis:', error);
+    throw new Error(`Erreur réparation: ${error.message}`);
   }
 });
 

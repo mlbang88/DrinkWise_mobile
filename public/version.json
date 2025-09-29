@@ -1,5 +1,5 @@
 {
-  "version": "1.0.0",
-  "buildDate": "2025-08-07T20:45:00Z",
-  "description": "Version initiale avec analyse IA sécurisée"
+  "version": "1.1.0",
+  "buildDate": "2025-01-29T21:00:00Z",
+  "description": "Optimisations performance, lazy loading, système de réparation automatique, résumés IA"
 }

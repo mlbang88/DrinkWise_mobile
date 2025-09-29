@@ -6,6 +6,7 @@ import { badgeService } from '../services/badgeService';
 import { challengeService } from '../services/challengeService';
 import LoadingSpinner from '../components/LoadingSpinner';
 import LoadingIcon from '../components/LoadingIcon';
+import OptimizedImage from '../components/OptimizedImage';
 import { Calendar, Users, Trophy, MapPin, Heart, MessageCircle } from 'lucide-react';
 import UserAvatar from '../components/UserAvatar';
 
@@ -939,13 +940,10 @@ const FeedPage = () => {
                                         }}
                                         onClick={() => setSelectedPhoto(photoURL)}
                                     >
-                                        <img 
+                                        <OptimizedImage 
                                             src={photoURL}
                                             alt={`Photo ${index + 1}`}
                                             style={{
-                                                width: '100%',
-                                                height: '100%',
-                                                objectFit: 'cover',
                                                 transition: 'transform 0.2s ease'
                                             }}
                                             onError={(e) => {

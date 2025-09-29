@@ -4,18 +4,20 @@ import ThemedText from './styles/ThemedText.jsx';
 import { FirebaseProvider, FirebaseContext } from './contexts/FirebaseContext.jsx';
 import { localImageData } from './utils/data';
 
-// Import all components and pages
+// Import critical components (always needed)
 import LoadingSpinner from './components/LoadingSpinner';
 import MessageBox from './components/MessageBox';
 import AuthPage from './pages/AuthPage';
 import HomePage from './pages/HomePage';
-import StatsPage from './pages/StatsPage';
-import BadgesPage from './pages/BadgesPage';
-import ChallengesPage from './pages/ChallengesPage';
-import FriendsPage from './pages/FriendsPage';
-import ProfilePage from './pages/ProfilePage';
-import FriendStatsPage from './pages/FriendStatsPage';
-import FeedPage from './pages/FeedPage';
+
+// Lazy load pages (loaded on demand)
+const StatsPage = React.lazy(() => import('./pages/StatsPage'));
+const BadgesPage = React.lazy(() => import('./pages/BadgesPage'));
+const ChallengesPage = React.lazy(() => import('./pages/ChallengesPage'));
+const FriendsPage = React.lazy(() => import('./pages/FriendsPage'));
+const ProfilePage = React.lazy(() => import('./pages/ProfilePage'));
+const FriendStatsPage = React.lazy(() => import('./pages/FriendStatsPage'));
+const FeedPage = React.lazy(() => import('./pages/FeedPage'));
 
 // Import icons for the nav bar
 import { Home, BarChart, Users, Award, User as UserIcon, Shield, Rss, Target } from 'lucide-react';
@@ -57,17 +59,25 @@ const AppContent = () => {
     ];
 
     const renderPage = () => {
-        switch (currentPage) {
-            case 'home': return <HomePage />;
-            case 'feed': return <FeedPage />;
-            case 'stats': return <StatsPage />;
-            case 'badges': return <BadgesPage />;
-            case 'challenges': return <ChallengesPage />;
-            case 'friends': return <FriendsPage setSelectedFriendId={setSelectedFriendId} setCurrentPage={setCurrentPage} />;
-            case 'profile': return <ProfilePage />;
-            case 'friendStats': return <FriendStatsPage friendId={selectedFriendId} setCurrentPage={setCurrentPage} />;
-            default: return <HomePage />;
-        }
+        const PageComponent = () => {
+            switch (currentPage) {
+                case 'home': return <HomePage />;
+                case 'feed': return <FeedPage />;
+                case 'stats': return <StatsPage />;
+                case 'badges': return <BadgesPage />;
+                case 'challenges': return <ChallengesPage />;
+                case 'friends': return <FriendsPage setSelectedFriendId={setSelectedFriendId} setCurrentPage={setCurrentPage} />;
+                case 'profile': return <ProfilePage />;
+                case 'friendStats': return <FriendStatsPage friendId={selectedFriendId} setCurrentPage={setCurrentPage} />;
+                default: return <HomePage />;
+            }
+        };
+
+        return (
+            <React.Suspense fallback={<LoadingSpinner />}>
+                <PageComponent />
+            </React.Suspense>
+        );
     };
     
     return (

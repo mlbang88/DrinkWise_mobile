@@ -544,3 +544,26 @@ body {
   background: linear-gradient(90deg, #3b82f6, #10b981);
   border-radius: 0 0 0.5rem 0.5rem;
 }
+
+/* Animation de chargement pour les images optimisées */
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Animations pour les toasts modernes */
+@keyframes toastSlideIn {
+  0% { 
+    transform: translateX(-50%) translateY(-20px) scale(0.9);
+    opacity: 0;
+  }
+  100% { 
+    transform: translateX(-50%) translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes toastProgress {
+  0% { transform: scaleX(1); }
+  100% { transform: scaleX(0); }
+}
