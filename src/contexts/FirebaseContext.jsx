@@ -1,7 +1,7 @@
 // src/contexts/FirebaseContext.js
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { auth, db, functions, appId } from '../firebase';
-import { onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, setDoc, onSnapshot, updateDoc } from 'firebase/firestore';
 import { generateUniqueUsername } from '../utils/usernameUtils';
 import { friendshipListenerService } from '../services/friendshipListenerService.js';
@@ -69,6 +69,57 @@ export const FirebaseProvider = ({ children }) => {
 
     useEffect(() => {
         let unsubProfile = null;
+        
+        // Vérifier le mode d'urgence au démarrage
+        const checkEmergencyMode = () => {
+            const emergencyData = sessionStorage.getItem('emergencyAuth');
+            if (emergencyData) {
+                try {
+                    const { user: emergencyUser, timestamp, mode } = JSON.parse(emergencyData);
+                    
+                    // Vérifier que le mode d'urgence n'est pas trop ancien (24h max)
+                    const isValid = (Date.now() - timestamp) < (24 * 60 * 60 * 1000);
+                    
+                    if (isValid && mode === 'emergency') {
+                        console.log('🚨 Mode d\'urgence détecté - Utilisateur connecté');
+                        
+                        // Créer un profil d'urgence
+                        const emergencyProfile = {
+                            username: 'utilisateur_urgence',
+                            displayName: emergencyUser.displayName,
+                            email: emergencyUser.email,
+                            photoURL: null,
+                            level: 1,
+                            levelName: 'Utilisateur d\'Urgence',
+                            xp: 0,
+                            isPublic: true,
+                            friends: [],
+                            emergencyMode: true
+                        };
+                        
+                        setUser(emergencyUser);
+                        setUserProfile(emergencyProfile);
+                        setLoading(false);
+                        
+                        showMessage('🚨 Mode d\'urgence actif - Connexion temporaire', 'info');
+                        console.log('🚨 Mode d\'urgence: Service d\'écoute des amitiés désactivé');
+                        return true; // Mode d'urgence activé
+                    } else {
+                        // Nettoyer les données expirées
+                        sessionStorage.removeItem('emergencyAuth');
+                    }
+                } catch (error) {
+                    console.error('Erreur mode d\'urgence:', error);
+                    sessionStorage.removeItem('emergencyAuth');
+                }
+            }
+            return false;
+        };
+        
+        // Si le mode d'urgence est actif, ne pas écouter Firebase
+        if (checkEmergencyMode()) {
+            return; // Sortir early, le mode d'urgence est actif
+        }
         
         const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
             // Nettoyer la précédente écoute si elle existe
@@ -169,9 +220,16 @@ export const FirebaseProvider = ({ children }) => {
                     }
                     
                     // Démarrer le service d'écoute des amitiés avec synchronisation automatique
+                    // Mais seulement si on n'est pas en mode d'urgence
                     try {
-                        friendshipListenerService.startListening(db, appId, firebaseUser.uid, setMessageBox, functions);
-                        console.log("🤝 Service d'écoute des amitiés avec auto-sync démarré");
+                        // Vérifier si mode d'urgence n'est pas actif
+                        const emergencyCheck = sessionStorage.getItem('emergencyAuth');
+                        if (!emergencyCheck) {
+                            friendshipListenerService.startListening(db, appId, firebaseUser.uid, setMessageBox, functions);
+                            console.log("🤝 Service d'écoute des amitiés avec auto-sync démarré");
+                        } else {
+                            console.log("🚨 Service d'écoute désactivé - Mode d'urgence détecté");
+                        }
                     } catch (error) {
                         console.error("❌ Erreur démarrage service d'écoute:", error);
                     }
@@ -202,6 +260,35 @@ export const FirebaseProvider = ({ children }) => {
         console.log("Change background called");
     };
 
+    const logout = async () => {
+        try {
+            // Vérifier le mode d'urgence
+            const emergencyData = sessionStorage.getItem('emergencyAuth');
+            if (emergencyData) {
+                // Mode d'urgence - déconnexion simple
+                sessionStorage.removeItem('emergencyAuth');
+                setUser(null);
+                setUserProfile(null);
+                setMessageBox('🚨 Déconnexion du mode d\'urgence');
+                
+                // Recharger la page pour revenir au mode normal
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1000);
+                return;
+            }
+            
+            // Mode normal - déconnexion Firebase
+            await signOut(auth);
+            setUser(null);
+            setUserProfile(null);
+            setMessageBox('Déconnexion réussie !');
+        } catch (error) {
+            console.error('Erreur de déconnexion:', error);
+            setMessageBox('Erreur lors de la déconnexion');
+        }
+    };
+
     const value = {
         user,
         loading,
@@ -213,7 +300,8 @@ export const FirebaseProvider = ({ children }) => {
         changeBackground,
         userProfile,
         setUserProfile,
-        messageBox
+        messageBox,
+        logout
     };
 
     return (

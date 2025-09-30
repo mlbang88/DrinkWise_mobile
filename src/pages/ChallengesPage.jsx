@@ -5,6 +5,7 @@ import { badgeService } from '../services/badgeService';
 import { getWeekId, getMonthId } from '../utils/helpers';
 import { challengeList } from '../utils/data';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { DrinkWiseImages } from '../assets/DrinkWiseImages';
 
 const ChallengesPage = () => {
     const { db, user, appId, userProfile, setMessageBox } = useContext(FirebaseContext);
@@ -19,7 +20,7 @@ const ChallengesPage = () => {
             setParties(partiesData);
             setLoading(false);
         }, (error) => {
-            console.error("Error fetching parties for challenges:", error);
+            logger.error("Error fetching parties for challenges", { error: error.message });
             setLoading(false);
         });
         return () => unsubscribe();
@@ -47,9 +48,9 @@ const ChallengesPage = () => {
             await updateDoc(userProfileRef, {
                 completedChallenges: updatedCompletedChallenges
             });
-            console.log("✅ Défis complétés sauvegardés:", updatedCompletedChallenges);
+            logger.info("Défis complétés sauvegardés", { challengesCount: updatedCompletedChallenges.length });
         } catch (error) {
-            console.error("❌ Erreur sauvegarde défis:", error);
+            logger.error("Erreur sauvegarde défis", { error: error.message });
         }
     };
 
@@ -66,8 +67,8 @@ const ChallengesPage = () => {
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     startOfMonth.setHours(0, 0, 0, 0);
 
-    console.log("📅 Période semaine:", startOfWeek.toLocaleDateString(), "à", now.toLocaleDateString());
-    console.log("📅 Période mois:", startOfMonth.toLocaleDateString(), "à", now.toLocaleDateString());
+    logger.debug("Période semaine", { startOfWeek: startOfWeek.toLocaleDateString(), now: now.toLocaleDateString() });
+    logger.debug("Période mois", { startOfMonth: startOfMonth.toLocaleDateString(), now: now.toLocaleDateString() });
 
     const weeklyParties = parties.filter(p => {
         const partyDate = p.timestamp.toDate();
@@ -79,8 +80,8 @@ const ChallengesPage = () => {
         return partyDate >= startOfMonth && partyDate <= now;
     });
 
-    console.log("📊 Soirées cette semaine:", weeklyParties.length);
-    console.log("📊 Soirées ce mois:", monthlyParties.length);
+    logger.debug("Soirées cette semaine", { weeklyPartiesCount: weeklyParties.length });
+    logger.debug("Soirées ce mois", { monthlyPartiesCount: monthlyParties.length });
 
     const weeklyStats = badgeService.calculateGlobalStats(weeklyParties);
     const monthlyStats = badgeService.calculateGlobalStats(monthlyParties);

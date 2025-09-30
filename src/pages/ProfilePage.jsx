@@ -6,6 +6,7 @@ import { gameplayConfig } from '../utils/data';
 import { validateUsername, isUsernameAvailable } from '../utils/usernameUtils';
 import LoadingIcon from '../components/LoadingIcon';
 import ProfilePhotoManager from '../components/ProfilePhotoManager';
+import { DrinkWiseImages } from '../assets/DrinkWiseImages';
 
 const ProfilePage = () => {
     const { auth, user, userProfile, db, appId, setMessageBox } = useContext(FirebaseContext);
@@ -71,7 +72,7 @@ const ProfilePage = () => {
                     setUsernameValidation({ isValid: true, error: null });
                 }
             } catch (error) {
-                console.error("Erreur vérification username:", error);
+                logger.error("Erreur vérification username", { error: error.message });
             } finally {
                 setCheckingUsername(false);
             }
@@ -118,7 +119,7 @@ const ProfilePage = () => {
             
             setMessageBox({ message: "Profil mis à jour !", type: "success" });
         } catch (error) {
-            console.error("❌ Erreur mise à jour profil:", error);
+            logger.error("Erreur mise à jour profil", { error: error.message });
             setMessageBox({ message: "Erreur mise à jour profil.", type: "error" });
         } finally {
             setLoading(false);

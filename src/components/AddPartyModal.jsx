@@ -11,14 +11,14 @@ import { storage } from '../firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
-    console.log("🎭 AddPartyModal rendu/re-rendu", draftData ? "avec données du draft" : "normal");
+    logger.debug("AddPartyModal rendu/re-rendu", { hasDraftData: !!draftData });
     
     const { db, user, appId, setMessageBox, functions, userProfile } = useContext(FirebaseContext);
     
     // Initialiser les données depuis le draft si disponible
     const initializeFromDraft = () => {
         if (draftData) {
-            console.log("📝 Initialisation depuis le draft:", draftData);
+            logger.info("Initialisation depuis le draft", { draftData });
             return {
                 date: draftData.startTime ? new Date(draftData.startTime.seconds ? draftData.startTime.toDate() : draftData.startTime).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
                 drinks: draftData.drinks && draftData.drinks.length > 0 ? draftData.drinks : [{ type: 'Bière', brand: '', quantity: 1 }],
@@ -91,7 +91,7 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
                                 });
                             }
                         } catch (error) {
-                            console.error('Erreur chargement ami:', error);
+                            logger.error('Erreur chargement ami', { error: error.message });
                         }
                     }
                     setFriendsList(friendsData);
@@ -111,7 +111,7 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
                     }));
                     setGroupsList(groupsData);
                 } catch (error) {
-                    console.error('Erreur chargement groupes:', error);
+                    logger.error('Erreur chargement groupes', { error: error.message });
                 }
             } catch (error) {
                 console.error('Erreur chargement compagnons:', error);

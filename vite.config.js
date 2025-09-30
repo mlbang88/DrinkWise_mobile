@@ -14,7 +14,7 @@ export default defineConfig({
       }
     }
   },
-  base: './', // Important pour Capacitor
+  base: '/', // Pour Firebase Hosting (utiliser './' pour Capacitor)
   server: {
     host: '0.0.0.0', // Pour permettre l'accès depuis le téléphone
     port: 5173

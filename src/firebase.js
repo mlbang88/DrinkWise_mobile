@@ -11,16 +11,25 @@ const firebaseConfig = {
   projectId: "drinkwise-31d3a",
   storageBucket: "drinkwise-31d3a.firebasestorage.app",
   messagingSenderId: "210028837880",
-  appId: "1:210028837880:web:0177bf8f388354b4a0f40d",
+  appId: "AIzaSyD_Gi_m1IRhl8SfgfIU6x0erT5pxeaUM5o",
   measurementId: "G-RHZNKFRZVF"
 };
 
-// Initialiser Firebase
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-const functions = getFunctions(app);
-const storage = getStorage(app);
-const appId = firebaseConfig.projectId;
+// Initialiser Firebase avec gestion d'erreurs
+let app, auth, db, functions, storage, appId;
+
+try {
+  app = initializeApp(firebaseConfig);
+  auth = getAuth(app);
+  db = getFirestore(app);
+  functions = getFunctions(app);
+  storage = getStorage(app);
+  appId = firebaseConfig.projectId;
+  
+  console.log('✅ Firebase initialisé avec succès');
+} catch (error) {
+  console.error('❌ Erreur initialisation Firebase:', error);
+  throw error;
+}
 
 export { app, auth, db, functions, storage, appId };

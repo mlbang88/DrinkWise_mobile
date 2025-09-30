@@ -22,6 +22,11 @@ const FeedPage = React.lazy(() => import('./pages/FeedPage'));
 // Import icons for the nav bar
 import { Home, BarChart, Users, Award, User as UserIcon, Shield, Rss, Target } from 'lucide-react';
 
+// Import error handling and logging
+import ErrorBoundary from './components/ErrorBoundary';
+import { logger } from './utils/logger.js';
+import { errorHandler } from './utils/errorHandler.js';
+
 const mainBgStyle = {
     backgroundSize: 'cover',
     backgroundPosition: 'center',
@@ -167,11 +172,13 @@ const AppContent = () => {
 
 const App = () => {
     return (
-        <ThemeProvider>
-            <FirebaseProvider>
-                <AppContent />
-            </FirebaseProvider>
-        </ThemeProvider>
+        <ErrorBoundary>
+            <ThemeProvider>
+                <FirebaseProvider>
+                    <AppContent />
+                </FirebaseProvider>
+            </ThemeProvider>
+        </ErrorBoundary>
     );
 };
 

@@ -9,6 +9,9 @@ import LoadingIcon from '../components/LoadingIcon';
 import OptimizedImage from '../components/OptimizedImage';
 import { Calendar, Users, Trophy, MapPin, Heart, MessageCircle } from 'lucide-react';
 import UserAvatar from '../components/UserAvatar';
+import EditPartyModal from '../components/EditPartyModal';
+import { DrinkWiseImages } from '../assets/DrinkWiseImages';
+import { logger } from '../utils/logger.js';
 
 const FeedPage = () => {
     const { db, user, appId, userProfile, setMessageBox, functions } = useContext(FirebaseContext);
@@ -31,22 +34,26 @@ const FeedPage = () => {
     // États pour l'affichage des résumés
     const [expandedSummaries, setExpandedSummaries] = useState({});
     
+    // États pour l'édition/suppression des soirées
+    const [editingParty, setEditingParty] = useState(null);
+    const [showEditModal, setShowEditModal] = useState(false);
+    
     // Fonctions Firebase
     const handleFeedInteraction = httpsCallable(functions, 'handleFeedInteraction');
     const getFeedInteractions = httpsCallable(functions, 'getFeedInteractions');
 
-    console.log('🚀 FeedPage initialisé - User:', user?.uid, 'Profile:', userProfile?.username);
+    logger.info('FeedPage initialisé', { userId: user?.uid, username: userProfile?.username });
 
     // ===== CHARGEMENT DES DONNÉES =====
 
     // Charger les données des amis
     const loadFriendsData = async () => {
         if (!userProfile?.friends?.length) {
-            console.log('Aucun ami à charger');
+            logger.info('Aucun ami à charger');
             return {};
         }
 
-        console.log('📥 Chargement de', userProfile.friends.length, 'amis');
+        logger.info('Chargement amis', { friendsCount: userProfile.friends.length });
         const friends = {};
 
         for (const friendId of userProfile.friends) {
@@ -63,10 +70,10 @@ const FeedPage = () => {
                         photoURL: data.photoURL,
                         level: data.level || 'Novice'
                     };
-                    console.log('✅ Ami chargé:', friendId, '→', friends[friendId].username);
+                    logger.debug('Ami chargé', { friendId, username: friends[friendId].username });
                 }
             } catch (error) {
-                console.error('Erreur chargement ami:', friendId, error);
+                logger.error('Erreur chargement ami', { friendId, error: error.message });
             }
         }
 
@@ -93,7 +100,7 @@ const FeedPage = () => {
                 isOwn: true
             }));
         } catch (error) {
-            console.error('Erreur chargement mes soirées:', error);
+            logger.error('Erreur chargement mes soirées', { error: error.message });
             return [];
         }
     };
@@ -124,7 +131,7 @@ const FeedPage = () => {
                     });
                 });
             } catch (error) {
-                console.error('Erreur chargement soirées ami:', friendId, error);
+                logger.error('Erreur chargement soirées ami', { friendId, error: error.message });
             }
         }
         
@@ -135,7 +142,7 @@ const FeedPage = () => {
     const loadFeed = useCallback(async () => {
         try {
             setLoading(true);
-            console.log('📱 Chargement du feed...');
+            logger.info('Chargement du feed...');
 
             // 1. Charger les amis
             const friends = await loadFriendsData();
@@ -156,10 +163,10 @@ const FeedPage = () => {
             });
 
             setFeedItems(allItems.slice(0, 20));
-            console.log('✅ Feed chargé:', allItems.length, 'items');
+            logger.info('Feed chargé', { itemsCount: allItems.length });
 
         } catch (error) {
-            console.error('❌ Erreur chargement feed:', error);
+            logger.error('Erreur chargement feed', { error: error.message });
             setMessageBox({ message: 'Erreur lors du chargement du fil', type: 'error' });
         } finally {
             setLoading(false);
@@ -171,7 +178,7 @@ const FeedPage = () => {
     // Charger les interactions d'un item
     const loadInteractions = async (itemId) => {
         try {
-            console.log('📥 Chargement interactions pour:', itemId);
+            logger.debug('Chargement interactions', { itemId });
             
             // Utiliser l'ID original pour les interactions (sans préfixe userId)
             const originalId = itemId.includes('-') ? itemId.split('-')[1] : itemId;
@@ -216,7 +223,7 @@ const FeedPage = () => {
                     [itemId]: interactionsData
                 }));
 
-                console.log('✅ Interactions chargées pour', itemId, ':', interactionsData.comments?.length || 0, 'commentaires');
+                logger.debug('Interactions chargées', { itemId, commentsCount: interactionsData.comments?.length || 0 });
             } else {
                 // Pas d'interactions trouvées
                 setInteractions(prev => ({
@@ -225,7 +232,7 @@ const FeedPage = () => {
                 }));
             }
         } catch (error) {
-            console.error('❌ Erreur chargement interactions:', itemId, error);
+            logger.error('Erreur chargement interactions', { itemId, error: error.message });
             setInteractions(prev => ({
                 ...prev,
                 [itemId]: { likes: [], comments: [], congratulations: [] }
@@ -238,12 +245,12 @@ const FeedPage = () => {
         if (isLoadingInteraction[itemId]) return;
 
         try {
-            console.log('🔄 Interaction:', type, 'sur', itemId, data);
+            logger.debug('Interaction', { type, itemId, data });
 
             // Trouver le propriétaire de l'item
             const item = feedItems.find(i => i.id === itemId);
             if (!item) {
-                console.error('Item non trouvé:', itemId);
+                logger.error('Item non trouvé', { itemId });
                 return;
             }
 
@@ -297,22 +304,22 @@ const FeedPage = () => {
                 appId
             }).then(result => {
                 if (result?.data?.success) {
-                    console.log('✅ Interaction synchronisée avec le serveur');
+                    logger.debug('Interaction synchronisée avec le serveur');
                     // Optionnel : recharger pour être sûr de la cohérence
                     // loadInteractions(itemId);
                 } else {
-                    console.error('❌ Échec sync serveur, rollback:', result?.data?.error);
+                    logger.error('Échec sync serveur, rollback', { error: result?.data?.error });
                     // En cas d'erreur, recharger les vraies données
                     loadInteractions(itemId);
                 }
             }).catch(error => {
-                console.error('❌ Erreur sync serveur, rollback:', error);
+                logger.error('Erreur sync serveur, rollback', { error: error.message });
                 // En cas d'erreur, recharger les vraies données  
                 loadInteractions(itemId);
             });
 
         } catch (error) {
-            console.error('❌ Erreur interaction:', error);
+            logger.error('Erreur interaction', { error: error.message });
             // En cas d'erreur, recharger les vraies données
             loadInteractions(itemId);
         }
@@ -330,6 +337,71 @@ const FeedPage = () => {
         }
         return false;
     };
+
+    // ===== GESTION ÉDITION/SUPPRESSION DES SOIRÉES =====
+    
+    const handleEditParty = useCallback((partyItem) => {
+        if (!partyItem.isOwn) {
+            setMessageBox({ message: "Vous ne pouvez modifier que vos propres soirées.", type: "error" });
+            return;
+        }
+        
+        logger.info('Ouverture édition soirée', { partyId: partyItem.id });
+        setEditingParty({
+            id: partyItem.id,
+            ...partyItem.data,
+            timestamp: partyItem.timestamp
+        });
+        setShowEditModal(true);
+    }, [user, setMessageBox]);
+
+    const handleDeleteParty = useCallback((partyItem) => {
+        if (!partyItem.isOwn) {
+            setMessageBox({ message: "Vous ne pouvez supprimer que vos propres soirées.", type: "error" });
+            return;
+        }
+        
+        // Confirmation rapide avant suppression
+        if (window.confirm(`Êtes-vous sûr de vouloir supprimer la soirée du ${partyItem.data.date} ?`)) {
+            logger.info('Confirmation suppression soirée', { partyId: partyItem.id });
+            setEditingParty({
+                id: partyItem.id,
+                ...partyItem.data,
+                timestamp: partyItem.timestamp
+            });
+            setShowEditModal(true);
+        }
+    }, [user, setMessageBox]);
+
+    const handlePartyUpdated = useCallback((updatedParty) => {
+        // Mettre à jour le feed local
+        setFeedItems(prev => prev.map(item => 
+            item.id === updatedParty.id 
+                ? { ...item, data: updatedParty }
+                : item
+        ));
+        
+        // Recharger le feed complet pour s'assurer de la cohérence
+        setTimeout(() => {
+            loadFeed();
+        }, 1000);
+        
+        logger.info('Soirée mise à jour dans le feed', { partyId: updatedParty.id });
+    }, []);
+
+    const handlePartyDeleted = useCallback((partyId) => {
+        // Supprimer du feed local
+        setFeedItems(prev => prev.filter(item => item.id !== partyId));
+        
+        // Nettoyer les interactions associées
+        setInteractions(prev => {
+            const newInteractions = { ...prev };
+            delete newInteractions[partyId];
+            return newInteractions;
+        });
+        
+        logger.info('Soirée supprimée du feed', { partyId });
+    }, []);
 
     // ===== COMPOSANTS UI =====
 
@@ -460,13 +532,13 @@ const FeedPage = () => {
     };
 
     // Item de soirée
-    const PartyItem = ({ item }) => {
+    const PartyItem = ({ item, onEditParty, onDeleteParty }) => {
         const party = item.data;
         const totalDrinks = party.drinks?.reduce((sum, drink) => sum + drink.quantity, 0) || 0;
         const timeAgo = getTimeAgo(item.timestamp?.toDate());
 
         // Debug: vérifier si la soirée a des photos et des badges
-        console.log(`🔍 PartyItem ${item.id}:`, {
+        logger.debug(`PartyItem ${item.id}`, {
             hasPhotos: !!(party.photoURLs && party.photoURLs.length > 0),
             photosCount: party.photoURLs?.length || 0,
             hasVideos: !!(party.videoURLs && party.videoURLs.length > 0),
@@ -491,8 +563,59 @@ const FeedPage = () => {
                 padding: '20px',
                 marginBottom: '16px',
                 width: '100%',
-                boxSizing: 'border-box'
+                boxSizing: 'border-box',
+                position: 'relative'
             }}>
+                {/* Boutons Edit/Delete pour les soirées du propriétaire */}
+                {item.isOwn && (
+                    <div style={{
+                        position: 'absolute',
+                        top: '12px',
+                        right: '12px',
+                        display: 'flex',
+                        gap: '6px',
+                        zIndex: 10
+                    }}>
+                        <button
+                            onClick={() => onEditParty && onEditParty(item)}
+                            style={{
+                                padding: '6px 8px',
+                                backgroundColor: 'rgba(59, 130, 246, 0.9)',
+                                border: 'none',
+                                borderRadius: '6px',
+                                color: 'white',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '12px',
+                                fontWeight: '600'
+                            }}
+                            title="Modifier cette soirée"
+                        >
+                            ✏️
+                        </button>
+                        <button
+                            onClick={() => onDeleteParty && onDeleteParty(item)}
+                            style={{
+                                padding: '6px 8px',
+                                backgroundColor: 'rgba(220, 38, 38, 0.9)',
+                                border: 'none',
+                                borderRadius: '6px',
+                                color: 'white',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '12px',
+                                fontWeight: '600'
+                            }}
+                            title="Supprimer cette soirée"
+                        >
+                            🗑️
+                        </button>
+                    </div>
+                )}
                 {/* Header */}
                 <div style={{
                     display: 'flex',
@@ -948,7 +1071,7 @@ const FeedPage = () => {
                                             }}
                                             onError={(e) => {
                                                 e.target.style.display = 'none';
-                                                console.error('Erreur chargement image:', photoURL);
+                                                logger.error('Erreur chargement image', { photoURL });
                                             }}
                                             loading="lazy"
                                         />
@@ -1044,7 +1167,7 @@ const FeedPage = () => {
                                                 }}
                                                 onError={(e) => {
                                                     e.target.style.display = 'none';
-                                                    console.error('Erreur chargement image:', party.photoURL);
+                                                    logger.error('Erreur chargement image', { photoURL: party.photoURL });
                                                 }}
                                                 loading="lazy"
                                             />
@@ -1247,7 +1370,7 @@ const FeedPage = () => {
                 }}>
                     {feedItems.map((item) => (
                         <div key={item.id}>
-                            {item.type === 'party' && <PartyItem item={item} />}
+                            {item.type === 'party' && <PartyItem item={item} onEditParty={handleEditParty} onDeleteParty={handleDeleteParty} />}
                         </div>
                     ))}
                 </div>
@@ -1379,6 +1502,19 @@ const FeedPage = () => {
                         </button>
                     </div>
                 </div>
+            )}
+
+            {/* Modal d'édition des soirées */}
+            {showEditModal && editingParty && (
+                <EditPartyModal
+                    partyData={editingParty}
+                    onClose={() => {
+                        setShowEditModal(false);
+                        setEditingParty(null);
+                    }}
+                    onPartyUpdated={handlePartyUpdated}
+                    onPartyDeleted={handlePartyDeleted}
+                />
             )}
         </>
     );

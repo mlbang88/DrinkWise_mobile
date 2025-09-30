@@ -5,6 +5,12 @@ import { httpsCallable } from 'firebase/functions';
 export const friendshipListenerService = {
     // Écouter les demandes d'amis acceptées et déclencher la synchronisation
     startListening: (db, appId, userId, setMessageBox, functions) => {
+        // Validation des paramètres pour éviter les erreurs
+        if (!db || !appId || !userId || !functions) {
+            console.error("❌ Service d'écoute: Paramètres manquants", { db: !!db, appId, userId, functions: !!functions });
+            return;
+        }
+        
         console.log("🤝 Démarrage de l'écoute des amitiés avec auto-sync");
 
         // Fonction Firebase pour la synchronisation

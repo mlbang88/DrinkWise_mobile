@@ -10,7 +10,10 @@ import { drinkImageLibrary } from '../utils/data';
 import { PieChart, Pie, Cell, BarChart as ReBarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import LoadingSpinner from '../components/LoadingSpinner';
 import LoadingIcon from '../components/LoadingIcon';
-import { BarChart, Trophy, Sparkles, Lightbulb, Calendar, Camera } from 'lucide-react';
+import { Flame, Trophy, Lightbulb, GitBranch, Rocket, SparklesIcon } from 'lucide-react';
+import { logger } from '../utils/logger.js';
+import EditPartyModal from '../components/EditPartyModal';
+import { DrinkWiseImages } from '../assets/DrinkWiseImages';
 
 const StatsPage = () => {
     const { db, user, appId, setMessageBox, functions } = useContext(FirebaseContext);
@@ -35,6 +38,10 @@ const StatsPage = () => {
     const [availableYears, setAvailableYears] = useState([]);
     const [generating, setGenerating] = useState(false);
     const [memorySummary, setMemorySummary] = useState(null);
+    
+    // États pour l'édition/suppression des soirées
+    const [editingParty, setEditingParty] = useState(null);
+    const [showEditModal, setShowEditModal] = useState(false);
 
     useEffect(() => {
         if (!user || !db) { setLoading(false); return; }
@@ -53,7 +60,7 @@ const StatsPage = () => {
             
             setLoading(false);
         }, (error) => {
-            console.error("Erreur lecture soirées:", error);
+            logger.error("Erreur lecture soirées", { error: error.message });
             setMessageBox({ message: "Erreur chargement de vos soirées.", type: "error" });
             setLoading(false);
         });
@@ -98,7 +105,7 @@ const StatsPage = () => {
                 setWhatIfOutcome(result.data.text);
             }
         } catch (error) {
-            console.error("Erreur 'What If' via Cloud Function:", error);
+            logger.error("Erreur 'What If' via Cloud Function", { error: error.message });
             setMessageBox({ message: "Erreur lors de l'analyse du scénario.", type: "error" });
         } finally {
             setLoadingWhatIf(false);
@@ -118,7 +125,7 @@ const StatsPage = () => {
                 setDrinkSuggestion(result.data.text);
             }
         } catch (error) {
-            console.error("Erreur suggestion boisson via Cloud Function:", error);
+            logger.error("Erreur suggestion boisson via Cloud Function", { error: error.message });
             setMessageBox({ message: "Erreur de suggestion de boisson.", type: "error" });
         } finally {
             setLoadingSuggestion(false);
@@ -139,7 +146,7 @@ const StatsPage = () => {
                 });
             }
         } catch (error) {
-            console.error("Erreur réparation système:", error);
+            logger.error("Erreur réparation système", { error: error.message });
             setMessageBox({ 
                 message: "Erreur lors de la réparation du système.", 
                 type: "error" 
@@ -147,6 +154,33 @@ const StatsPage = () => {
         } finally {
             setLoadingSystemRepair(false);
         }
+    };
+
+    // ===== GESTION ÉDITION/SUPPRESSION DES SOIRÉES =====
+    
+    const handleEditParty = (party) => {
+        logger.info('Ouverture édition soirée depuis StatsPage', { partyId: party.id });
+        setEditingParty(party);
+        setShowEditModal(true);
+    };
+
+    const handleDeleteParty = (party) => {
+        // Confirmation rapide avant suppression
+        if (window.confirm(`Êtes-vous sûr de vouloir supprimer la soirée du ${party.date} ?`)) {
+            logger.info('Confirmation suppression soirée depuis StatsPage', { partyId: party.id });
+            setEditingParty(party);
+            setShowEditModal(true);
+        }
+    };
+
+    const handlePartyUpdated = (updatedParty) => {
+        // Les parties viennent de l'onSnapshot, elles se mettront à jour automatiquement
+        logger.info('Soirée mise à jour depuis StatsPage', { partyId: updatedParty.id });
+    };
+
+    const handlePartyDeleted = (partyId) => {
+        // Les parties viennent de l'onSnapshot, elles se mettront à jour automatiquement
+        logger.info('Soirée supprimée depuis StatsPage', { partyId });
     };
 
     // Fonctions pour les souvenirs
@@ -342,7 +376,7 @@ const StatsPage = () => {
                                     objectFit: 'cover'
                                 }}
                                 onError={(e) => {
-                                    console.log('Image failed to load:', memorySummary.imageUrl);
+                                    logger.warn('Image failed to load', { imageUrl: memorySummary.imageUrl });
                                     e.target.src = 'https://images.unsplash.com/photo-1514362545857-3bc7d00a937b?q=80&w=2070&auto=format&fit=crop';
                                 }}
                             />
@@ -889,9 +923,58 @@ const StatsPage = () => {
                                             backgroundColor: 'rgba(0, 0, 0, 0.3)',
                                             border: '1px solid rgba(255, 255, 255, 0.1)',
                                             borderRadius: '12px',
-                                            padding: '16px'
+                                            padding: '16px',
+                                            position: 'relative'
                                         }}
                                     >
+                                        {/* Boutons Edit/Delete */}
+                                        <div style={{
+                                            position: 'absolute',
+                                            top: '12px',
+                                            right: '12px',
+                                            display: 'flex',
+                                            gap: '6px',
+                                            zIndex: 10
+                                        }}>
+                                            <button
+                                                onClick={() => handleEditParty(party)}
+                                                style={{
+                                                    padding: '6px 8px',
+                                                    backgroundColor: 'rgba(59, 130, 246, 0.9)',
+                                                    border: 'none',
+                                                    borderRadius: '6px',
+                                                    color: 'white',
+                                                    cursor: 'pointer',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    fontSize: '12px',
+                                                    fontWeight: '600'
+                                                }}
+                                                title="Modifier cette soirée"
+                                            >
+                                                ✏️
+                                            </button>
+                                            <button
+                                                onClick={() => handleDeleteParty(party)}
+                                                style={{
+                                                    padding: '6px 8px',
+                                                    backgroundColor: 'rgba(220, 38, 38, 0.9)',
+                                                    border: 'none',
+                                                    borderRadius: '6px',
+                                                    color: 'white',
+                                                    cursor: 'pointer',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    fontSize: '12px',
+                                                    fontWeight: '600'
+                                                }}
+                                                title="Supprimer cette soirée"
+                                            >
+                                                🗑️
+                                            </button>
+                                        </div>
                                         <div style={{
                                             display: 'flex',
                                             justifyContent: 'space-between',
@@ -1196,6 +1279,19 @@ const StatsPage = () => {
                     {loadingSystemRepair ? <LoadingIcon /> : '🔧 Réparer le Système'}
                 </button>
             </div>
+
+            {/* Modal d'édition des soirées */}
+            {showEditModal && editingParty && (
+                <EditPartyModal
+                    partyData={editingParty}
+                    onClose={() => {
+                        setShowEditModal(false);
+                        setEditingParty(null);
+                    }}
+                    onPartyUpdated={handlePartyUpdated}
+                    onPartyDeleted={handlePartyDeleted}
+                />
+            )}
         </div>
     );
 };

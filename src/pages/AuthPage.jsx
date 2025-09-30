@@ -5,10 +5,15 @@ import { FirebaseContext } from '../contexts/FirebaseContext.jsx';
 import LoadingIcon from '../components/LoadingIcon';
 import { validateEmail, validatePassword, getFirebaseErrorMessage, formatEmailForDisplay } from '../utils/authUtils';
 import SocialLoginBenefits from '../components/SocialLoginBenefits';
+import AuthConflictMessage from '../components/AuthConflictMessage';
+import { DrinkWiseImages } from '../assets/DrinkWiseImages';
+import { authLogger } from '../utils/logger';
 
 function AuthPage() {
     const { auth, setMessageBox } = useContext(FirebaseContext);
     const [isLogin, setIsLogin] = useState(true);
+    
+
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [username, setUsername] = useState('');
@@ -119,7 +124,7 @@ function AuthPage() {
             // Note: Le profil utilisateur sera créé automatiquement par le listener dans App.jsx
             
         } catch (error) {
-            console.error('Erreur Google:', error);
+            authLogger.error('Erreur authentification Google', error);
             
             let errorMessage = 'Erreur lors de la connexion avec Google.';
             
@@ -142,21 +147,69 @@ function AuthPage() {
     return (
         <div style={{
             minHeight: '100vh',
-            backgroundColor: '#000000',
+            background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #3730a3 100%)',
+            backgroundImage: DrinkWiseImages.backgrounds.auth,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            padding: '20px'
+            padding: '20px',
+            position: 'relative'
         }}>
+            {/* Overlay subtil */}
+            <div style={{
+                position: 'absolute',
+                inset: 0,
+                backgroundColor: 'rgba(0,0,0,0.3)',
+                zIndex: 1
+            }}></div>
+            
             <div style={{
                 width: '100%',
                 maxWidth: '400px',
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
-                gap: '32px'
+                gap: '32px',
+                position: 'relative',
+                zIndex: 2
             }}>
-                {/* Titre */}
+                {/* Logo et titre */}
+                <div style={{ textAlign: 'center', marginBottom: '16px' }}>
+                    <img 
+                        src="/resources/icon.png"
+                        alt="DrinkWise Logo"
+                        style={{
+                            width: '80px',
+                            height: '80px',
+                            marginBottom: '16px',
+                            filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.3))'
+                        }}
+                    />
+                    <h1 style={{
+                        color: 'white',
+                        fontSize: '48px',
+                        fontWeight: '600',
+                        margin: 0,
+                        textAlign: 'center',
+                        textShadow: '0 4px 8px rgba(0,0,0,0.4)',
+                        letterSpacing: '-1px'
+                    }}>
+                        DrinkWise
+                    </h1>
+                    <p style={{
+                        color: 'rgba(255,255,255,0.9)',
+                        fontSize: '16px',
+                        margin: '8px 0 0 0',
+                        textAlign: 'center',
+                        textShadow: '0 2px 4px rgba(0,0,0,0.3)',
+                        fontWeight: '300'
+                    }}>
+                        {showForgotPassword ? "Récupération du mot de passe" : 
+                         isLogin ? "🍻 Boire de manière responsable" : "🎉 Rejoignez la communauté"}
+                    </p>
+                </div>
                 <h1 style={{
                     color: 'white',
                     fontSize: '48px',
@@ -168,6 +221,9 @@ function AuthPage() {
                     {showForgotPassword ? "Mot de passe oublié" : (isLogin ? "Connexion" : "Inscription")}
                 </h1>
 
+                {/* Message aide conflits auth */}
+                {isLogin && <AuthConflictMessage email={email} />}
+                
                 {/* Formulaire */}
                 <form onSubmit={showForgotPassword ? handleForgotPassword : handleAuth} style={{
                     width: '100%',
@@ -406,31 +462,50 @@ function AuthPage() {
                             disabled={loading || socialLoading !== ''}
                             style={{
                                 width: '100%',
-                                padding: '16px 20px',
-                                backgroundColor: socialLoading === 'google' ? '#6b7280' : '#ffffff',
-                                border: '2px solid #e5e7eb',
-                                borderRadius: '12px',
-                                color: socialLoading === 'google' ? '#ffffff' : '#374151',
+                                padding: '18px 24px',
+                                background: socialLoading === 'google' ? 
+                                    'linear-gradient(135deg, #6b7280 0%, #64748b 100%)' :
+                                    'linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(248,250,252,0.98) 100%)',
+                                backdropFilter: 'blur(16px)',
+                                WebkitBackdropFilter: 'blur(16px)',
+                                border: socialLoading === 'google' ? 
+                                    '1px solid rgba(107, 114, 128, 0.8)' :
+                                    '1px solid rgba(226,232,240,0.8)',
+                                borderRadius: '16px',
+                                color: socialLoading === 'google' ? '#ffffff' : '#1e293b',
                                 fontSize: '16px',
                                 fontWeight: '600',
+                                letterSpacing: '0.025em',
                                 cursor: loading || socialLoading !== '' ? 'not-allowed' : 'pointer',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                gap: '8px',
-                                transition: 'all 0.2s ease',
-                                opacity: loading || socialLoading !== '' ? 0.6 : 1
+                                gap: '14px',
+                                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                opacity: loading || socialLoading !== '' ? 0.7 : 1,
+                                boxShadow: socialLoading === 'google' ? 
+                                    '0 8px 25px -3px rgba(107, 114, 128, 0.3), 0 4px 6px -2px rgba(107, 114, 128, 0.2)' :
+                                    '0 10px 25px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+                                textShadow: socialLoading === 'google' ? 
+                                    '0 1px 3px rgba(0, 0, 0, 0.3)' : 
+                                    '0 1px 2px rgba(0, 0, 0, 0.1)',
+                                position: 'relative',
+                                overflow: 'hidden'
                             }}
                             onMouseEnter={(e) => {
                                 if (!loading && socialLoading === '') {
-                                    e.target.style.backgroundColor = '#f9fafb';
-                                    e.target.style.borderColor = '#d1d5db';
+                                    e.target.style.background = 'linear-gradient(135deg, rgba(255,255,255,0.98) 0%, rgba(241,245,249,1) 100%)';
+                                    e.target.style.borderColor = 'rgba(203,213,225,0.9)';
+                                    e.target.style.boxShadow = '0 20px 40px -4px rgba(0, 0, 0, 0.15), 0 8px 16px -4px rgba(0, 0, 0, 0.1)';
+                                    e.target.style.transform = 'translateY(-2px)';
                                 }
                             }}
                             onMouseLeave={(e) => {
                                 if (!loading && socialLoading === '') {
-                                    e.target.style.backgroundColor = '#ffffff';
-                                    e.target.style.borderColor = '#e5e7eb';
+                                    e.target.style.background = 'linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(248,250,252,0.98) 100%)';
+                                    e.target.style.borderColor = 'rgba(226,232,240,0.8)';
+                                    e.target.style.boxShadow = '0 10px 25px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)';
+                                    e.target.style.transform = 'translateY(0px)';
                                 }
                             }}
                         >
@@ -450,6 +525,10 @@ function AuthPage() {
                         </button>
                     </>
                 )}
+
+
+
+
 
                 {/* Navigation entre les modes */}
                 <div style={{

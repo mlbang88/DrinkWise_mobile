@@ -41,8 +41,24 @@ export const getFirebaseErrorMessage = (errorCode) => {
             return 'Ce mode de connexion n\'est pas activé.';
         case 'auth/operation-not-supported-in-this-environment':
             return 'Cette opération n\'est pas supportée dans cet environnement.';
+        case 'auth/invalid-api-key':
+            return '🔧 Erreur de configuration Firebase. Contactez le support technique.';
+        case 'auth/app-not-authorized':
+            return '🔧 Application non autorisée. Contactez le support technique.';
+        case 'auth/invalid-user-token':
+            return 'Session expirée. Veuillez vous reconnecter.';
+        case 'auth/user-token-expired':
+            return 'Session expirée. Veuillez vous reconnecter.';
+        case 'auth/null-user':
+            return 'Utilisateur non connecté. Veuillez vous reconnecter.';
+        case 'auth/internal-error':
+            return 'Erreur interne du serveur. Veuillez réessayer dans quelques minutes.';
         default:
-            return 'Une erreur inattendue s\'est produite.';
+            // Pour les erreurs 400 ou autres erreurs non catégorisées
+            if (errorCode && errorCode.includes('400')) {
+                return '🔧 Erreur de configuration du service. Contactez le support technique.';
+            }
+            return 'Une erreur inattendue s\'est produite. Veuillez réessayer.';
     }
 };
 

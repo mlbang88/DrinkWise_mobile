@@ -8,7 +8,10 @@ import { badgeList, gameplayConfig } from '../utils/data';
 import AddPartyModal from '../components/AddPartyModal';
 import LoadingIcon from '../components/LoadingIcon';
 import RewardNotification from '../components/RewardNotification';
+import GlassButton from '../components/GlassButton';
 import { PlusCircle } from 'lucide-react';
+import { DrinkWiseImages } from '../assets/DrinkWiseImages';
+import { logger } from '../utils/logger';
 
 const HomePage = () => {
     const { db, user, appId, userProfile } = useContext(FirebaseContext);
@@ -41,7 +44,7 @@ const HomePage = () => {
 
         // Mettre à jour les stats publiques si elles n'existent pas
         if (userProfile) {
-            console.log("🏠 HomePage - Mise à jour des stats publiques");
+            logger.info('HOMEPAGE', 'Mise à jour des stats publiques');
             badgeService.updatePublicStats(db, user, appId, userProfile);
         }
 
@@ -63,7 +66,7 @@ const HomePage = () => {
 
             setLoading(false);
         }, (error) => {
-            console.error("Erreur lecture soirées pour le tableau de bord:", error);
+            logger.error('HOMEPAGE', 'Erreur lecture soirées pour le tableau de bord', error);
             setLoading(false);
         });
 
@@ -118,22 +121,18 @@ const HomePage = () => {
 
             {/* Bouton Nouvelle Soirée */}
             <div className="mobile-card">
-                <button
+                <GlassButton
                     onClick={() => setShowAddPartyModal(true)}
-                    className="w-full font-bold transition-transform transform active:scale-95 flex items-center justify-center shadow-lg"
+                    variant="primary"
+                    size="large"
                     style={{ 
-                        padding: 'clamp(16px, 5vw, 20px) clamp(20px, 6vw, 24px)',
-                        backgroundColor: '#7c3aed',
-                        color: 'white',
-                        fontSize: 'clamp(16px, 4.5vw, 18px)',
-                        borderRadius: '12px',
-                        border: 'none',
+                        width: '100%',
                         minHeight: '44px'
                     }}
                 >
-                    <PlusCircle size={24} className="flex-shrink-0" style={{ color: 'white', marginRight: '12px' }} /> 
+                    <PlusCircle size={24} className="flex-shrink-0" /> 
                     <span className="flex-grow text-center">Nouvelle Soirée</span>
-                </button>
+                </GlassButton>
             </div>
 
             {/* Stats et Badges */}

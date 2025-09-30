@@ -1,6 +1,7 @@
 ﻿import React, { useState } from 'react';
 import { GeminiService } from '../services/geminiService';
 import { useFirebase } from '../contexts/FirebaseContext';
+import { logger } from '../utils/logger.js';
 
 const DrinkAnalyzer = ({ onDrinkDetected }) => {
     const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -48,7 +49,7 @@ const DrinkAnalyzer = ({ onDrinkDetected }) => {
             onDrinkDetected(mappedDrinkInfo.type, mappedDrinkInfo.brand);
             
         } catch (error) {
-            console.error('Erreur analyse image:', error);
+            logger.error('Erreur analyse image', { error: error.message });
             
             let errorMessage = " Erreur lors de l'analyse";
             

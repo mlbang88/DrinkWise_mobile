@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DrinkWise - Mode Hors Ligne</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            padding: 20px;
+        }
+        
+        .container {
+            text-align: center;
+            max-width: 500px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(16px);
+            border-radius: 20px;
+            padding: 40px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+        
+        .logo {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 24px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 36px;
+        }
+        
+        h1 {
+            font-size: 2rem;
+            margin-bottom: 16px;
+            font-weight: 600;
+        }
+        
+        p {
+            font-size: 1.1rem;
+            margin-bottom: 32px;
+            opacity: 0.9;
+            line-height: 1.6;
+        }
+        
+        .retry-btn {
+            background: linear-gradient(135deg, #7c3aed 0%, #8b5cf6 100%);
+            color: white;
+            border: none;
+            padding: 16px 32px;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-right: 16px;
+        }
+        
+        .retry-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(124, 58, 237, 0.3);
+        }
+        
+        .offline-features {
+            margin-top: 32px;
+            text-align: left;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 20px;
+            border-radius: 12px;
+        }
+        
+        .offline-features h3 {
+            margin-bottom: 16px;
+            font-size: 1.2rem;
+        }
+        
+        .feature-list {
+            list-style: none;
+        }
+        
+        .feature-list li {
+            padding: 8px 0;
+            display: flex;
+            align-items: center;
+        }
+        
+        .feature-list li::before {
+            content: "✓";
+            color: #10b981;
+            font-weight: bold;
+            margin-right: 12px;
+            font-size: 18px;
+        }
+        
+        .status {
+            margin-top: 20px;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        
+        .online {
+            background: rgba(16, 185, 129, 0.2);
+            color: #10b981;
+        }
+        
+        .offline {
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">🍻</div>
+        <h1>Mode Hors Ligne</h1>
+        <p>Vous n'êtes pas connecté à Internet, mais DrinkWise continue de fonctionner avec vos données locales.</p>
+        
+        <button class="retry-btn" onclick="retryConnection()">
+            Réessayer la connexion
+        </button>
+        
+        <div class="offline-features">
+            <h3>Fonctionnalités disponibles hors ligne :</h3>
+            <ul class="feature-list">
+                <li>Consulter vos statistiques locales</li>
+                <li>Voir vos badges débloqués</li>
+                <li>Accéder à vos souvenirs récents</li>
+                <li>Naviguer dans l'interface</li>
+            </ul>
+        </div>
+        
+        <div class="status" id="status">
+            <span class="offline">📡 Hors ligne</span>
+        </div>
+    </div>
+
+    <script>
+        // Détecter le statut de connexion
+        function updateConnectionStatus() {
+            const status = document.getElementById('status');
+            if (navigator.onLine) {
+                status.innerHTML = '<span class="online">🌐 En ligne - Reconnexion détectée</span>';
+                status.className = 'status online';
+                
+                // Rediriger vers l'app après 2 secondes
+                setTimeout(() => {
+                    window.location.href = '/';
+                }, 2000);
+            } else {
+                status.innerHTML = '<span class="offline">📡 Hors ligne</span>';
+                status.className = 'status offline';
+            }
+        }
+        
+        // Réessayer la connexion
+        function retryConnection() {
+            updateConnectionStatus();
+            if (navigator.onLine) {
+                window.location.href = '/';
+            } else {
+                // Animation de feedback
+                const btn = document.querySelector('.retry-btn');
+                btn.textContent = 'Vérification...';
+                btn.disabled = true;
+                
+                setTimeout(() => {
+                    btn.textContent = 'Réessayer la connexion';
+                    btn.disabled = false;
+                }, 2000);
+            }
+        }
+        
+        // Écouter les changements de connexion
+        window.addEventListener('online', updateConnectionStatus);
+        window.addEventListener('offline', updateConnectionStatus);
+        
+        // Vérification initiale
+        updateConnectionStatus();
+        
+        // Vérification périodique
+        setInterval(updateConnectionStatus, 5000);
+        
+        // Animation d'entrée
+        document.querySelector('.container').style.opacity = '0';
+        document.querySelector('.container').style.transform = 'translateY(20px)';
+        
+        setTimeout(() => {
+            document.querySelector('.container').style.transition = 'all 0.6s ease';
+            document.querySelector('.container').style.opacity = '1';
+            document.querySelector('.container').style.transform = 'translateY(0)';
+        }, 100);
+    </script>
+</body>
+</html>

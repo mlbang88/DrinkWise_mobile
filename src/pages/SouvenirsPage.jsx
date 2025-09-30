@@ -6,6 +6,7 @@ import { normalizeString } from '../utils/helpers';
 import { drinkImageLibrary } from '../utils/data';
 import LoadingSpinner from '../components/LoadingSpinner';
 import LoadingIcon from '../components/LoadingIcon';
+import { DrinkWiseImages } from '../assets/DrinkWiseImages';
 
 const SouvenirsPage = () => {
     const { db, user, appId, setMessageBox } = useContext(FirebaseContext);

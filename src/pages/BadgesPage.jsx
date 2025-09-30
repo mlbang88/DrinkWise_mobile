@@ -3,24 +3,49 @@ import { FirebaseContext } from '../contexts/FirebaseContext.jsx';
 import { useTheme } from '../styles/ThemeContext.jsx';
 import { badgeList } from '../utils/data';
 import ThemedText from '../styles/ThemedText.jsx';
+import { DrinkWiseImages } from '../assets/DrinkWiseImages';
+import { logger } from '../utils/logger';
 
 const BadgesPage = () => {
     const { userProfile } = useContext(FirebaseContext);
     const { theme } = useTheme();
     const unlockedBadges = userProfile?.unlockedBadges || [];
     
-    console.log("🏅 BadgesPage - userProfile:", userProfile);
-    console.log("🏅 BadgesPage - unlockedBadges:", unlockedBadges);
-    console.log("🏅 BadgesPage - badgeList keys:", Object.keys(badgeList));
+    logger.debug('BADGES', 'Page BadgesPage - données utilisateur', {
+        userProfile: !!userProfile,
+        unlockedBadges: unlockedBadges.length,
+        availableBadges: Object.keys(badgeList).length
+    });
 
     return (
         <div style={{
             minHeight: '100vh',
-            background: 'linear-gradient(rgba(0,0,0,0.75), rgba(0,0,0,0.75)), url("https://images.unsplash.com/photo-1667983088885-226788e18a6e?q=80&w=387&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D") center/cover',
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%)',
+            backgroundAttachment: 'fixed',
             padding: '20px',
             display: 'flex',
-            flexDirection: 'column'
+            flexDirection: 'column',
+            position: 'relative'
         }}>
+            {/* Background logo watermark */}
+            <div style={{
+                position: 'fixed',
+                top: '50%',
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+                opacity: 0.05,
+                zIndex: 0,
+                pointerEvents: 'none'
+            }}>
+                <img 
+                    src="/resources/icon.png"
+                    alt="Background"
+                    style={{
+                        width: '300px',
+                        height: '300px'
+                    }}
+                />
+            </div>
             {/* Titre dans un conteneur */}
             <div style={{
                 backgroundColor: 'rgba(255, 255, 255, 0.15)',
@@ -118,7 +143,7 @@ const BadgesPage = () => {
                                                 });
                                             }
                                         } catch (error) {
-                                            console.warn('Erreur icône badge:', id, error);
+                                            logger.warn('BADGES', 'Erreur rendu icône badge', { badgeId: id, error });
                                         }
                                         
                                         // Fallback avec emoji approprié selon le type de badge
