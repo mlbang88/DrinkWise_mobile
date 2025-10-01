@@ -85,12 +85,13 @@ const InAppNotification = ({ notification, onClose, onMarkAsRead }) => {
                     : 'translate-x-full opacity-0'
             }`}
             style={{
-                background: 'linear-gradient(135deg, rgba(139, 69, 255, 0.95) 0%, rgba(59, 130, 246, 0.95) 100%)',
-                backdropFilter: 'blur(10px)',
-                borderRadius: '12px',
-                border: '1px solid rgba(255, 255, 255, 0.2)',
-                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
-                cursor: 'pointer'
+                background: 'linear-gradient(135deg, rgba(139, 69, 255, 0.9) 0%, rgba(99, 39, 215, 0.85) 50%, rgba(59, 130, 246, 0.9) 100%)',
+                backdropFilter: 'blur(20px)',
+                borderRadius: '20px',
+                border: '1px solid rgba(255, 255, 255, 0.25)',
+                boxShadow: '0 12px 40px rgba(139, 69, 255, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
+                cursor: 'pointer',
+                transition: 'all 0.3s ease'
             }}
             onClick={handleClick}
         >

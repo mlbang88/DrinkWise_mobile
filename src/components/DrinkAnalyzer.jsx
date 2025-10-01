@@ -80,44 +80,70 @@ const DrinkAnalyzer = ({ onDrinkDetected }) => {
             </h3>
 
             <div style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
-                <label style={{
-                    flex: 1,
-                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                    color: 'white',
-                    padding: '12px',
-                    borderRadius: '10px',
-                    textAlign: 'center',
-                    cursor: 'pointer'
-                }}>
-                     Appareil photo
-                    <input
-                        type="file"
-                        accept="image/*"
-                        capture="environment"
-                        onChange={handleFileChange}
-                        style={{ display: 'none' }}
-                        disabled={isAnalyzing}
-                    />
-                </label>
+                <button 
+                    type="button"
+                    onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        document.getElementById('camera-input').click();
+                    }}
+                    disabled={isAnalyzing}
+                    style={{
+                        flex: 1,
+                        background: '#667eea',
+                        color: '#ffffff',
+                        padding: '12px',
+                        borderRadius: '10px',
+                        border: 'none',
+                        textAlign: 'center',
+                        cursor: isAnalyzing ? 'not-allowed' : 'pointer',
+                        fontSize: '14px',
+                        fontWeight: 'bold'
+                    }}
+                >
+                    📸 Appareil photo
+                </button>
+                <input
+                    id="camera-input"
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    onChange={handleFileChange}
+                    style={{ display: 'none' }}
+                    disabled={isAnalyzing}
+                />
 
-                <label style={{
-                    flex: 1,
-                    background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
-                    color: 'white',
-                    padding: '12px',
-                    borderRadius: '10px',
-                    textAlign: 'center',
-                    cursor: 'pointer'
-                }}>
-                     Galerie
-                    <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleFileChange}
-                        style={{ display: 'none' }}
-                        disabled={isAnalyzing}
-                    />
-                </label>
+                <button 
+                    type="button"
+                    onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        document.getElementById('gallery-input').click();
+                    }}
+                    disabled={isAnalyzing}
+                    style={{
+                        flex: 1,
+                        background: '#764ba2',
+                        color: '#ffffff',
+                        padding: '12px',
+                        borderRadius: '10px',
+                        border: 'none',
+                        textAlign: 'center',
+                        cursor: isAnalyzing ? 'not-allowed' : 'pointer',
+                        fontSize: '14px',
+                        fontWeight: 'bold'
+                    }}
+                >
+                    🖼️ Galerie
+                </button>
+                <input
+                    id="gallery-input"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    style={{ display: 'none' }}
+                    disabled={isAnalyzing}
+                />
             </div>
 
             {isAnalyzing && (

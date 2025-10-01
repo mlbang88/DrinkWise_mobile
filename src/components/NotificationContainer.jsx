@@ -7,7 +7,16 @@ const NotificationContainer = ({ notifications, onClose, onMarkAsRead }) => {
   }
 
   return (
-    <div className="notification-container">
+    <div style={{
+      position: 'fixed',
+      top: '20px',
+      right: '20px',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '12px',
+      maxWidth: '400px',
+      pointerEvents: 'none'
+    }}>
       {notifications.map((notification, index) => (
         <InAppNotification
           key={notification.id}
@@ -15,8 +24,10 @@ const NotificationContainer = ({ notifications, onClose, onMarkAsRead }) => {
           onClose={() => onClose(notification.id)}
           onMarkAsRead={onMarkAsRead}
           style={{
-            zIndex: 9999 - index, // Notifications plus récentes au-dessus
-            marginBottom: '0.5rem'
+            zIndex: 9999 - index,
+            pointerEvents: 'auto',
+            transform: `translateY(${index * 4}px)`,
+            opacity: Math.max(0.8, 1 - index * 0.1)
           }}
         />
       ))}

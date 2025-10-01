@@ -96,7 +96,7 @@ const GlassButton = ({
                 e.target.style.filter = 'brightness(1.1)';
             }
             e.target.style.boxShadow = '0 20px 40px -4px rgba(0, 0, 0, 0.15), 0 8px 16px -4px rgba(0, 0, 0, 0.1)';
-            e.target.style.transform = 'translateY(-2px)';
+            e.target.style.transform = 'translateY(-2px) scale(1.02)';
         }
     };
 
@@ -107,7 +107,7 @@ const GlassButton = ({
             e.target.style.borderColor = variantStyles.border.split(' ')[2];
             e.target.style.filter = 'none';
             e.target.style.boxShadow = '0 10px 25px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)';
-            e.target.style.transform = 'translateY(0px)';
+            e.target.style.transform = 'translateY(0px) scale(1)';
         }
     };
 

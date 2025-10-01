@@ -10,6 +10,11 @@ import { PlusCircle, Trash2, XCircle, Users, User } from 'lucide-react';
 import { storage } from '../firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { logger } from '../utils/logger.js';
+import { useModalAnimation, useStaggeredAnimation } from '../hooks/useAnimation.js';
+
+// Phase 2C: Animation components
+import AnimatedButton from './AnimatedButton';
+import AnimatedInput from './AnimatedInput';
 
 const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
     logger.debug("AddPartyModal rendu/re-rendu", { hasDraftData: !!draftData });
@@ -65,6 +70,19 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
     const [friendsList, setFriendsList] = useState([]);
     const [groupsList, setGroupsList] = useState([]);
     const [loadingCompanions, setLoadingCompanions] = useState(false);
+    
+    // État pour l'animation du modal
+    const [isModalOpen, setIsModalOpen] = useState(true);
+    
+    // Animation hook
+    const { isVisible, isAnimating, animationStyles } = useModalAnimation(isModalOpen, onClose, 350);
+    // Désactiver temporairement les animations staggered qui masquent le contenu
+    const getItemStyle = (index) => ({ opacity: 1, transform: 'none' });
+    
+    // Fonction de fermeture animée
+    const handleClose = useCallback(() => {
+        setIsModalOpen(false);
+    }, []);
 
     // Charger les amis et groupes au montage du composant
     useEffect(() => {
@@ -449,6 +467,8 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
         );
     }
 
+    if (!isVisible) return null;
+
     return (
         <div 
             style={{
@@ -457,21 +477,26 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
                 left: 0,
                 right: 0,
                 bottom: 0,
-                backgroundColor: 'rgba(0, 0, 0, 0.9)',
+                background: 'linear-gradient(135deg, rgba(15, 15, 35, 0.95), rgba(25, 25, 45, 0.9))',
+                backdropFilter: 'blur(12px)',
                 display: 'flex',
                 alignItems: 'flex-start',
                 justifyContent: 'center',
                 zIndex: 9999,
                 padding: '15px',
-                paddingTop: '15px'
+                paddingTop: '15px',
+                ...animationStyles.overlay
             }}
         >
             <div 
                 style={{
-                    backgroundColor: '#1a1a2e',
-                    borderRadius: '20px',
-                    border: '2px solid #8b45ff',
+                    background: 'linear-gradient(135deg, rgba(30, 30, 60, 0.95), rgba(45, 45, 80, 0.9))',
+                    backdropFilter: 'blur(20px)',
+                    borderRadius: '24px',
+                    border: '1px solid rgba(139, 69, 255, 0.3)',
+                    boxShadow: '0 25px 50px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
                     width: '100%',
+                    ...animationStyles.modal,
                     maxWidth: '500px',
                     height: '80vh',
                     position: 'relative',
@@ -485,41 +510,49 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    padding: '16px 20px 12px 20px',
+                    padding: '20px 24px 16px 24px',
                     flexShrink: 0,
-                    borderBottom: '1px solid rgba(139, 69, 255, 0.3)'
+                    background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05))',
+                    backdropFilter: 'blur(10px)',
+                    borderBottom: '1px solid rgba(139, 69, 255, 0.2)',
+                    position: 'relative'
                 }}>
                     <h2 style={{
                         color: 'white',
-                        fontSize: '20px',
-                        fontWeight: '600',
+                        fontSize: '22px',
+                        fontWeight: '700',
                         margin: 0,
-                        flex: 1
+                        flex: 1,
+                        letterSpacing: '-0.02em'
                     }}>
                         {draftData ? '📝 Finaliser la Soirée' : 'Enregistrer une Soirée'}
                     </h2>
                     
                     <button 
-                        onClick={onClose}
+                        onClick={handleClose}
                         style={{
-                            backgroundColor: 'transparent',
-                            border: 'none',
-                            color: '#9ca3af',
+                            background: 'rgba(255, 255, 255, 0.1)',
+                            backdropFilter: 'blur(10px)',
+                            border: '1px solid rgba(255, 255, 255, 0.2)',
+                            color: 'rgba(255, 255, 255, 0.8)',
                             cursor: 'pointer',
-                            padding: '8px',
-                            borderRadius: '50%',
+                            padding: '10px',
+                            borderRadius: '12px',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            transition: 'all 0.2s ease'
+                            transition: 'all 0.3s ease',
+                            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)'
                         }}
                         onMouseEnter={(e) => {
-                            e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+                            e.target.style.background = 'rgba(255, 255, 255, 0.2)';
+                            e.target.style.transform = 'scale(1.05)';
                             e.target.style.color = 'white';
                         }}
                         onMouseLeave={(e) => {
-                            e.target.style.backgroundColor = 'transparent';
-                            e.target.style.color = '#9ca3af';
+                            e.target.style.background = 'rgba(255, 255, 255, 0.1)';
+                            e.target.style.transform = 'scale(1)';
+                            e.target.style.color = 'rgba(255, 255, 255, 0.8)';
                         }}
                     >
                         <XCircle size={24} />
@@ -529,24 +562,28 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
                 {draftData && (
                     <div style={{
                         margin: '0 24px 16px 24px',
-                        backgroundColor: 'rgba(139, 69, 255, 0.2)',
-                        border: '1px solid #8b45ff',
-                        borderRadius: '8px',
-                        padding: '12px',
+                        background: 'linear-gradient(135deg, rgba(139, 69, 255, 0.3), rgba(99, 39, 215, 0.2))',
+                        backdropFilter: 'blur(10px)',
+                        border: '1px solid rgba(139, 69, 255, 0.4)',
+                        borderRadius: '16px',
+                        padding: '16px',
                         textAlign: 'center',
-                        flexShrink: 0
+                        flexShrink: 0,
+                        boxShadow: '0 8px 16px rgba(139, 69, 255, 0.2)'
                     }}>
                         <div style={{
-                            color: '#c084fc',
-                            fontSize: '14px',
-                            fontWeight: '600'
+                            color: 'white',
+                            fontSize: '15px',
+                            fontWeight: '700',
+                            letterSpacing: '-0.01em'
                         }}>
                             🎉 Données du Mode Soirée récupérées
                         </div>
                         <div style={{
-                            color: '#9ca3af',
-                            fontSize: '12px',
-                            marginTop: '4px'
+                            color: 'rgba(255, 255, 255, 0.8)',
+                            fontSize: '13px',
+                            marginTop: '6px',
+                            fontWeight: '500'
                         }}>
                             Vous pouvez maintenant finaliser et compléter votre soirée
                         </div>
@@ -560,11 +597,12 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
                         left: 0,
                         right: 0,
                         bottom: 0,
-                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        background: 'linear-gradient(135deg, rgba(15, 15, 35, 0.9), rgba(25, 25, 45, 0.85))',
+                        backdropFilter: 'blur(20px)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        borderRadius: '20px',
+                        borderRadius: '24px',
                         zIndex: 10
                     }}>
                         <LoadingSpinner text={
@@ -577,21 +615,22 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
 
                 {/* Contenu scrollable */}
                 <div style={{
-                    padding: '0 20px 20px 20px',
-                    paddingTop: draftData ? '8px' : '0', // Espace supplémentaire si notification
+                    padding: '0 24px 24px 24px',
+                    paddingTop: draftData ? '12px' : '0',
                     flex: 1,
                     overflowY: 'auto',
                     minHeight: 0
                 }}>
-                    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                         {/* Date */}
-                        <div>
+                        <div style={getItemStyle(0)}>
                             <label style={{
                                 display: 'block',
-                                color: '#9ca3af',
-                                fontSize: '16px',
-                                fontWeight: '500',
-                                marginBottom: '4px'
+                                color: 'white',
+                                fontSize: '15px',
+                                fontWeight: '600',
+                                marginBottom: '8px',
+                                letterSpacing: '-0.01em'
                             }}>
                                 Date:
                             </label>
@@ -602,14 +641,16 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
                                 required
                                 style={{
                                     width: '100%',
-                                    padding: '14px 16px',
-                                    backgroundColor: '#2d3748',
-                                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                                    borderRadius: '12px',
+                                    padding: '16px 20px',
+                                    background: 'rgba(255, 255, 255, 0.08)',
+                                    backdropFilter: 'blur(10px)',
+                                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                                    borderRadius: '16px',
                                     color: 'white',
                                     fontSize: '16px',
                                     outline: 'none',
-                                    transition: 'all 0.2s ease'
+                                    transition: 'all 0.3s ease',
+                                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
                                 }}
                                 onFocus={(e) => {
                                     e.target.style.borderColor = '#8b45ff';
@@ -623,19 +664,22 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
                         </div>
 
                         {/* Analyseur de boisson IA */}
-                        <DrinkAnalyzer 
+                        <div style={getItemStyle(1)}>
+                            <DrinkAnalyzer 
                             onDrinkDetected={handleDrinkDetected}
                             setMessageBox={setMessageBox}
                         />
+                        </div>
 
                         {/* Boissons */}
-                        <div>
+                        <div style={getItemStyle(2)}>
                             <label style={{
                                 display: 'block',
-                                color: '#9ca3af',
-                                fontSize: '16px',
-                                fontWeight: '500',
-                                marginBottom: '16px'
+                                color: 'white',
+                                fontSize: '15px',
+                                fontWeight: '600',
+                                marginBottom: '16px',
+                                letterSpacing: '-0.01em'
                             }}>
                                 Boissons:
                             </label>
@@ -643,25 +687,29 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
                                 {drinks.map((drink, index) => (
                                     <div key={index} style={{
                                         display: 'flex',
-                                        gap: '8px',
+                                        gap: '12px',
                                         alignItems: 'center',
-                                        padding: '8px',
-                                        backgroundColor: '#2d3748',
-                                        border: '1px solid rgba(255, 255, 255, 0.1)',
-                                        borderRadius: '8px'
+                                        padding: '16px',
+                                        background: 'rgba(255, 255, 255, 0.06)',
+                                        backdropFilter: 'blur(10px)',
+                                        border: '1px solid rgba(255, 255, 255, 0.15)',
+                                        borderRadius: '16px',
+                                        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
                                     }}>
                                         <select 
                                             value={drink.type} 
                                             onChange={(e) => handleDrinkChange(index, 'type', e.target.value)}
                                             style={{
-                                                width: '100px',
-                                                padding: '10px 8px',
-                                                backgroundColor: '#374151',
-                                                border: '1px solid rgba(255, 255, 255, 0.1)',
-                                                borderRadius: '8px',
+                                                width: '110px',
+                                                padding: '12px 10px',
+                                                background: 'rgba(255, 255, 255, 0.1)',
+                                                backdropFilter: 'blur(8px)',
+                                                border: '1px solid rgba(255, 255, 255, 0.2)',
+                                                borderRadius: '12px',
                                                 color: 'white',
-                                                fontSize: '11px',
-                                                outline: 'none'
+                                                fontSize: '13px',
+                                                outline: 'none',
+                                                transition: 'all 0.2s ease'
                                             }}
                                         >
                                             {drinkOptions.map(opt => (
@@ -760,8 +808,16 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
                                     gap: '8px',
                                     transition: 'all 0.2s ease'
                                 }}
-                                onMouseEnter={(e) => e.target.style.backgroundColor = '#7c3aed'}
-                                onMouseLeave={(e) => e.target.style.backgroundColor = '#8b45ff'}
+                                onMouseEnter={(e) => {
+                                    e.target.style.backgroundColor = '#7c3aed';
+                                    e.target.style.transform = 'translateY(-2px) scale(1.02)';
+                                    e.target.style.boxShadow = '0 8px 25px rgba(139, 69, 255, 0.4)';
+                                }}
+                                onMouseLeave={(e) => {
+                                    e.target.style.backgroundColor = '#8b45ff';
+                                    e.target.style.transform = 'translateY(0) scale(1)';
+                                    e.target.style.boxShadow = '0 4px 12px rgba(139, 69, 255, 0.3)';
+                                }}
                             >
                                 <PlusCircle size={20} />
                                 Ajouter
@@ -992,8 +1048,11 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
                                         borderRadius: '8px',
                                         color: 'white',
                                         fontSize: '14px',
+                                        fontWeight: '600',
                                         cursor: 'pointer',
-                                        transition: 'all 0.2s ease'
+                                        transition: 'all 0.2s ease',
+                                        WebkitTextFillColor: 'white',
+                                        textShadow: '1px 1px 2px rgba(0, 0, 0, 0.8)'
                                     }}
                                 >
                                     Seul(e)
@@ -1009,12 +1068,15 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
                                         borderRadius: '8px',
                                         color: 'white',
                                         fontSize: '14px',
+                                        fontWeight: '600',
                                         cursor: 'pointer',
                                         transition: 'all 0.2s ease',
                                         display: 'flex',
                                         alignItems: 'center',
                                         justifyContent: 'center',
-                                        gap: '6px'
+                                        gap: '6px',
+                                        WebkitTextFillColor: 'white',
+                                        textShadow: '1px 1px 2px rgba(0, 0, 0, 0.8)'
                                     }}
                                 >
                                     <User size={16} />
@@ -1031,12 +1093,15 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
                                         borderRadius: '8px',
                                         color: 'white',
                                         fontSize: '14px',
+                                        fontWeight: '600',
                                         cursor: 'pointer',
                                         transition: 'all 0.2s ease',
                                         display: 'flex',
                                         alignItems: 'center',
                                         justifyContent: 'center',
-                                        gap: '6px'
+                                        gap: '6px',
+                                        WebkitTextFillColor: 'white',
+                                        textShadow: '1px 1px 2px rgba(0, 0, 0, 0.8)'
                                     }}
                                 >
                                     <Users size={16} />
@@ -1541,8 +1606,16 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
                                 marginTop: '8px',
                                 transition: 'all 0.2s ease'
                             }}
-                            onMouseEnter={(e) => e.target.style.backgroundColor = '#7c3aed'}
-                            onMouseLeave={(e) => e.target.style.backgroundColor = '#8b45ff'}
+                            onMouseEnter={(e) => {
+                                e.target.style.backgroundColor = '#7c3aed';
+                                e.target.style.transform = 'translateY(-2px) scale(1.02)';
+                                e.target.style.boxShadow = '0 8px 25px rgba(139, 69, 255, 0.4)';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.target.style.backgroundColor = '#8b45ff';
+                                e.target.style.transform = 'translateY(0) scale(1)';
+                                e.target.style.boxShadow = '0 4px 12px rgba(139, 69, 255, 0.3)';
+                            }}
                         >
                             🎉 Enregistrer & Lancer le Quiz
                         </button>

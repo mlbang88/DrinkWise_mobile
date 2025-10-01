@@ -15,6 +15,12 @@ import { logger } from '../utils/logger.js';
 import EditPartyModal from '../components/EditPartyModal';
 import { DrinkWiseImages } from '../assets/DrinkWiseImages';
 
+// Phase 2C: Animation components
+import AnimatedCard from '../components/AnimatedCard';
+import AnimatedChart from '../components/AnimatedChart';
+import AnimatedList from '../components/AnimatedList';
+import { useScrollAnimation } from '../hooks/useAnimation';
+
 const StatsPage = () => {
     const { db, user, appId, setMessageBox, functions } = useContext(FirebaseContext);
     const { theme } = useTheme();
@@ -1536,11 +1542,15 @@ const StatsPage = () => {
                     onMouseEnter={(e) => {
                         if (!loadingSystemRepair) {
                             e.target.style.backgroundColor = '#b91c1c';
+                            e.target.style.transform = 'translateY(-2px) scale(1.02)';
+                            e.target.style.boxShadow = '0 8px 25px rgba(220, 38, 38, 0.4)';
                         }
                     }}
                     onMouseLeave={(e) => {
                         if (!loadingSystemRepair) {
                             e.target.style.backgroundColor = '#dc2626';
+                            e.target.style.transform = 'translateY(0) scale(1)';
+                            e.target.style.boxShadow = '0 4px 12px rgba(220, 38, 38, 0.3)';
                         }
                     }}
                 >

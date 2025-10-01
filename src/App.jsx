@@ -18,9 +18,10 @@ const FriendsPage = React.lazy(() => import('./pages/FriendsPage'));
 const ProfilePage = React.lazy(() => import('./pages/ProfilePage'));
 const FriendStatsPage = React.lazy(() => import('./pages/FriendStatsPage'));
 const FeedPage = React.lazy(() => import('./pages/FeedPage'));
+const Phase2CDemo = React.lazy(() => import('./components/Phase2CDemo'));
 
 // Import icons for the nav bar
-import { Home, BarChart, Users, Award, User as UserIcon, Shield, Rss, Target } from 'lucide-react';
+import { Home, BarChart, Users, Award, User as UserIcon, Shield, Rss, Target, Sparkles } from 'lucide-react';
 
 // Import error handling and logging
 import ErrorBoundary from './components/ErrorBoundary';
@@ -79,7 +80,8 @@ const AppContent = () => {
         { id: 'badges', icon: Award, label: 'Badges' },
         { id: 'challenges', icon: Target, label: 'Défis' },
         { id: 'friends', icon: Users, label: 'Amis' },
-        { id: 'profile', icon: UserIcon, label: 'Profil' }
+        { id: 'profile', icon: UserIcon, label: 'Profil' },
+        { id: 'phase2c', icon: Sparkles, label: 'Phase 2C' }
     ];
 
     const renderPage = () => {
@@ -93,6 +95,7 @@ const AppContent = () => {
                 case 'friends': return <FriendsPage setSelectedFriendId={setSelectedFriendId} setCurrentPage={setCurrentPage} />;
                 case 'profile': return <ProfilePage />;
                 case 'friendStats': return <FriendStatsPage friendId={selectedFriendId} setCurrentPage={setCurrentPage} />;
+                case 'phase2c': return <Phase2CDemo />;
                 default: return <HomePage />;
             }
         };

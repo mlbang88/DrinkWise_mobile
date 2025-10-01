@@ -298,11 +298,15 @@ const QuizModal = ({ onQuizComplete, onClose, uploadingPhotos = false, photosCou
                             onMouseEnter={(e) => {
                                 if (answers[quizQuestions[questionIndex].id]) {
                                     e.target.style.backgroundColor = '#7c3aed';
+                                    e.target.style.transform = 'translateY(-2px) scale(1.02)';
+                                    e.target.style.boxShadow = '0 8px 25px rgba(139, 69, 255, 0.4)';
                                 }
                             }}
                             onMouseLeave={(e) => {
                                 if (answers[quizQuestions[questionIndex].id]) {
                                     e.target.style.backgroundColor = '#8b45ff';
+                                    e.target.style.transform = 'translateY(0) scale(1)';
+                                    e.target.style.boxShadow = '0 4px 12px rgba(139, 69, 255, 0.3)';
                                 }
                             }}
                         >
@@ -348,8 +352,20 @@ const QuizModal = ({ onQuizComplete, onClose, uploadingPhotos = false, photosCou
                                 transition: 'all 0.2s ease',
                                 opacity: isProcessing ? 0.6 : 1
                             }}
-                            onMouseEnter={(e) => e.target.style.backgroundColor = '#6d28d9'}
-                            onMouseLeave={(e) => e.target.style.backgroundColor = '#7c3aed'}
+                            onMouseEnter={(e) => {
+                                if (!isProcessing) {
+                                    e.target.style.backgroundColor = '#6d28d9';
+                                    e.target.style.transform = 'translateY(-2px) scale(1.02)';
+                                    e.target.style.boxShadow = '0 8px 25px rgba(124, 58, 237, 0.4)';
+                                }
+                            }}
+                            onMouseLeave={(e) => {
+                                if (!isProcessing) {
+                                    e.target.style.backgroundColor = '#7c3aed';
+                                    e.target.style.transform = 'translateY(0) scale(1)';
+                                    e.target.style.boxShadow = '0 4px 12px rgba(124, 58, 237, 0.3)';
+                                }
+                            }}
                         >
                             {isProcessing ? 'Traitement...' : 'Terminer la soirée'}
                         </button>

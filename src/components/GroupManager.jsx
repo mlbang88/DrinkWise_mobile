@@ -121,10 +121,13 @@ export default function GroupManager({ onSelectGroup, selectedGroupId }) {
 
     return (
         <div style={{
-            backgroundColor: 'rgba(255, 255, 255, 0.05)',
-            borderRadius: '15px',
-            padding: '20px',
-            marginBottom: '20px'
+            background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05))',
+            backdropFilter: 'blur(20px)',
+            borderRadius: '24px',
+            border: '1px solid rgba(255, 255, 255, 0.2)',
+            padding: '24px',
+            marginBottom: '24px',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
         }}>
             <div style={{
                 display: 'flex',
@@ -132,17 +135,30 @@ export default function GroupManager({ onSelectGroup, selectedGroupId }) {
                 alignItems: 'center',
                 marginBottom: '20px'
             }}>
-                <h3 style={{ color: '#ccc', margin: 0 }}>👥 Mes Groupes</h3>
+                <h3 style={{ 
+                    backgroundImage: 'linear-gradient(135deg, #ffffff, #e2e8f0)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    backgroundClip: 'text',
+                    margin: 0,
+                    fontSize: '20px',
+                    fontWeight: '700',
+                    letterSpacing: '-0.02em'
+                }}>👥 Mes Groupes</h3>
                 <button
                     onClick={() => setShowCreateForm(true)}
                     style={{
-                        backgroundColor: '#3b82f6',
-                        border: 'none',
-                        borderRadius: '8px',
+                        background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
+                        backdropFilter: 'blur(10px)',
+                        border: '1px solid rgba(59, 130, 246, 0.3)',
+                        borderRadius: '16px',
                         color: 'white',
-                        padding: '8px 15px',
+                        padding: '12px 20px',
                         cursor: 'pointer',
-                        fontSize: '14px'
+                        fontSize: '14px',
+                        fontWeight: '600',
+                        transition: 'all 0.3s ease',
+                        boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)'
                     }}
                 >
                     + Créer un groupe
@@ -152,12 +168,24 @@ export default function GroupManager({ onSelectGroup, selectedGroupId }) {
             {/* Formulaire de création */}
             {showCreateForm && (
                 <div style={{
-                    backgroundColor: 'rgba(0, 0, 0, 0.3)',
-                    borderRadius: '12px',
-                    padding: '20px',
-                    marginBottom: '20px'
+                    background: 'linear-gradient(135deg, rgba(30, 30, 60, 0.8), rgba(45, 45, 80, 0.6))',
+                    backdropFilter: 'blur(15px)',
+                    borderRadius: '20px',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    padding: '24px',
+                    marginBottom: '24px',
+                    boxShadow: '0 8px 20px rgba(0, 0, 0, 0.2)'
                 }}>
-                    <h4 style={{ color: 'white', marginBottom: '15px' }}>Créer un nouveau groupe</h4>
+                    <h4 style={{ 
+                        backgroundImage: 'linear-gradient(135deg, #ffffff, #e0e7ff)',
+                        WebkitBackgroundClip: 'text',
+                        WebkitTextFillColor: 'transparent',
+                        backgroundClip: 'text',
+                        marginBottom: '20px',
+                        fontSize: '18px',
+                        fontWeight: '600',
+                        letterSpacing: '-0.01em'
+                    }}>Créer un nouveau groupe</h4>
                     <input
                         type="text"
                         placeholder="Nom du groupe"
@@ -165,13 +193,17 @@ export default function GroupManager({ onSelectGroup, selectedGroupId }) {
                         onChange={(e) => setNewGroupName(e.target.value)}
                         style={{
                             width: '100%',
-                            padding: '10px',
-                            marginBottom: '10px',
-                            backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                            padding: '16px 20px',
+                            marginBottom: '16px',
+                            background: 'rgba(255, 255, 255, 0.08)',
+                            backdropFilter: 'blur(10px)',
                             border: '1px solid rgba(255, 255, 255, 0.2)',
-                            borderRadius: '8px',
+                            borderRadius: '16px',
                             color: 'white',
-                            fontSize: '14px'
+                            fontSize: '15px',
+                            outline: 'none',
+                            transition: 'all 0.3s ease',
+                            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
                         }}
                     />
                     <textarea
@@ -181,29 +213,36 @@ export default function GroupManager({ onSelectGroup, selectedGroupId }) {
                         rows={3}
                         style={{
                             width: '100%',
-                            padding: '10px',
-                            marginBottom: '15px',
-                            backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                            padding: '16px 20px',
+                            marginBottom: '20px',
+                            background: 'rgba(255, 255, 255, 0.08)',
+                            backdropFilter: 'blur(10px)',
                             border: '1px solid rgba(255, 255, 255, 0.2)',
-                            borderRadius: '8px',
+                            borderRadius: '16px',
                             color: 'white',
-                            fontSize: '14px',
-                            resize: 'vertical'
+                            fontSize: '15px',
+                            outline: 'none',
+                            transition: 'all 0.3s ease',
+                            resize: 'vertical',
+                            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
                         }}
                     />
-                    <div style={{ display: 'flex', gap: '10px' }}>
+                    <div style={{ display: 'flex', gap: '16px' }}>
                         <button
                             onClick={handleCreateGroup}
                             disabled={creating}
                             style={{
-                                backgroundColor: '#10b981',
-                                border: 'none',
-                                borderRadius: '8px',
+                                background: creating ? 'rgba(16, 185, 129, 0.5)' : 'linear-gradient(135deg, #10b981, #059669)',
+                                backdropFilter: 'blur(10px)',
+                                border: '1px solid rgba(16, 185, 129, 0.3)',
+                                borderRadius: '16px',
                                 color: 'white',
-                                padding: '10px 20px',
+                                padding: '14px 24px',
                                 cursor: creating ? 'not-allowed' : 'pointer',
-                                fontSize: '14px',
-                                opacity: creating ? 0.7 : 1
+                                fontSize: '15px',
+                                fontWeight: '600',
+                                transition: 'all 0.3s ease',
+                                boxShadow: creating ? 'none' : '0 4px 12px rgba(16, 185, 129, 0.3)'
                             }}
                         >
                             {creating ? <LoadingIcon /> : 'Créer'}
@@ -211,13 +250,17 @@ export default function GroupManager({ onSelectGroup, selectedGroupId }) {
                         <button
                             onClick={() => setShowCreateForm(false)}
                             style={{
-                                backgroundColor: '#6b7280',
-                                border: 'none',
-                                borderRadius: '8px',
-                                color: 'white',
-                                padding: '10px 20px',
+                                background: 'rgba(255, 255, 255, 0.1)',
+                                backdropFilter: 'blur(10px)',
+                                border: '1px solid rgba(255, 255, 255, 0.2)',
+                                borderRadius: '16px',
+                                color: 'rgba(255, 255, 255, 0.8)',
+                                padding: '14px 24px',
                                 cursor: 'pointer',
-                                fontSize: '14px'
+                                fontSize: '15px',
+                                fontWeight: '600',
+                                transition: 'all 0.3s ease',
+                                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
                             }}
                         >
                             Annuler
@@ -229,14 +272,15 @@ export default function GroupManager({ onSelectGroup, selectedGroupId }) {
             {/* Liste des groupes */}
             <div style={{
                 display: 'grid',
-                gap: '15px'
+                gap: '20px'
             }}>
                 {groups.length === 0 ? (
                     <div style={{
                         textAlign: 'center',
-                        color: '#9ca3af',
-                        padding: '40px',
-                        fontSize: '14px'
+                        color: 'rgba(255, 255, 255, 0.6)',
+                        padding: '48px',
+                        fontSize: '15px',
+                        fontWeight: '500'
                     }}>
                         Aucun groupe trouvé. Créez votre premier groupe !
                     </div>
@@ -245,16 +289,20 @@ export default function GroupManager({ onSelectGroup, selectedGroupId }) {
                         <div
                             key={group.id}
                             style={{
-                                backgroundColor: selectedGroupId === group.id 
-                                    ? 'rgba(59, 130, 246, 0.2)' 
-                                    : 'rgba(255, 255, 255, 0.05)',
+                                background: selectedGroupId === group.id 
+                                    ? 'linear-gradient(135deg, rgba(59, 130, 246, 0.3), rgba(37, 99, 235, 0.2))' 
+                                    : 'linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05))',
+                                backdropFilter: 'blur(15px)',
                                 border: selectedGroupId === group.id 
-                                    ? '2px solid #3b82f6' 
-                                    : '1px solid rgba(255, 255, 255, 0.1)',
-                                borderRadius: '12px',
-                                padding: '15px',
+                                    ? '2px solid rgba(59, 130, 246, 0.6)' 
+                                    : '1px solid rgba(255, 255, 255, 0.2)',
+                                borderRadius: '20px',
+                                padding: '20px',
                                 cursor: 'pointer',
-                                transition: 'all 0.2s ease'
+                                transition: 'all 0.3s ease',
+                                boxShadow: selectedGroupId === group.id 
+                                    ? '0 8px 25px rgba(59, 130, 246, 0.3)'
+                                    : '0 4px 15px rgba(0, 0, 0, 0.1)'
                             }}
                             onClick={() => onSelectGroup(group.id)}
                         >
@@ -265,11 +313,26 @@ export default function GroupManager({ onSelectGroup, selectedGroupId }) {
                                 marginBottom: '10px'
                             }}>
                                 <div>
-                                    <h4 style={{ color: 'white', margin: 0, marginBottom: '5px' }}>
+                                    <h4 style={{ 
+                                        backgroundImage: 'linear-gradient(135deg, #ffffff, #e2e8f0)',
+                                        WebkitBackgroundClip: 'text',
+                                        WebkitTextFillColor: 'transparent',
+                                        backgroundClip: 'text',
+                                        margin: 0, 
+                                        marginBottom: '8px',
+                                        fontSize: '18px',
+                                        fontWeight: '600',
+                                        letterSpacing: '-0.01em'
+                                    }}>
                                         {group.name}
                                     </h4>
                                     {group.description && (
-                                        <p style={{ color: '#9ca3af', fontSize: '12px', margin: 0 }}>
+                                        <p style={{ 
+                                            color: 'rgba(255, 255, 255, 0.7)', 
+                                            fontSize: '14px', 
+                                            margin: 0,
+                                            fontWeight: '500'
+                                        }}>
                                             {group.description}
                                         </p>
                                     )}
@@ -280,13 +343,17 @@ export default function GroupManager({ onSelectGroup, selectedGroupId }) {
                                         setShowInviteForm(group.id);
                                     }}
                                     style={{
-                                        backgroundColor: '#8b5cf6',
-                                        border: 'none',
-                                        borderRadius: '6px',
+                                        background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)',
+                                        backdropFilter: 'blur(10px)',
+                                        border: '1px solid rgba(139, 92, 246, 0.3)',
+                                        borderRadius: '12px',
                                         color: 'white',
-                                        padding: '5px 10px',
+                                        padding: '8px 16px',
                                         cursor: 'pointer',
-                                        fontSize: '12px'
+                                        fontSize: '13px',
+                                        fontWeight: '600',
+                                        transition: 'all 0.3s ease',
+                                        boxShadow: '0 4px 12px rgba(139, 92, 246, 0.3)'
                                     }}
                                 >
                                     + Inviter

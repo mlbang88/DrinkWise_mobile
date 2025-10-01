@@ -7,6 +7,12 @@ import { challengeService } from '../services/challengeService';
 import LoadingSpinner from '../components/LoadingSpinner';
 import LoadingIcon from '../components/LoadingIcon';
 
+// Phase 2C: Animation components
+import AnimatedList from '../components/AnimatedList';
+import AnimatedCard from '../components/AnimatedCard';
+import FeedbackOverlay from '../components/FeedbackOverlay';
+import { useScrollAnimation } from '../hooks/useAnimation';
+
 import { Calendar, Users, Trophy, MapPin, Heart, MessageCircle } from 'lucide-react';
 import UserAvatar from '../components/UserAvatar';
 import EditPartyModal from '../components/EditPartyModal';
@@ -1377,67 +1383,49 @@ const FeedPage = () => {
                 </button>
             </div>
 
-            {/* Contenu */}
-            {feedItems.length === 0 ? (
-                <div style={{
-                    background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.04) 100%)',
-                    backdropFilter: 'blur(10px)',
-                    borderRadius: '24px',
-                    border: '1px solid rgba(255, 255, 255, 0.15)',
-                    padding: '48px 32px',
-                    textAlign: 'center',
-                    color: 'white',
-                    width: '100%',
-                    boxSizing: 'border-box',
-                    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
-                }}>
-                    <div style={{
-                        background: 'linear-gradient(135deg, rgba(156, 163, 175, 0.2) 0%, rgba(107, 114, 128, 0.15) 100%)',
-                        borderRadius: '20px',
-                        padding: '20px',
-                        marginBottom: '24px',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        justifyContent: 'center'
-                    }}>
-                        <Calendar size={56} style={{ color: '#9ca3af', filter: 'drop-shadow(0 2px 4px rgba(156, 163, 175, 0.3))' }} />
-                    </div>
-                    <h3 style={{
-                        background: 'linear-gradient(135deg, #ffffff 0%, #e5e7eb 100%)',
-                        WebkitBackgroundClip: 'text',
-                        WebkitTextFillColor: 'transparent',
-                        backgroundClip: 'text',
-                        fontSize: '22px',
-                        fontWeight: '700',
-                        margin: '0 0 12px 0',
-                        letterSpacing: '-0.01em'
-                    }}>
-                        Aucune activité récente
-                    </h3>
-                    <p style={{
-                        color: 'rgba(255, 255, 255, 0.7)',
-                        margin: 0,
-                        fontSize: '16px',
-                        lineHeight: '1.5',
-                        fontWeight: '500'
-                    }}>
-                        🎉 Aucune activité à afficher. Organisez une soirée ou ajoutez des amis !
-                    </p>
-                </div>
-            ) : (
-                <div style={{
-                    maxHeight: 'calc(100vh - 200px)',
-                    overflowY: 'auto',
-                    width: '100%',
-                    boxSizing: 'border-box'
-                }}>
-                    {feedItems.map((item) => (
-                        <div key={item.id}>
-                            {item.type === 'party' && <PartyItem item={item} onEditParty={handleEditParty} onDeleteParty={handleDeleteParty} />}
+            {/* Contenu avec animations Phase 2C */}
+            <AnimatedList
+                items={feedItems}
+                animationType="slide"
+                staggerDirection="down"
+                delay={120}
+                className="max-h-[calc(100vh-200px)] overflow-y-auto w-full"
+                keyExtractor={(item) => item.id}
+                renderItem={(item, index) => (
+                    <AnimatedCard
+                        variant="glass"
+                        hoverEffect="lift"
+                        className="mb-6"
+                        delay={index * 80}
+                    >
+                        {item.type === 'party' && (
+                            <PartyItem 
+                                item={item} 
+                                onEditParty={handleEditParty} 
+                                onDeleteParty={handleDeleteParty} 
+                            />
+                        )}
+                    </AnimatedCard>
+                )}
+                emptyComponent={
+                    <AnimatedCard
+                        variant="glass"
+                        className="text-center py-12"
+                        animateOnMount={true}
+                        delay={300}
+                    >
+                        <div className="bg-gradient-to-br from-gray-400/20 to-gray-600/15 rounded-2xl p-5 mb-6 inline-flex items-center justify-center">
+                            <Calendar size={56} className="text-gray-400 drop-shadow-md" />
                         </div>
-                    ))}
-                </div>
-            )}
+                        <h3 className="bg-gradient-to-br from-white to-gray-200 bg-clip-text text-transparent text-2xl font-bold mb-3 tracking-tight">
+                            Aucune activité récente
+                        </h3>
+                        <p className="text-white/70 text-lg font-medium">
+                            🎉 Aucune activité à afficher. Organisez une soirée ou ajoutez des amis !
+                        </p>
+                    </AnimatedCard>
+                }
+            />
 
             {/* Modal photo en plein écran */}
             {selectedPhoto && (

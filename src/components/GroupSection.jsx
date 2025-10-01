@@ -177,19 +177,24 @@ const GroupSection = () => {
 
     return (
         <div style={{
-            backgroundColor: 'rgba(255, 255, 255, 0.1)',
-            borderRadius: '12px',
-            padding: '20px',
-            marginBottom: '20px',
-            backdropFilter: 'blur(10px)',
-            border: '1px solid rgba(255, 255, 255, 0.2)'
+            background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.06))',
+            borderRadius: '28px',
+            padding: '28px',
+            marginBottom: '24px',
+            backdropFilter: 'blur(25px)',
+            border: '1px solid rgba(255, 255, 255, 0.25)',
+            boxShadow: '0 12px 40px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.1)'
         }}>
             <h3 style={{
-                color: 'white',
-                fontSize: '24px',
-                fontWeight: 'bold',
-                marginBottom: '20px',
-                textAlign: 'center'
+                backgroundImage: 'linear-gradient(135deg, #ffffff, #e2e8f0)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text',
+                fontSize: '26px',
+                fontWeight: '800',
+                marginBottom: '24px',
+                textAlign: 'center',
+                letterSpacing: '-0.02em'
             }}>
                 👥 Mes Groupes
             </h3>
@@ -203,36 +208,75 @@ const GroupSection = () => {
                     {/* Liste des groupes */}
                     <div style={{ marginBottom: '20px' }}>
                         {groups.length === 0 ? (
-                            <p style={{ color: 'white', textAlign: 'center', opacity: 0.8 }}>
+                            <p style={{ 
+                                color: 'rgba(255, 255, 255, 0.7)', 
+                                textAlign: 'center',
+                                fontSize: '16px',
+                                fontWeight: '500',
+                                padding: '32px'
+                            }}>
                                 Aucun groupe trouvé. Créez votre premier groupe !
                             </p>
                         ) : (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                                 {groups.map(group => (
                                     <div 
                                         key={group.id}
                                         onClick={() => handleSelectGroup(group)}
                                         style={{
-                                            padding: '15px',
-                                            backgroundColor: selectedGroup?.id === group.id ? 'rgba(139, 92, 246, 0.3)' : 'rgba(255, 255, 255, 0.1)',
-                                            borderRadius: '8px',
+                                            padding: '20px',
+                                            background: selectedGroup?.id === group.id 
+                                                ? 'linear-gradient(135deg, rgba(139, 92, 246, 0.35), rgba(124, 58, 237, 0.25))' 
+                                                : 'linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05))',
+                                            backdropFilter: 'blur(15px)',
+                                            borderRadius: '20px',
                                             cursor: 'pointer',
-                                            border: selectedGroup?.id === group.id ? '2px solid #8b5cf6' : '1px solid rgba(255, 255, 255, 0.2)',
-                                            transition: 'all 0.3s ease'
+                                            border: selectedGroup?.id === group.id 
+                                                ? '2px solid rgba(139, 92, 246, 0.6)' 
+                                                : '1px solid rgba(255, 255, 255, 0.2)',
+                                            transition: 'all 0.3s ease',
+                                            boxShadow: selectedGroup?.id === group.id 
+                                                ? '0 8px 25px rgba(139, 92, 246, 0.3)'
+                                                : '0 4px 15px rgba(0, 0, 0, 0.1)',
+                                            transform: selectedGroup?.id === group.id ? 'translateY(-2px)' : 'translateY(0)'
                                         }}
                                     >
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                             <div>
-                                                <h4 style={{ color: 'white', margin: '0 0 5px 0', fontSize: '18px' }}>
+                                                <h4 style={{ 
+                                                    backgroundImage: 'linear-gradient(135deg, #ffffff, #e2e8f0)',
+                                                    WebkitBackgroundClip: 'text',
+                                                    WebkitTextFillColor: 'transparent',
+                                                    backgroundClip: 'text',
+                                                    margin: '0 0 8px 0', 
+                                                    fontSize: '19px',
+                                                    fontWeight: '700',
+                                                    letterSpacing: '-0.01em'
+                                                }}>
                                                     {group.name}
                                                 </h4>
                                                 {group.description && (
-                                                    <p style={{ color: 'rgba(255, 255, 255, 0.8)', margin: '0', fontSize: '14px' }}>
+                                                    <p style={{ 
+                                                        color: 'rgba(255, 255, 255, 0.75)', 
+                                                        margin: '0', 
+                                                        fontSize: '15px',
+                                                        fontWeight: '500',
+                                                        lineHeight: '1.4'
+                                                    }}>
                                                         {group.description}
                                                     </p>
                                                 )}
                                             </div>
-                                            <div style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: '14px' }}>
+                                            <div style={{ 
+                                                color: 'rgba(255, 255, 255, 0.7)', 
+                                                fontSize: '15px',
+                                                fontWeight: '600',
+                                                background: 'rgba(255, 255, 255, 0.1)',
+                                                backdropFilter: 'blur(8px)',
+                                                padding: '6px 12px',
+                                                borderRadius: '12px',
+                                                border: '1px solid rgba(255, 255, 255, 0.2)'
+                                            }}>
                                                 👥 {group.members?.length || 0} membre{(group.members?.length || 0) > 1 ? 's' : ''}
                                             </div>
                                         </div>
@@ -243,18 +287,21 @@ const GroupSection = () => {
                     </div>
 
                     {/* Boutons d'action */}
-                    <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                    <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', justifyContent: 'center' }}>
                         <button
                             onClick={() => setShowCreateForm(!showCreateForm)}
                             style={{
-                                padding: '10px 20px',
-                                backgroundColor: '#10b981',
+                                padding: '14px 24px',
+                                background: 'linear-gradient(135deg, #10b981, #059669)',
+                                backdropFilter: 'blur(10px)',
                                 color: 'white',
-                                border: 'none',
-                                borderRadius: '8px',
+                                border: '1px solid rgba(16, 185, 129, 0.3)',
+                                borderRadius: '16px',
                                 cursor: 'pointer',
-                                fontSize: '14px',
-                                fontWeight: 'bold'
+                                fontSize: '15px',
+                                fontWeight: '700',
+                                transition: 'all 0.3s ease',
+                                boxShadow: '0 6px 18px rgba(16, 185, 129, 0.3)'
                             }}
                         >
                             ➕ Créer un groupe
@@ -264,14 +311,17 @@ const GroupSection = () => {
                             <button
                                 onClick={() => setShowInviteForm(!showInviteForm)}
                                 style={{
-                                    padding: '10px 20px',
-                                    backgroundColor: '#3b82f6',
+                                    padding: '14px 24px',
+                                    background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
+                                    backdropFilter: 'blur(10px)',
                                     color: 'white',
-                                    border: 'none',
-                                    borderRadius: '8px',
+                                    border: '1px solid rgba(59, 130, 246, 0.3)',
+                                    borderRadius: '16px',
                                     cursor: 'pointer',
-                                    fontSize: '14px',
-                                    fontWeight: 'bold'
+                                    fontSize: '15px',
+                                    fontWeight: '700',
+                                    transition: 'all 0.3s ease',
+                                    boxShadow: '0 6px 18px rgba(59, 130, 246, 0.3)'
                                 }}
                             >
                                 📨 Inviter un ami
