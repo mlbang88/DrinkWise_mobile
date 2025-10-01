@@ -1,73 +1,12 @@
 import { collection, getDocs, updateDoc, doc, getDoc, setDoc } from 'firebase/firestore';
 import { badgeList, calculateDrinkVolume } from '../utils/data';
+import { ExperienceService } from './experienceService';
 
 export const badgeService = {
-    calculateGlobalStats: (parties) => {
-        const stats = {
-            totalDrinks: 0,
-            totalVolume: 0, // Volume total en cl
-            totalVomi: 0,
-            totalFights: 0,
-            totalRecal: 0,
-            totalGirlsTalkedTo: 0,
-            totalElleVeutElleVeut: 0,
-            totalParties: parties.length,
-            uniqueLocations: new Set(),
-            drinkTypes: {},
-            drinkVolumes: {}, // Volume par type de boisson
-            partyTypes: {},
-        };
-        const drinkBrandCounts = {};
-
-        parties.forEach(party => {
-            party.drinks.forEach(drink => {
-                stats.totalDrinks += drink.quantity;
-                stats.drinkTypes[drink.type] = (stats.drinkTypes[drink.type] || 0) + drink.quantity;
-
-                // Calculer le volume de cette boisson
-                const volume = calculateDrinkVolume(drink.type, party.category, drink.quantity);
-                stats.totalVolume += volume;
-                stats.drinkVolumes[drink.type] = (stats.drinkVolumes[drink.type] || 0) + volume;
-
-                if (drink.brand) {
-                    const brandKey = `${drink.type} - ${drink.brand}`;
-                    drinkBrandCounts[brandKey] = (drinkBrandCounts[brandKey] || 0) + drink.quantity;
-                }
-            });
-            stats.totalVomi += party.vomi || 0;
-            stats.totalFights += party.fights || 0;
-            stats.totalRecal += party.recal || 0;
-            stats.totalGirlsTalkedTo += party.girlsTalkedTo || 0;
-            stats.totalElleVeutElleVeut += party.elleVeutElleVeut || 0;
-            if (party.location) stats.uniqueLocations.add(party.location.toLowerCase());
-            if (party.category) stats.partyTypes[party.category] = (stats.partyTypes[party.category] || 0) + 1;
-        });
-
-        let mostConsumedDrink = { type: 'Aucune', quantity: 0, brand: '' };
-        let maxQty = 0;
-        for (const type in stats.drinkTypes) {
-            if (stats.drinkTypes[type] > maxQty) {
-                maxQty = stats.drinkTypes[type];
-                mostConsumedDrink.type = type;
-                mostConsumedDrink.quantity = maxQty;
-            }
-        }
-
-        let mostConsumedBrand = '';
-        let maxBrandQty = 0;
-        for (const brandKey in drinkBrandCounts) {
-            if (brandKey.startsWith(mostConsumedDrink.type)) {
-                if (drinkBrandCounts[brandKey] > maxBrandQty) {
-                    maxBrandQty = drinkBrandCounts[brandKey];
-                    mostConsumedBrand = brandKey.split(' - ')[1];
-                }
-            }
-        }
-        mostConsumedDrink.brand = mostConsumedBrand;
-
-        stats.uniqueLocations = stats.uniqueLocations.size;
-        stats.mostConsumedDrink = mostConsumedDrink;
-        return stats;
+    // DEPRECATED: Utiliser ExperienceService.calculateRealStats à la place
+    calculateGlobalStats: (parties, userProfile = null) => {
+        console.warn('⚠️ DEPRECATED: badgeService.calculateGlobalStats - Utiliser ExperienceService.calculateRealStats');
+        return ExperienceService.calculateRealStats(parties, userProfile);
     },
 
     // Fonction pour mettre à jour les stats publiques (peut être appelée indépendamment)
@@ -86,7 +25,7 @@ export const badgeService = {
 
             const partiesSnapshot = await getDocs(userPartiesRef);
             const allParties = partiesSnapshot.docs.map(doc => doc.data());
-            const cumulativeStats = badgeService.calculateGlobalStats(allParties);
+            const cumulativeStats = ExperienceService.calculateRealStats(allParties, userProfile);
 
             const publicStats = {
                 totalDrinks: cumulativeStats.totalDrinks,
@@ -132,10 +71,10 @@ export const badgeService = {
             const partiesSnapshot = await getDocs(userPartiesRef);
             const allParties = partiesSnapshot.docs.map(doc => doc.data());
             console.log("📊 Parties récupérées:", allParties.length);
-            
-            const cumulativeStats = badgeService.calculateGlobalStats(allParties);
-            console.log("📈 Stats cumulatives:", cumulativeStats);
 
+            const cumulativeStats = ExperienceService.calculateRealStats(allParties, userProfile);
+            console.log("📈 Stats cumulatives:", cumulativeStats);
+            
             let updatedBadges = [...(userProfile.unlockedBadges || [])];
             let newBadgesAwarded = [];
             console.log("🏅 Badges actuels:", updatedBadges);
@@ -184,11 +123,7 @@ export const badgeService = {
             } else {
                 // Même sans nouveaux badges, mettre à jour les stats publiques
                 const publicStats = {
-                    totalDrinks: cumulativeStats.totalDrinks,
-                    totalParties: cumulativeStats.totalParties,
-                    totalFights: cumulativeStats.totalFights,
-                    totalVomi: cumulativeStats.totalVomi,
-                    totalVolume: cumulativeStats.totalVolume,
+                    ...cumulativeStats,  // Inclut automatiquement XP, level, etc.
                     unlockedBadges: userProfile.unlockedBadges || [],
                     username: userProfile.username || 'Utilisateur',
                     username_lowercase: (userProfile.username || 'Utilisateur').toLowerCase(),

@@ -1,9 +1,11 @@
 import { challengeList } from '../utils/data';
+import { ExperienceService } from './experienceService';
 import { getWeekId, getMonthId } from '../utils/helpers';
 
 export const challengeService = {
-    // Calculer les stats pour la période actuelle
+    // DEPRECATED: Utiliser ExperienceService.calculateRealStats avec filtre de période
     calculatePeriodStats: (parties, period = 'weekly') => {
+        console.warn('⚠️ DEPRECATED: challengeService.calculatePeriodStats - Utiliser ExperienceService.calculateRealStats');
         const now = new Date();
         const currentWeekId = getWeekId(now);
         const currentMonthId = getMonthId(now);

@@ -6,6 +6,7 @@ import FriendItem from '../components/FriendItem';
 import LoadingIcon from '../components/LoadingIcon';
 import GroupSection from '../components/GroupSection.jsx';
 import FriendRequestSystem from '../components/FriendRequestSystem.jsx';
+import FriendsLeaderboard from '../components/FriendsLeaderboard.jsx';
 import { badgeService } from '../services/badgeService';
 
 const FriendsPage = ({ setCurrentPage, setSelectedFriendId }) => {
@@ -228,6 +229,9 @@ const FriendsPage = ({ setCurrentPage, setSelectedFriendId }) => {
 
             {/* Système de demandes d'amis */}
             <FriendRequestSystem />
+
+            {/* Classement des amis */}
+            <FriendsLeaderboard selectedCategory="level" title="🏆 Classement par Niveau" />
 
             {/* Bouton de debug */}
             <div style={{ textAlign: 'center', marginBottom: '24px' }}>

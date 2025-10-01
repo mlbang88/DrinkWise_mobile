@@ -97,7 +97,7 @@ exports.generateSummary = onCall({
 
 
 
-// Fonction helper pour appeler Gemini avec du texte uniquement
+// Fonction helper pour appeler Gemini avec du texte uniquement (SDK officiel)
 async function callGeminiForText(prompt) {
   try {
     const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
@@ -106,41 +106,26 @@ async function callGeminiForText(prompt) {
       throw new Error('Configuration API manquante');
     }
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
+    logger.info('🤖 Appel Gemini pour génération de texte');
     
-    const payload = {
-      contents: [{
-        parts: [{
-          text: prompt
-        }]
-      }],
+    // Initialiser le SDK Google Generative AI
+    const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({ 
+      model: "gemini-2.5-flash",
       generationConfig: {
         temperature: 0.7,
         topK: 20,
         topP: 0.8,
         maxOutputTokens: 300
       }
-    };
-    
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(payload)
     });
     
-    if (!response.ok) {
-      throw new Error(`Erreur API Gemini: ${response.status}`);
-    }
+    // Générer le contenu avec le SDK
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text().trim();
     
-    const data = await response.json();
-    
-    if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) {
-      throw new Error('Réponse API invalide');
-    }
-    
-    const text = data.candidates[0].content.parts[0].text.trim();
+    logger.info('✅ Génération de texte réussie');
     
     return {
       success: true,
@@ -149,6 +134,18 @@ async function callGeminiForText(prompt) {
     
   } catch (error) {
     logger.error('❌ Erreur callGeminiForText:', error);
+    
+    // Gestion d'erreurs détaillée
+    if (error.message.includes('not found') || error.message.includes('404')) {
+      logger.error('🔍 Erreur de modèle - Modèle Gemini non trouvé');
+    } else if (error.message.includes('400') || error.message.includes('Bad Request')) {
+      logger.error('🔍 Erreur requête - Paramètres invalides:', error.message);
+    } else if (error.message.includes('403') || error.message.includes('Forbidden')) {
+      logger.error('🔍 Erreur permissions - Clé API ou quotas:', error.message);
+    } else if (error.message.includes('429')) {
+      logger.error('🔍 Erreur quota - Limite de requêtes atteinte:', error.message);
+    }
+    
     return {
       success: false,
       error: error.message
@@ -435,16 +432,17 @@ exports.listGeminiModels = onCall({
     
     logger.info('🔍 Listage des modèles Gemini disponibles...');
     
-    // Tester différents modèles un par un
+    // Tester différents modèles un par un (nouveaux modèles 2.5 disponibles)
     const modelsToTest = [
+      'gemini-2.5-flash',
+      'gemini-2.5-pro',
+      'gemini-2.0-flash',
+      'gemini-flash-latest',
+      'gemini-pro-latest',
       'gemini-1.5-pro',
       'gemini-1.5-flash', 
       'gemini-pro-vision',
-      'gemini-pro',
-      'models/gemini-1.5-pro',
-      'models/gemini-1.5-flash',
-      'models/gemini-pro-vision',
-      'models/gemini-pro'
+      'gemini-pro'
     ];
     
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
@@ -458,7 +456,12 @@ exports.listGeminiModels = onCall({
         availableModels.push({
           name: modelName,
           status: 'available',
-          supportsImages: modelName.includes('pro-vision') || modelName.includes('1.5')
+          supportsImages: modelName.includes('pro-vision') || 
+                         modelName.includes('1.5') || 
+                         modelName.includes('2.0') || 
+                         modelName.includes('2.5') ||
+                         modelName.includes('flash') ||
+                         modelName.includes('pro')
         });
         logger.info(`✅ Modèle disponible: ${modelName}`);
       } catch (error) {

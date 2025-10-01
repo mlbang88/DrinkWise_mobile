@@ -1,37 +1,31 @@
-// Utilitaires pour le système XP et niveaux
+// Utilitaires pour le système XP et niveaux - DEPRECATED
+// Utiliser ExperienceService à la place
 import { gameplayConfig } from '../utils/data';
+import { ExperienceService } from '../services/experienceService';
 
 export const levelUtils = {
-    // Calculer le niveau basé sur l'XP
+    // DEPRECATED: Utiliser ExperienceService.calculateLevel
     calculateLevel: (xp) => {
-        const levels = gameplayConfig.levels;
-        let currentLevel = 1;
-        
-        for (let i = levels.length - 1; i >= 0; i--) {
-            if (xp >= levels[i].xp) {
-                currentLevel = i + 1;
-                break;
-            }
-        }
-        
-        return currentLevel;
+        console.warn('⚠️ DEPRECATED: levelUtils.calculateLevel - Utiliser ExperienceService.calculateLevel');
+        return ExperienceService.calculateLevel(xp);
     },
 
-    // Obtenir les infos du niveau actuel
+    // DEPRECATED: Utiliser ExperienceService.getLevelName et getXpForLevel
     getLevelInfo: (xp) => {
-        const level = levelUtils.calculateLevel(xp);
-        const levelIndex = level - 1;
-        const currentLevelData = gameplayConfig.levels[levelIndex];
-        const nextLevelData = gameplayConfig.levels[levelIndex + 1];
+        console.warn('⚠️ DEPRECATED: levelUtils.getLevelInfo - Utiliser ExperienceService');
+        const level = ExperienceService.calculateLevel(xp);
+        const levelName = ExperienceService.getLevelName(level);
+        const currentLevelXp = ExperienceService.getXpForLevel(level);
+        const nextLevelXp = ExperienceService.getXpForLevel(level + 1);
         
         return {
             level,
-            name: currentLevelData.name,
+            name: levelName,
             currentXp: xp,
-            levelXp: currentLevelData.xp,
-            nextLevelXp: nextLevelData ? nextLevelData.xp : null,
-            xpToNext: nextLevelData ? nextLevelData.xp - xp : 0,
-            isMaxLevel: !nextLevelData
+            levelXp: currentLevelXp,
+            nextLevelXp,
+            xpToNext: nextLevelXp - xp,
+            isMaxLevel: false // Plus de niveau max avec progression infinie
         };
     },
 
@@ -63,10 +57,11 @@ export const levelUtils = {
         return totalXp;
     },
 
-    // Détecter toutes les montées de niveau entre deux points XP
+    // DEPRECATED: Logique à intégrer dans ExperienceService
     detectAllLevelUps: (oldXp, newXp) => {
-        const oldLevel = levelUtils.calculateLevel(oldXp);
-        const newLevel = levelUtils.calculateLevel(newXp);
+        console.warn('⚠️ DEPRECATED: levelUtils.detectAllLevelUps - Utiliser ExperienceService');
+        const oldLevel = ExperienceService.calculateLevel(oldXp);
+        const newLevel = ExperienceService.calculateLevel(newXp);
         
         if (newLevel <= oldLevel) {
             return [];
@@ -74,21 +69,21 @@ export const levelUtils = {
         
         const levelUps = [];
         for (let level = oldLevel + 1; level <= newLevel; level++) {
-            const levelInfo = levelUtils.getLevelInfo(gameplayConfig.levels[level - 1].xp);
             levelUps.push({
                 level,
-                levelInfo,
-                name: gameplayConfig.levels[level - 1].name
+                levelInfo: { level, name: ExperienceService.getLevelName(level) },
+                name: ExperienceService.getLevelName(level)
             });
         }
         
         return levelUps;
     },
 
-    // Détecter si un niveau a été franchi
+    // DEPRECATED: Utiliser ExperienceService
     detectLevelUp: (oldXp, newXp) => {
-        const oldLevel = levelUtils.calculateLevel(oldXp);
-        const newLevel = levelUtils.calculateLevel(newXp);
+        console.warn('⚠️ DEPRECATED: levelUtils.detectLevelUp - Utiliser ExperienceService');
+        const oldLevel = ExperienceService.calculateLevel(oldXp);
+        const newLevel = ExperienceService.calculateLevel(newXp);
         
         console.log("🎯 detectLevelUp:", { oldXp, newXp, oldLevel, newLevel });
         
@@ -100,7 +95,10 @@ export const levelUtils = {
                 oldLevel,
                 newLevel,
                 levelsGained,
-                newLevelInfo: levelUtils.getLevelInfo(newXp)
+                newLevelInfo: { 
+                    level: newLevel, 
+                    name: ExperienceService.getLevelName(newLevel) 
+                }
             };
         }
         

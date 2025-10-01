@@ -86,7 +86,7 @@ const SouvenirsPage = () => {
             return;
         }
 
-        const stats = badgeService.calculateGlobalStats(filteredParties);
+        const stats = ExperienceService.calculateRealStats(filteredParties, userProfile);
         const imageUrl = getLocalImageForDrink(stats.mostConsumedDrink.type, stats.mostConsumedDrink.brand);
         const seasonName = { winter: 'Hiver', spring: 'Printemps', summer: 'Été', autumn: 'Automne', all: "l'Année" }[selectedSeason];
         const period = `${seasonName} ${selectedYear}`;

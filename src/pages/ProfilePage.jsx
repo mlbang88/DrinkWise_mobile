@@ -2,6 +2,8 @@ import React, { useState, useContext } from 'react';
 import { signOut } from 'firebase/auth';
 import { doc, updateDoc, setDoc } from 'firebase/firestore';
 import { FirebaseContext } from '../contexts/FirebaseContext.jsx';
+import { badgeService } from '../services/badgeService';
+import { ExperienceService } from '../services/experienceService';
 import { gameplayConfig } from '../utils/data';
 import { validateUsername, isUsernameAvailable } from '../utils/usernameUtils';
 import LoadingIcon from '../components/LoadingIcon';
@@ -17,33 +19,22 @@ const ProfilePage = () => {
     const [checkingUsername, setCheckingUsername] = useState(false);
     const [currentProfilePhoto, setCurrentProfilePhoto] = useState(userProfile?.profilePhoto || null);
 
-    // XP uniformisé : soirées, verres, défis, badges
-    const parties = userProfile?.publicStats?.totalParties || userProfile?.parties || 0;
-    const drinks = userProfile?.publicStats?.totalDrinks || userProfile?.drinks || 0;
-    const defis = userProfile?.publicStats?.challengesCompleted || userProfile?.challengesCompleted || 0;
-    const badges = userProfile?.unlockedBadges?.length || userProfile?.publicStats?.unlockedBadges?.length || userProfile?.badgesUnlocked || 0;
+    // Calcul unifié via ExperienceService
+    const stats = {
+        totalParties: userProfile?.publicStats?.totalParties || userProfile?.parties || 0,
+        totalDrinks: userProfile?.publicStats?.totalDrinks || userProfile?.drinks || 0,
+        totalChallenges: userProfile?.publicStats?.challengesCompleted || userProfile?.challengesCompleted || 0,
+        totalBadges: userProfile?.unlockedBadges?.length || userProfile?.publicStats?.unlockedBadges?.length || userProfile?.badgesUnlocked || 0,
+        totalQuizQuestions: 0 // TODO: compter depuis les parties
+    };
     
-    const currentXp =
-        parties * gameplayConfig.xpParSoiree +
-        drinks * gameplayConfig.xpParVerre +
-        defis * gameplayConfig.xpParDefi +
-        badges * gameplayConfig.xpParBadge;
-
-    // Calcul du niveau actuel
-    let currentLevelIndex = 0;
-    for (let i = gameplayConfig.levels.length - 1; i >= 0; i--) {
-        if (currentXp >= gameplayConfig.levels[i].xp) {
-            currentLevelIndex = i;
-            break;
-        }
-    }
-    const currentLevel = gameplayConfig.levels[currentLevelIndex];
-    const nextLevel = gameplayConfig.levels[currentLevelIndex + 1] || null;
-
-    const xpForCurrentLevel = currentLevel.xp;
-    // Si niveau max, le prochain niveau reste le même et le delta XP est 0
-    const xpForNextLevel = nextLevel ? nextLevel.xp : currentLevel.xp;
-    const progress = nextLevel ? ((currentXp - xpForCurrentLevel) / (xpForNextLevel - xpForCurrentLevel)) * 100 : 100;
+    const currentXp = ExperienceService.calculateTotalXP(stats);
+    const currentLevel = ExperienceService.calculateLevel(currentXp);
+    const currentLevelName = ExperienceService.getLevelName(currentLevel);
+    
+    const xpForCurrentLevel = ExperienceService.getXpForLevel(currentLevel);
+    const xpForNextLevel = ExperienceService.getXpForLevel(currentLevel + 1);
+    const progress = ((currentXp - xpForCurrentLevel) / (xpForNextLevel - xpForCurrentLevel)) * 100;
 
     // Validation en temps réel du username
     const handleUsernameChange = async (value) => {
@@ -220,7 +211,7 @@ const ProfilePage = () => {
                                 fontWeight: '700',
                                 letterSpacing: '-0.01em'
                             }}>
-                                {currentLevel.name}
+                                {currentLevelName}
                             </span>
                             <span style={{
                                 background: 'rgba(255, 255, 255, 0.1)',
@@ -247,7 +238,7 @@ const ProfilePage = () => {
                             textAlign: 'center',
                             letterSpacing: '-0.02em'
                         }}>
-                            ✨ Niveau {currentLevelIndex + 1} - {currentLevel.name}
+                            ✨ Niveau {currentLevel} - {currentLevelName}
                         </div>
                         
                         {/* Barre de progression */}

@@ -109,7 +109,7 @@ const StatsPage = () => {
 
     useEffect(() => {
         if (filteredParties) {
-            const stats = badgeService.calculateGlobalStats(filteredParties);
+            const stats = ExperienceService.calculateRealStats(filteredParties, userProfile);
             setDisplayStats(stats);
         }
     }, [filteredParties]);
@@ -255,8 +255,8 @@ const StatsPage = () => {
             return;
         }
 
-        const stats = badgeService.calculateGlobalStats(filteredParties);
-        const imageUrl = getLocalImageForDrink(stats.mostConsumedDrink.type, stats.mostConsumedDrink.brand);
+        const stats = ExperienceService.calculateRealStats(filteredParties, userProfile);
+        const imageUrl = getLocalImageForDrink(stats.mostConsumedDrink?.type, stats.mostConsumedDrink?.brand);
         const seasonName = { winter: 'Hiver', spring: 'Printemps', summer: 'Été', autumn: 'Automne', all: "l'Année" }[selectedSeason];
         const period = `${seasonName} ${selectedYear}`;
         const narrative = generateNarrativeFromTemplate(stats, seasonName.toLowerCase());

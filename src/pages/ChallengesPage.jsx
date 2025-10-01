@@ -2,6 +2,7 @@ import React, { useState, useEffect, useContext } from 'react';
 import { collection, doc, increment, onSnapshot, query, updateDoc } from 'firebase/firestore';
 import { FirebaseContext } from '../contexts/FirebaseContext.jsx';
 import { badgeService } from '../services/badgeService';
+import { ExperienceService } from '../services/experienceService';
 import { getWeekId, getMonthId } from '../utils/helpers';
 import { challengeList } from '../utils/data';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -100,8 +101,8 @@ const ChallengesPage = () => {
     logger.debug("Soirées cette semaine", { weeklyPartiesCount: weeklyParties.length });
     logger.debug("Soirées ce mois", { monthlyPartiesCount: monthlyParties.length });
 
-    const weeklyStats = badgeService.calculateGlobalStats(weeklyParties);
-    const monthlyStats = badgeService.calculateGlobalStats(monthlyParties);
+    const weeklyStats = ExperienceService.calculateRealStats(weeklyParties, userProfile);
+    const monthlyStats = ExperienceService.calculateRealStats(monthlyParties, userProfile);
 
     // Défis de la semaine avec données actuelles
     const weeklyChallenges = [

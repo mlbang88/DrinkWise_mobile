@@ -43,11 +43,11 @@ const QuizManagerSimple = ({ partyData, partyId, onQuizComplete, uploadingPhotos
 
             // 2. Calculer et attribuer les récompenses
             const oldXp = userProfile.xp || 0;
-            const oldLevel = levelUtils.calculateLevel(oldXp);
+            const oldLevel = ExperienceService.calculateLevel(oldXp);
             
             if (userProfile) {
                 // XP de base pour la soirée
-                let xpGained = gameplayConfig.xpPerParty + (responses.length * 10); // 10 XP par question
+                let xpGained = gameplayConfig.xpPerParty + (responses.length * gameplayConfig.xpPerQuizQuestion);
                 
                 // Récupérer toutes les soirées pour vérifier les challenges
                 const userPartiesRef = collection(db, `artifacts/${appId}/users/${user.uid}/parties`);
@@ -84,7 +84,7 @@ const QuizManagerSimple = ({ partyData, partyId, onQuizComplete, uploadingPhotos
                 
                 // Calculer le nouveau niveau
                 const newXp = oldXp + xpGained;
-                const newLevel = levelUtils.calculateLevel(newXp);
+                const newLevel = ExperienceService.calculateLevel(newXp);
                 const levelUpData = levelUtils.detectLevelUp(oldXp, newXp);
                 
                 const newTotalParties = (userProfile.totalParties || 0) + 1;

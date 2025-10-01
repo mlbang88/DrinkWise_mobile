@@ -60,7 +60,7 @@ const HomePage = () => {
             const oneWeekAgo = new Date();
             oneWeekAgo.setDate(now.getDate() - 7);
             const weeklyParties = partiesData.filter(p => p.timestamp.toDate() >= oneWeekAgo);
-            const stats = badgeService.calculateGlobalStats(weeklyParties);
+            const stats = ExperienceService.calculateRealStats(weeklyParties, userProfile);
             setWeeklyStats(stats);
 
             if (userProfile?.unlockedBadges && userProfile.unlockedBadges.length > 0) {

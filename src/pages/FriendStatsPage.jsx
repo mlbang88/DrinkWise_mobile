@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { FirebaseContext } from '../contexts/FirebaseContext';
-import { badgeList, gameplayConfig } from '../utils/data';
+import { ExperienceService } from '../services/experienceService';
+import { gameplayConfig } from '../utils/data';
 import { badgeService } from '../services/badgeService';
+import { DrinkWiseImages } from '../assets/DrinkWiseImages';
 import LoadingSpinner from '../components/LoadingSpinner';
 
 export default function FriendStatsPage({ friendId }) {
@@ -10,37 +12,29 @@ export default function FriendStatsPage({ friendId }) {
     const [friendStats, setFriendStats] = useState(null);
     const [loading, setLoading] = useState(true);
 
-    // Fonction pour calculer le niveau et l'XP
+    // Fonction pour calculer le niveau et l'XP avec ExperienceService
     const calculateLevelInfo = (stats) => {
-        if (!stats) return { level: 0, levelName: "Novice de la Fête", currentXp: 0, nextLevelXp: 500, progress: 0 };
-        // XP uniformisé : soirées, verres, défis, badges
-        const parties = stats.totalParties || stats.parties || 0;
-        const drinks = stats.totalDrinks || stats.drinks || 0;
-        const defis = stats.challengesCompleted || stats.defis || 0;
-        const badges = stats.badgesUnlocked || stats.badges || 0;
-        const totalXp =
-            parties * (gameplayConfig.xpParSoiree || gameplayConfig.xpPerParty || 0) +
-            drinks * (gameplayConfig.xpParVerre || gameplayConfig.xpPerDrink || 0) +
-            defis * (gameplayConfig.xpParDefi || 0) +
-            badges * (gameplayConfig.xpParBadge || 0);
-
-        let currentLevel = 0;
-        for (let i = gameplayConfig.levels.length - 1; i >= 0; i--) {
-            if (totalXp >= gameplayConfig.levels[i].xp) {
-                currentLevel = i;
-                break;
-            }
-        }
-
-        const nextLevel = Math.min(currentLevel + 1, gameplayConfig.levels.length - 1);
-        const currentLevelXp = gameplayConfig.levels[currentLevel].xp;
-        const nextLevelXp = gameplayConfig.levels[nextLevel].xp;
-        const progress = nextLevel === currentLevel ? 100 :
-            ((totalXp - currentLevelXp) / (nextLevelXp - currentLevelXp)) * 100;
+        if (!stats) return { level: 1, levelName: "Novice", currentXp: 0, nextLevelXp: 100, progress: 0 };
+        
+        const unifiedStats = {
+            totalParties: stats.totalParties || stats.parties || 0,
+            totalDrinks: stats.totalDrinks || stats.drinks || 0,
+            totalChallenges: stats.challengesCompleted || stats.defis || 0,
+            totalBadges: stats.badgesUnlocked || stats.badges || 0,
+            totalQuizQuestions: 0
+        };
+        
+        const totalXp = ExperienceService.calculateTotalXP(unifiedStats);
+        const level = ExperienceService.calculateLevel(totalXp);
+        const levelName = ExperienceService.getLevelName(level);
+        
+        const currentLevelXp = ExperienceService.getXpForLevel(level);
+        const nextLevelXp = ExperienceService.getXpForLevel(level + 1);
+        const progress = ((totalXp - currentLevelXp) / (nextLevelXp - currentLevelXp)) * 100;
 
         return {
-            level: currentLevel,
-            levelName: gameplayConfig.levels[currentLevel].name,
+            level,
+            levelName,
             currentXp: totalXp,
             nextLevelXp,
             progress: Math.min(progress, 100)
@@ -152,7 +146,7 @@ export default function FriendStatsPage({ friendId }) {
                             <div style={{ textAlign: 'center' }}>
                                 <div style={{ fontSize: '14px', color: '#10b981', marginBottom: '8px' }}>Vous</div>
                                 <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#10b981', marginBottom: '5px' }}>
-                                    Niveau {userLevelInfo.level + 1} - {userLevelInfo.levelName}
+                                    Niveau {userLevelInfo.level} - {userLevelInfo.levelName}
                                 </div>
                                 <div style={{ fontSize: '12px', color: '#9ca3af', marginBottom: '10px' }}>
                                     {userLevelInfo.currentXp} XP

@@ -259,14 +259,3 @@ export const useScrollAnimation = (threshold = 0.1) => {
 
     return { registerElement, getElementStyle, visibleElements };
 };
-
-// Export final pour s'assurer que tous les hooks sont disponibles
-export {
-    useModalAnimation,
-    useSlideAnimation, 
-    useStaggeredAnimation,
-    useHoverAnimation,
-    usePulseAnimation,
-    useListAnimation,
-    useScrollAnimation
-};

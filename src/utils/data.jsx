@@ -102,18 +102,24 @@ export const gameplayConfig = {
     xpPerDrink: 5,
     xpPerBadge: 100,
     xpPerChallenge: 25,
-    // Aliases pour compatibilité
-    xpParSoiree: 50,
-    xpParVerre: 5,
-    xpParBadge: 100,
-    xpParDefi: 25,
-    levels: [
-        { name: "Novice de la Fête", xp: 0 },
-        { name: "Habitué", xp: 500 },
-        { name: "Pote de Soirée", xp: 1500 },
-        { name: "Ambianceur", xp: 3000 },
-        { name: "Pilier de Bar", xp: 5000 },
-        { name: "Légende de la Nuit", xp: 10000 },
+    xpPerQuizQuestion: 10,
+    
+    // Multiplicateurs pour incitations
+    battleRoyaleMultiplier: 1.5,
+    groupActivityMultiplier: 1.2,
+    weekendMultiplier: 1.1,
+    
+    // Progression par formule au lieu de paliers fixes
+    levelFormula: {
+        // Niveau = floor((-100 + sqrt(10000 + 800 * xp)) / 200) + 1
+        baseXp: 100,
+        scalingFactor: 800
+    },
+    
+    // Noms de niveaux dynamiques
+    levelNames: [
+        "Novice", "Apprenti", "Habitué", "Connaisseur", "Expert",
+        "Vétéran", "Maître", "Champion", "Légende", "Dieu de la Fête"
     ]
 };
 
