@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { signOut } from 'firebase/auth';
 import { doc, updateDoc, setDoc } from 'firebase/firestore';
 import { FirebaseContext } from '../contexts/FirebaseContext.jsx';
@@ -19,18 +19,33 @@ const ProfilePage = () => {
     const [checkingUsername, setCheckingUsername] = useState(false);
     const [currentProfilePhoto, setCurrentProfilePhoto] = useState(userProfile?.profilePhoto || null);
 
-    // Calcul unifié via ExperienceService
+    // Synchroniser les stats au chargement pour assurer cohérence
+    useEffect(() => {
+        if (user && userProfile && db) {
+            ExperienceService.syncUserStats(db, appId, user.uid, userProfile)
+                .then(() => console.log("✅ ProfilePage - Stats synchronisées"))  
+                .catch(err => console.error("❌ ProfilePage - Erreur sync:", err));
+        }
+    }, [user, userProfile, db, appId]);
+
+    // Calcul unifié via ExperienceService - FORCER L'USAGE DES STATS PUBLIQUES
     const stats = {
-        totalParties: userProfile?.publicStats?.totalParties || userProfile?.parties || 0,
-        totalDrinks: userProfile?.publicStats?.totalDrinks || userProfile?.drinks || 0,
-        totalChallenges: userProfile?.publicStats?.challengesCompleted || userProfile?.challengesCompleted || 0,
-        totalBadges: userProfile?.unlockedBadges?.length || userProfile?.publicStats?.unlockedBadges?.length || userProfile?.badgesUnlocked || 0,
-        totalQuizQuestions: 0 // TODO: compter depuis les parties
+        totalParties: userProfile?.publicStats?.totalParties || 0,
+        totalDrinks: userProfile?.publicStats?.totalDrinks || 0, 
+        totalChallenges: userProfile?.publicStats?.challengesCompleted || 0,
+        totalBadges: userProfile?.publicStats?.unlockedBadges?.length || userProfile?.unlockedBadges?.length || 0,
+        totalQuizQuestions: 0
     };
+    
+    // Debug des stats pour identifier les différences
+    console.log("🔍 ProfilePage - Stats utilisées:", stats);
+    console.log("🔍 ProfilePage - PublicStats:", userProfile?.publicStats);
     
     const currentXp = ExperienceService.calculateTotalXP(stats);
     const currentLevel = ExperienceService.calculateLevel(currentXp);
     const currentLevelName = ExperienceService.getLevelName(currentLevel);
+    
+    console.log("🎯 ProfilePage - XP calculé:", currentXp, "Niveau:", currentLevel);
     
     const xpForCurrentLevel = ExperienceService.getXpForLevel(currentLevel);
     const xpForNextLevel = ExperienceService.getXpForLevel(currentLevel + 1);

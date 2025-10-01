@@ -28,6 +28,10 @@ export default function FriendStatsPage({ friendId }) {
         const level = ExperienceService.calculateLevel(totalXp);
         const levelName = ExperienceService.getLevelName(level);
         
+        console.log("🔍 FriendStatsPage - Stats unifiées:", unifiedStats);
+        console.log("🔍 FriendStatsPage - Stats brutes:", stats);
+        console.log("🎯 FriendStatsPage - XP calculé:", totalXp, "Niveau:", level);
+        
         const currentLevelXp = ExperienceService.getXpForLevel(level);
         const nextLevelXp = ExperienceService.getXpForLevel(level + 1);
         const progress = ((totalXp - currentLevelXp) / (nextLevelXp - currentLevelXp)) * 100;
