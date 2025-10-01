@@ -5,7 +5,7 @@ import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, setDoc, onSnapshot, updateDoc } from 'firebase/firestore';
 import { generateUniqueUsername } from '../utils/usernameUtils';
 import { friendshipListenerService } from '../services/friendshipListenerService.js';
-import { levelUtils } from '../utils/levelUtils';
+import { ExperienceService } from '../services/experienceService';
 
 export const FirebaseContext = createContext(null);
 
@@ -14,7 +14,7 @@ const verifyAndFixUserLevel = async (userProfileRef, profileData) => {
     try {
         const currentXp = profileData.xp || 0;
         const currentLevel = profileData.level || 1;
-        const correctLevel = levelUtils.calculateLevel(currentXp);
+        const correctLevel = ExperienceService.calculateLevel(currentXp);
         
         // Vérifier si le niveau numérique correspond à l'XP
         if (typeof currentLevel === 'number' && currentLevel !== correctLevel) {

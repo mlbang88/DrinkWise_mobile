@@ -4,6 +4,7 @@ import { FirebaseContext } from '../contexts/FirebaseContext.jsx';
 import { useTheme } from '../styles/ThemeContext.jsx';
 import ThemedText from '../styles/ThemedText.jsx';
 import { badgeService } from '../services/badgeService';
+import { ExperienceService } from '../services/experienceService';
 import { badgeList, gameplayConfig } from '../utils/data';
 import PartyModeSelector from '../components/PartyModeSelector';
 import LoadingIcon from '../components/LoadingIcon';
