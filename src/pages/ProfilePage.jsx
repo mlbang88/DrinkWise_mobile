@@ -261,7 +261,7 @@ const ProfilePage = () => {
                             }}></div>
                         </div>
                         
-                        {nextLevel && (
+                        {currentLevel && xpForNextLevel > currentXp && (
                             <div style={{
                                 background: 'rgba(255, 255, 255, 0.05)',
                                 borderRadius: '8px',
