@@ -6,6 +6,7 @@ import { getWeekId, getMonthId } from '../utils/helpers';
 import { challengeList } from '../utils/data';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { DrinkWiseImages } from '../assets/DrinkWiseImages';
+import { logger } from '../utils/logger.js';
 
 const ChallengesPage = () => {
     const { db, user, appId, userProfile, setMessageBox } = useContext(FirebaseContext);
@@ -187,13 +188,20 @@ const ChallengesPage = () => {
 
         return (
             <div style={{
-                backgroundColor: 'rgba(0, 0, 0, 0.4)',
-                border: challenge.completed ? '2px solid #10b981' : '2px solid rgba(255, 255, 255, 0.1)',
+                background: challenge.completed 
+                    ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(5, 150, 105, 0.1) 100%)'
+                    : 'linear-gradient(135deg, rgba(139, 69, 255, 0.15) 0%, rgba(124, 58, 237, 0.1) 100%)',
+                backdropFilter: 'blur(10px)',
+                border: challenge.completed ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid rgba(139, 69, 255, 0.4)',
                 borderLeft: challenge.completed ? '4px solid #10b981' : '4px solid #8b45ff',
-                borderRadius: '16px',
-                padding: '20px',
-                marginBottom: '16px',
-                position: 'relative'
+                borderRadius: '20px',
+                padding: '24px',
+                marginBottom: '20px',
+                position: 'relative',
+                boxShadow: challenge.completed 
+                    ? '0 8px 32px rgba(16, 185, 129, 0.1)'
+                    : '0 8px 32px rgba(139, 69, 255, 0.1)',
+                transition: 'all 0.3s ease'
             }}>
                 <div style={{
                     display: 'flex',
@@ -202,14 +210,21 @@ const ChallengesPage = () => {
                 }}>
                     {/* Icône */}
                     <div style={{
-                        fontSize: '32px',
+                        fontSize: '36px',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        width: '50px',
-                        height: '50px',
-                        backgroundColor: challenge.completed ? 'rgba(16, 185, 129, 0.2)' : 'rgba(139, 69, 255, 0.2)',
-                        borderRadius: '12px'
+                        width: '60px',
+                        height: '60px',
+                        background: challenge.completed 
+                            ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.3) 0%, rgba(5, 150, 105, 0.2) 100%)'
+                            : 'linear-gradient(135deg, rgba(139, 69, 255, 0.3) 0%, rgba(124, 58, 237, 0.2) 100%)',
+                        backdropFilter: 'blur(8px)',
+                        border: challenge.completed ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid rgba(139, 69, 255, 0.4)',
+                        borderRadius: '16px',
+                        boxShadow: challenge.completed 
+                            ? '0 4px 16px rgba(16, 185, 129, 0.2)'
+                            : '0 4px 16px rgba(139, 69, 255, 0.2)'
                     }}>
                         {challenge.icon}
                     </div>
@@ -217,36 +232,51 @@ const ChallengesPage = () => {
                     {/* Contenu */}
                     <div style={{ flex: 1 }}>
                         <h3 style={{
-                            color: 'white',
+                            background: challenge.completed 
+                                ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
+                                : 'linear-gradient(135deg, #ffffff 0%, #e5e7eb 100%)',
+                            WebkitBackgroundClip: 'text',
+                            WebkitTextFillColor: 'transparent',
+                            backgroundClip: 'text',
                             fontSize: '18px',
-                            fontWeight: '600',
-                            margin: '0 0 8px 0'
+                            fontWeight: '700',
+                            margin: '0 0 8px 0',
+                            letterSpacing: '-0.01em'
                         }}>
                             {challenge.title}
                         </h3>
                         <p style={{
-                            color: '#9ca3af',
+                            color: 'rgba(255, 255, 255, 0.8)',
                             fontSize: '14px',
-                            margin: '0 0 16px 0'
+                            margin: '0 0 16px 0',
+                            lineHeight: '1.5',
+                            fontWeight: '500'
                         }}>
                             {challenge.description}
                         </p>
 
                         {/* Barre de progression */}
                         <div style={{
-                            backgroundColor: '#374151',
-                            borderRadius: '8px',
-                            height: '8px',
+                            background: 'rgba(55, 65, 81, 0.6)',
+                            borderRadius: '12px',
+                            height: '12px',
                             width: '100%',
                             overflow: 'hidden',
-                            marginBottom: '8px'
+                            marginBottom: '12px',
+                            boxShadow: 'inset 0 2px 4px rgba(0, 0, 0, 0.2)',
+                            border: '1px solid rgba(255, 255, 255, 0.1)'
                         }}>
                             <div style={{
-                                backgroundColor: challenge.completed ? '#10b981' : '#8b45ff',
+                                background: challenge.completed 
+                                    ? 'linear-gradient(90deg, #10b981 0%, #059669 100%)'
+                                    : 'linear-gradient(90deg, #8b45ff 0%, #7c3aed 100%)',
                                 height: '100%',
                                 width: `${progress}%`,
-                                borderRadius: '8px',
-                                transition: 'width 0.3s ease'
+                                borderRadius: '12px',
+                                transition: 'width 0.5s ease',
+                                boxShadow: challenge.completed 
+                                    ? '0 2px 8px rgba(16, 185, 129, 0.4)'
+                                    : '0 2px 8px rgba(139, 69, 255, 0.4)'
                             }}></div>
                         </div>
 
@@ -256,19 +286,39 @@ const ChallengesPage = () => {
                             justifyContent: 'space-between',
                             alignItems: 'center'
                         }}>
-                            <span style={{
-                                color: '#9ca3af',
-                                fontSize: '12px'
+                            <div style={{
+                                background: 'rgba(255, 255, 255, 0.1)',
+                                backdropFilter: 'blur(8px)',
+                                padding: '6px 12px',
+                                borderRadius: '8px',
+                                border: '1px solid rgba(255, 255, 255, 0.2)'
                             }}>
-                                {displayCurrent} / {displayTarget}
-                            </span>
-                            <span style={{
-                                color: '#fbbf24',
-                                fontSize: '12px',
-                                fontWeight: '600'
+                                <span style={{
+                                    color: 'white',
+                                    fontSize: '13px',
+                                    fontWeight: '600'
+                                }}>
+                                    {displayCurrent} / {displayTarget}
+                                </span>
+                            </div>
+                            <div style={{
+                                background: 'linear-gradient(135deg, rgba(251, 191, 36, 0.2) 0%, rgba(245, 158, 11, 0.15) 100%)',
+                                backdropFilter: 'blur(8px)',
+                                padding: '6px 12px',
+                                borderRadius: '8px',
+                                border: '1px solid rgba(251, 191, 36, 0.3)'
                             }}>
-                                +{challenge.xp} XP
-                            </span>
+                                <span style={{
+                                    background: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)',
+                                    WebkitBackgroundClip: 'text',
+                                    WebkitTextFillColor: 'transparent',
+                                    backgroundClip: 'text',
+                                    fontSize: '13px',
+                                    fontWeight: '700'
+                                }}>
+                                    ✨ +{challenge.xp} XP
+                                </span>
+                            </div>
                         </div>
                     </div>
 
@@ -299,15 +349,29 @@ const ChallengesPage = () => {
     return (
         <div style={backgroundStyle}>
             {/* Défis de la Semaine */}
-            <div style={{ marginBottom: '40px' }}>
+            <div style={{
+                background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.015) 0%, rgba(255, 255, 255, 0.008) 100%)',
+                backdropFilter: 'blur(4px)',
+                borderRadius: '24px',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                padding: '28px',
+                marginBottom: '32px',
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.02)'
+            }}>
                 <h2 style={{
-                    color: 'white',
-                    fontSize: '24px',
-                    fontWeight: '600',
-                    margin: '0 0 24px 0',
+                    background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    backgroundClip: 'text',
+                    fontSize: 'clamp(22px, 6vw, 28px)',
+                    fontWeight: '800',
+                    margin: '0 0 28px 0',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '12px'
+                    gap: '12px',
+                    letterSpacing: '-0.02em',
+                    textAlign: 'center',
+                    justifyContent: 'center'
                 }}>
                     📅 Défis de la Semaine
                 </h2>
@@ -317,15 +381,28 @@ const ChallengesPage = () => {
             </div>
 
             {/* Défis du Mois */}
-            <div>
+            <div style={{
+                background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.015) 0%, rgba(255, 255, 255, 0.008) 100%)',
+                backdropFilter: 'blur(4px)',
+                borderRadius: '24px',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                padding: '28px',
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.02)'
+            }}>
                 <h2 style={{
-                    color: 'white',
-                    fontSize: '24px',
-                    fontWeight: '600',
-                    margin: '0 0 24px 0',
+                    background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    backgroundClip: 'text',
+                    fontSize: 'clamp(22px, 6vw, 28px)',
+                    fontWeight: '800',
+                    margin: '0 0 28px 0',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '12px'
+                    gap: '12px',
+                    letterSpacing: '-0.02em',
+                    textAlign: 'center',
+                    justifyContent: 'center'
                 }}>
                     ⭐ Défis du Mois
                 </h2>

@@ -48,20 +48,27 @@ const BadgesPage = () => {
             </div>
             {/* Titre dans un conteneur */}
             <div style={{
-                backgroundColor: 'rgba(255, 255, 255, 0.15)',
-                borderRadius: '20px',
+                background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0.1) 100%)',
+                backdropFilter: 'blur(20px)',
+                borderRadius: '28px',
                 border: '1px solid rgba(255, 255, 255, 0.3)',
-                padding: '24px',
-                marginBottom: '32px',
-                textAlign: 'center'
+                padding: '32px',
+                marginBottom: '40px',
+                textAlign: 'center',
+                boxShadow: '0 12px 40px rgba(0, 0, 0, 0.15)'
             }}>
                 <h2 style={{
-                    color: 'white',
-                    fontSize: '32px',
-                    fontWeight: '600',
-                    margin: 0
+                    background: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    backgroundClip: 'text',
+                    fontSize: 'clamp(28px, 8vw, 36px)',
+                    fontWeight: '800',
+                    margin: 0,
+                    letterSpacing: '-0.03em',
+                    filter: 'drop-shadow(0 2px 4px rgba(251, 191, 36, 0.3))'
                 }}>
-                    Vos Badges
+                    🏆 Vos Badges
                 </h2>
             </div>
 
@@ -69,12 +76,14 @@ const BadgesPage = () => {
             <div 
                 className="badges-container force-visible"
                 style={{
-                    backgroundColor: 'rgba(128, 128, 128, 0.2)',
-                    borderRadius: '20px',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                    padding: '12px',
+                    background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%)',
+                    backdropFilter: 'blur(15px)',
+                    borderRadius: '24px',
+                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                    padding: '20px',
                     width: '100%',
-                    margin: '0 auto'
+                    margin: '0 auto',
+                    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
                 }}>
                 {/* Grille de badges */}
                 <div 
@@ -92,32 +101,65 @@ const BadgesPage = () => {
                                 key={id}
                                 className="badge-item force-visible"
                                 style={{
-                                    backgroundColor: isUnlocked ? 'rgba(255, 255, 255, 0.15)' : 'rgba(255, 255, 255, 0.08)',
-                                    border: `2px solid ${isUnlocked ? '#fbbf24' : 'rgba(255, 255, 255, 0.15)'}`,
-                                    borderRadius: '12px',
-                                    padding: '12px',
+                                    background: isUnlocked 
+                                        ? 'linear-gradient(135deg, rgba(251, 191, 36, 0.2) 0%, rgba(245, 158, 11, 0.15) 100%)'
+                                        : 'linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.04) 100%)',
+                                    backdropFilter: 'blur(10px)',
+                                    border: isUnlocked 
+                                        ? '2px solid rgba(251, 191, 36, 0.5)' 
+                                        : '1px solid rgba(255, 255, 255, 0.2)',
+                                    borderRadius: '20px',
+                                    padding: '16px',
                                     display: 'flex',
                                     flexDirection: 'column',
                                     alignItems: 'center',
                                     textAlign: 'center',
-                                    transition: 'all 0.2s ease',
-                                    opacity: isUnlocked ? 1 : 0.6,
-                                    minHeight: '140px',
+                                    transition: 'all 0.3s ease',
+                                    opacity: isUnlocked ? 1 : 0.7,
+                                    minHeight: '160px',
                                     position: 'relative',
                                     justifyContent: 'space-between',
-                                    boxSizing: 'border-box'
+                                    boxSizing: 'border-box',
+                                    boxShadow: isUnlocked 
+                                        ? '0 8px 32px rgba(251, 191, 36, 0.15)'
+                                        : '0 4px 16px rgba(0, 0, 0, 0.1)',
+                                    transform: isUnlocked ? 'scale(1.02)' : 'scale(1)'
                                 }}
                             >
                                 {/* Overlay pour badges verrouillés */}
                                 {!isUnlocked && (
                                     <div style={{
                                         position: 'absolute',
-                                        top: '6px',
-                                        right: '6px',
-                                        fontSize: '12px',
-                                        zIndex: 2
+                                        top: '12px',
+                                        right: '12px',
+                                        background: 'rgba(107, 114, 128, 0.9)',
+                                        backdropFilter: 'blur(8px)',
+                                        borderRadius: '8px',
+                                        padding: '4px 6px',
+                                        fontSize: '14px',
+                                        zIndex: 2,
+                                        border: '1px solid rgba(107, 114, 128, 0.3)'
                                     }}>
                                         🔒
+                                    </div>
+                                )}
+                                
+                                {/* Badge débloqué */}
+                                {isUnlocked && (
+                                    <div style={{
+                                        position: 'absolute',
+                                        top: '12px',
+                                        right: '12px',
+                                        background: 'linear-gradient(135deg, rgba(251, 191, 36, 0.9) 0%, rgba(245, 158, 11, 0.9) 100%)',
+                                        backdropFilter: 'blur(8px)',
+                                        borderRadius: '8px',
+                                        padding: '4px 6px',
+                                        fontSize: '14px',
+                                        zIndex: 2,
+                                        border: '1px solid rgba(251, 191, 36, 0.3)',
+                                        animation: 'pulse 2s infinite'
+                                    }}>
+                                        ✨
                                     </div>
                                 )}
                                 
@@ -126,9 +168,21 @@ const BadgesPage = () => {
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
-                                    width: '100%',
-                                    height: '40px',
-                                    marginBottom: '8px'
+                                    width: '60px',
+                                    height: '60px',
+                                    marginBottom: '12px',
+                                    background: isUnlocked 
+                                        ? 'linear-gradient(135deg, rgba(251, 191, 36, 0.3) 0%, rgba(245, 158, 11, 0.2) 100%)'
+                                        : 'rgba(255, 255, 255, 0.1)',
+                                    backdropFilter: 'blur(8px)',
+                                    borderRadius: '16px',
+                                    border: isUnlocked 
+                                        ? '1px solid rgba(251, 191, 36, 0.4)'
+                                        : '1px solid rgba(255, 255, 255, 0.2)',
+                                    boxShadow: isUnlocked 
+                                        ? '0 4px 16px rgba(251, 191, 36, 0.2)'
+                                        : 'none',
+                                    margin: '0 auto 12px auto'
                                 }}>
                                     {(() => {
                                         try {
@@ -166,13 +220,14 @@ const BadgesPage = () => {
                                         
                                         return (
                                             <div style={{
-                                                width: '32px',
-                                                height: '32px',
+                                                width: '40px',
+                                                height: '40px',
                                                 display: 'flex',
                                                 alignItems: 'center',
                                                 justifyContent: 'center',
-                                                fontSize: '20px',
-                                                opacity: isUnlocked ? 1 : 0.6
+                                                fontSize: '28px',
+                                                opacity: isUnlocked ? 1 : 0.6,
+                                                filter: isUnlocked ? 'none' : 'grayscale(50%)'
                                             }}>
                                                 {getEmojiForBadge(id)}
                                             </div>
@@ -189,27 +244,34 @@ const BadgesPage = () => {
                                     flex: 1
                                 }}>
                                     <h3 style={{
-                                        color: isUnlocked ? '#fbbf24' : '#d1d5db',
-                                        fontSize: '11px',
-                                        fontWeight: '600',
-                                        margin: '0 0 4px 0',
+                                        background: isUnlocked 
+                                            ? 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)'
+                                            : 'linear-gradient(135deg, #d1d5db 0%, #9ca3af 100%)',
+                                        WebkitBackgroundClip: 'text',
+                                        WebkitTextFillColor: 'transparent',
+                                        backgroundClip: 'text',
+                                        fontSize: '12px',
+                                        fontWeight: '700',
+                                        margin: '0 0 6px 0',
                                         lineHeight: '1.2',
                                         textAlign: 'center',
-                                        width: '100%'
+                                        width: '100%',
+                                        letterSpacing: '-0.01em'
                                     }}>
                                         {badge.name}
                                     </h3>
                                     <p style={{ 
-                                        color: isUnlocked ? '#d1d5db' : '#9ca3af',
-                                        fontSize: '9px',
+                                        color: isUnlocked ? 'rgba(255, 255, 255, 0.9)' : 'rgba(255, 255, 255, 0.6)',
+                                        fontSize: '10px',
                                         margin: 0,
-                                        lineHeight: '1.3',
+                                        lineHeight: '1.4',
                                         textAlign: 'center',
                                         width: '100%',
                                         overflow: 'hidden',
                                         display: '-webkit-box',
                                         WebkitLineClamp: 3,
-                                        WebkitBoxOrient: 'vertical'
+                                        WebkitBoxOrient: 'vertical',
+                                        fontWeight: '500'
                                     }}>
                                         {badge.description}
                                     </p>

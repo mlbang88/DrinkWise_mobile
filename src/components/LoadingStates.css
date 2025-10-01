@@ -1,0 +1,245 @@
+/* Loading States Animations */
+
+/* Page Loader */
+.page-loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  padding: 2rem;
+}
+
+.page-loader-spinner {
+  position: relative;
+  width: 60px;
+  height: 60px;
+  margin-bottom: 1rem;
+}
+
+.spinner-ring {
+  position: absolute;
+  border: 3px solid transparent;
+  border-top: 3px solid #a855f7;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.spinner-ring:nth-child(1) {
+  width: 60px;
+  height: 60px;
+  animation-delay: 0s;
+}
+
+.spinner-ring:nth-child(2) {
+  width: 45px;
+  height: 45px;
+  top: 7.5px;
+  left: 7.5px;
+  animation-delay: -0.3s;
+  border-top-color: #c084fc;
+}
+
+.spinner-ring:nth-child(3) {
+  width: 30px;
+  height: 30px;
+  top: 15px;
+  left: 15px;
+  animation-delay: -0.6s;
+  border-top-color: #ddd6fe;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.page-loader-text {
+  color: #a855f7;
+  font-size: 14px;
+  font-weight: 500;
+  text-align: center;
+  margin: 0;
+}
+
+/* Skeleton Loader */
+.skeleton-container {
+  padding: 1rem 0;
+}
+
+.skeleton-line {
+  background: linear-gradient(90deg, #e0e7ff 25%, #c7d2fe 50%, #e0e7ff 75%);
+  background-size: 200% 100%;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  animation: skeleton-loading 1.5s infinite;
+}
+
+@keyframes skeleton-loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Loading Overlay */
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.3s ease;
+}
+
+.loading-overlay-content {
+  background: rgba(255, 255, 255, 0.95);
+  padding: 2rem;
+  border-radius: 16px;
+  text-align: center;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+  max-width: 280px;
+  margin: 0 1rem;
+}
+
+.pulse-loader {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 1rem;
+}
+
+.pulse-dot {
+  width: 12px;
+  height: 12px;
+  background: #a855f7;
+  border-radius: 50%;
+  animation: pulse 1.4s infinite;
+}
+
+.pulse-dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.pulse-dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes pulse {
+  0%, 80%, 100% {
+    transform: scale(0);
+    opacity: 0.5;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.loading-overlay-text {
+  color: #374151;
+  font-size: 16px;
+  font-weight: 500;
+  margin: 0;
+}
+
+/* Pull to Refresh */
+.pull-refresh-indicator {
+  position: absolute;
+  top: -50px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(168, 85, 247, 0.9);
+  border-radius: 50%;
+  transition: all 0.3s ease;
+  z-index: 10;
+}
+
+.refresh-spinner {
+  font-size: 20px;
+  color: white;
+  font-weight: bold;
+  transition: transform 0.3s ease;
+}
+
+/* Animations d'entrée */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* États de connexion */
+.connection-status {
+  position: fixed;
+  top: env(safe-area-inset-top, 0);
+  left: 0;
+  right: 0;
+  padding: 8px 16px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 500;
+  z-index: 999;
+  transition: transform 0.3s ease;
+}
+
+.connection-status.offline {
+  background: #ef4444;
+  color: white;
+  transform: translateY(0);
+}
+
+.connection-status.online {
+  background: #10b981;
+  color: white;
+  transform: translateY(-100%);
+}
+
+/* Responsive adjustments */
+@media (max-width: 375px) {
+  .loading-overlay-content {
+    padding: 1.5rem;
+    margin: 0 0.5rem;
+  }
+  
+  .page-loader-spinner {
+    width: 50px;
+    height: 50px;
+  }
+  
+  .spinner-ring:nth-child(1) {
+    width: 50px;
+    height: 50px;
+  }
+  
+  .spinner-ring:nth-child(2) {
+    width: 37px;
+    height: 37px;
+    top: 6.5px;
+    left: 6.5px;
+  }
+  
+  .spinner-ring:nth-child(3) {
+    width: 24px;
+    height: 24px;
+    top: 13px;
+    left: 13px;
+  }
+}

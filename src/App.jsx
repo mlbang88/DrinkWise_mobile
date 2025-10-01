@@ -27,6 +27,9 @@ import ErrorBoundary from './components/ErrorBoundary';
 import { logger } from './utils/logger.js';
 import { errorHandler } from './utils/errorHandler.js';
 
+// Import navigation improvements
+import PageTransition from './components/PageTransition';
+
 const mainBgStyle = {
     backgroundSize: 'cover',
     backgroundPosition: 'center',
@@ -44,9 +47,25 @@ const AppContent = () => {
     const [currentPage, setCurrentPage] = useState('home');
     const [backgroundUrl, setBackgroundUrl] = useState(localImageData['soiree']);
     const [selectedFriendId, setSelectedFriendId] = useState(null);
+    const [isTransitioning, setIsTransitioning] = useState(false);
+    const [previousPage, setPreviousPage] = useState(null);
     
     // IMPORTANT: useTheme doit être appelé avant tout return conditionnel
     useTheme();
+
+    // Navigation avec transition fluide
+    const navigateToPage = useCallback((pageId) => {
+        if (pageId === currentPage || isTransitioning) return;
+        
+        setIsTransitioning(true);
+        setPreviousPage(currentPage);
+        
+        // Petite pause pour l'animation de sortie
+        setTimeout(() => {
+            setCurrentPage(pageId);
+            setIsTransitioning(false);
+        }, 150);
+    }, [currentPage, isTransitioning]);
 
     if (loading) {
         return <LoadingSpinner />;
@@ -80,7 +99,13 @@ const AppContent = () => {
 
         return (
             <React.Suspense fallback={<LoadingSpinner />}>
-                <PageComponent />
+                <PageTransition 
+                    isActive={!isTransitioning}
+                    direction="fade"
+                    duration={300}
+                >
+                    <PageComponent />
+                </PageTransition>
             </React.Suspense>
         );
     };
@@ -126,8 +151,8 @@ const AppContent = () => {
                             {navItems.map((item) => (
                                 <button
                                     key={item.id}
-                                    onClick={() => setCurrentPage(item.id)}
-                                    className="mobile-nav-button"
+                                    onClick={() => navigateToPage(item.id)}
+                                    className={`mobile-nav-button nav-button-transition nav-button-ripple ${currentPage === item.id ? 'active' : ''}`}
                                 >
                                     <item.icon 
                                         size={20} 

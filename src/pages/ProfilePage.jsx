@@ -7,6 +7,7 @@ import { validateUsername, isUsernameAvailable } from '../utils/usernameUtils';
 import LoadingIcon from '../components/LoadingIcon';
 import ProfilePhotoManager from '../components/ProfilePhotoManager';
 import { DrinkWiseImages } from '../assets/DrinkWiseImages';
+import { logger } from '../utils/logger.js';
 
 const ProfilePage = () => {
     const { auth, user, userProfile, db, appId, setMessageBox } = useContext(FirebaseContext);
@@ -156,20 +157,29 @@ const ProfilePage = () => {
             padding: '20px'
         }}>
             <div style={{
-                backgroundColor: 'rgba(0, 0, 0, 0.6)',
-                borderRadius: '20px',
-                padding: '30px',
-                maxWidth: '400px',
-                margin: '20px auto'
+                background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.08) 100%)',
+                backdropFilter: 'blur(20px)',
+                borderRadius: '28px',
+                border: '1px solid rgba(255, 255, 255, 0.2)',
+                padding: '36px',
+                maxWidth: '440px',
+                margin: '20px auto',
+                boxShadow: '0 12px 40px rgba(0, 0, 0, 0.2)'
             }}>
                 <h1 style={{
-                    fontSize: '28px',
-                    fontWeight: 'bold',
+                    background: 'linear-gradient(135deg, #a855f7 0%, #8b5cf6 50%, #7c3aed 100%)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    backgroundClip: 'text',
+                    fontSize: 'clamp(26px, 7vw, 32px)',
+                    fontWeight: '800',
                     textAlign: 'center',
-                    marginBottom: '30px',
-                    margin: '0 0 30px 0'
+                    marginBottom: '36px',
+                    margin: '0 0 36px 0',
+                    letterSpacing: '-0.03em',
+                    filter: 'drop-shadow(0 2px 4px rgba(168, 85, 247, 0.3))'
                 }}>
-                    Mon Profil
+                    📱 Mon Profil
                 </h1>
 
                 {/* Photo de profil */}
@@ -186,71 +196,119 @@ const ProfilePage = () => {
 
                 {/* Section XP et niveau */}
                 {userProfile && (
-                    <div style={{ marginBottom: '30px' }}>
+                    <div style={{
+                        background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.15) 0%, rgba(139, 92, 246, 0.1) 100%)',
+                        backdropFilter: 'blur(10px)',
+                        borderRadius: '20px',
+                        border: '1px solid rgba(168, 85, 247, 0.3)',
+                        padding: '24px',
+                        marginBottom: '32px',
+                        boxShadow: '0 8px 32px rgba(168, 85, 247, 0.1)'
+                    }}>
                         <div style={{
                             display: 'flex',
                             justifyContent: 'space-between',
                             alignItems: 'center',
-                            marginBottom: '10px'
+                            marginBottom: '16px'
                         }}>
                             <span style={{
-                                fontSize: '16px',
-                                fontWeight: 'bold',
-                                color: '#a855f7'
+                                background: 'linear-gradient(135deg, #a855f7 0%, #8b5cf6 100%)',
+                                WebkitBackgroundClip: 'text',
+                                WebkitTextFillColor: 'transparent',
+                                backgroundClip: 'text',
+                                fontSize: '18px',
+                                fontWeight: '700',
+                                letterSpacing: '-0.01em'
                             }}>
                                 {currentLevel.name}
                             </span>
                             <span style={{
+                                background: 'rgba(255, 255, 255, 0.1)',
+                                backdropFilter: 'blur(8px)',
+                                padding: '6px 12px',
+                                borderRadius: '12px',
+                                border: '1px solid rgba(255, 255, 255, 0.2)',
                                 fontSize: '14px',
-                                color: '#ccc'
+                                color: 'white',
+                                fontWeight: '600'
                             }}>
                                 {currentXp} XP
                             </span>
                         </div>
                         {/* Affichage du niveau */}
-                        <div style={{ fontSize: '1.1rem', color: '#a78bfa', fontWeight: 'bold', marginBottom: '8px', textAlign: 'center' }}>
-                            Niveau {currentLevelIndex + 1} - {currentLevel.name}
+                        <div style={{
+                            fontSize: '20px',
+                            background: 'linear-gradient(135deg, #a78bfa 0%, #8b5cf6 100%)',
+                            WebkitBackgroundClip: 'text',
+                            WebkitTextFillColor: 'transparent',
+                            backgroundClip: 'text',
+                            fontWeight: '800',
+                            marginBottom: '16px',
+                            textAlign: 'center',
+                            letterSpacing: '-0.02em'
+                        }}>
+                            ✨ Niveau {currentLevelIndex + 1} - {currentLevel.name}
                         </div>
                         
                         {/* Barre de progression */}
                         <div style={{
                             width: '100%',
-                            height: '8px',
-                            backgroundColor: '#374151',
-                            borderRadius: '4px',
+                            height: '12px',
+                            backgroundColor: 'rgba(55, 65, 81, 0.6)',
+                            borderRadius: '12px',
                             overflow: 'hidden',
-                            marginBottom: '8px'
+                            marginBottom: '12px',
+                            boxShadow: 'inset 0 2px 4px rgba(0, 0, 0, 0.2)'
                         }}>
                             <div style={{
                                 width: `${progress}%`,
                                 height: '100%',
-                                backgroundColor: '#8b5cf6',
-                                borderRadius: '4px'
+                                background: 'linear-gradient(90deg, #a855f7 0%, #8b5cf6 50%, #7c3aed 100%)',
+                                borderRadius: '12px',
+                                transition: 'width 0.5s ease',
+                                boxShadow: '0 2px 8px rgba(168, 85, 247, 0.4)'
                             }}></div>
                         </div>
                         
                         {nextLevel && (
-                            <p style={{
-                                fontSize: '12px',
-                                color: '#9ca3af',
-                                textAlign: 'right',
-                                margin: 0
+                            <div style={{
+                                background: 'rgba(255, 255, 255, 0.05)',
+                                borderRadius: '8px',
+                                padding: '8px 12px',
+                                textAlign: 'center'
                             }}>
-                                {xpForNextLevel - currentXp} XP pour le prochain niveau
-                            </p>
+                                <p style={{
+                                    fontSize: '13px',
+                                    color: 'rgba(255, 255, 255, 0.8)',
+                                    margin: 0,
+                                    fontWeight: '500'
+                                }}>
+                                    🎯 {xpForNextLevel - currentXp} XP pour le prochain niveau
+                                </p>
+                            </div>
                         )}
                     </div>
                 )}
 
                 {/* Nom d'utilisateur */}
-                <div style={{ marginBottom: '25px' }}>
+                <div style={{
+                    background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.04) 100%)',
+                    backdropFilter: 'blur(10px)',
+                    borderRadius: '20px',
+                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                    padding: '24px',
+                    marginBottom: '32px',
+                    boxShadow: '0 4px 16px rgba(0, 0, 0, 0.1)'
+                }}>
                     <label style={{
                         display: 'block',
-                        fontSize: '14px',
-                        fontWeight: '500',
-                        marginBottom: '8px'
+                        fontSize: '16px',
+                        fontWeight: '600',
+                        marginBottom: '12px',
+                        color: 'white',
+                        letterSpacing: '-0.01em'
                     }}>
-                        Nom d'utilisateur
+                        📝 Nom d'utilisateur
                     </label>
                     <input 
                         type="text"
@@ -258,40 +316,77 @@ const ProfilePage = () => {
                         onChange={(e) => handleUsernameChange(e.target.value)}
                         style={{
                             width: '100%',
-                            padding: '12px',
-                            backgroundColor: 'rgba(55, 65, 81, 0.8)',
-                            border: `1px solid ${!usernameValidation.isValid ? '#ef4444' : '#4b5563'}`,
-                            borderRadius: '8px',
+                            padding: '16px 20px',
+                            background: 'rgba(255, 255, 255, 0.08)',
+                            backdropFilter: 'blur(8px)',
+                            border: `1px solid ${!usernameValidation.isValid ? '#ef4444' : 'rgba(255, 255, 255, 0.2)'}`,
+                            borderRadius: '16px',
                             color: 'white',
                             fontSize: '16px',
-                            boxSizing: 'border-box'
+                            boxSizing: 'border-box',
+                            transition: 'all 0.3s ease',
+                            outline: 'none'
                         }}
+                        placeholder="Votre nom d'utilisateur..."
                     />
                     
                     {/* Messages de validation */}
-                    <div style={{ marginTop: '8px', minHeight: '20px' }}>
+                    <div style={{ marginTop: '12px', minHeight: '24px' }}>
                         {checkingUsername && (
-                            <div style={{ fontSize: '12px', color: '#fbbf24', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <div style={{
+                                fontSize: '13px',
+                                color: '#fbbf24',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                background: 'rgba(251, 191, 36, 0.1)',
+                                padding: '8px 12px',
+                                borderRadius: '8px',
+                                border: '1px solid rgba(251, 191, 36, 0.3)'
+                            }}>
                                 <LoadingIcon />
                                 Vérification de disponibilité...
                             </div>
                         )}
                         
                         {!checkingUsername && !usernameValidation.isValid && usernameValidation.error && (
-                            <div style={{ fontSize: '12px', color: '#ef4444' }}>
+                            <div style={{
+                                fontSize: '13px',
+                                color: '#ef4444',
+                                background: 'rgba(239, 68, 68, 0.1)',
+                                padding: '8px 12px',
+                                borderRadius: '8px',
+                                border: '1px solid rgba(239, 68, 68, 0.3)',
+                                fontWeight: '500'
+                            }}>
                                 ❌ {usernameValidation.error}
                             </div>
                         )}
                         
                         {!checkingUsername && usernameValidation.isValid && newUsername !== userProfile?.username && newUsername.trim() && (
-                            <div style={{ fontSize: '12px', color: '#10b981' }}>
+                            <div style={{
+                                fontSize: '13px',
+                                color: '#10b981',
+                                background: 'rgba(16, 185, 129, 0.1)',
+                                padding: '8px 12px',
+                                borderRadius: '8px',
+                                border: '1px solid rgba(16, 185, 129, 0.3)',
+                                fontWeight: '500'
+                            }}>
                                 ✅ Nom d'utilisateur disponible
                             </div>
                         )}
                         
                         {!newUsername.trim() && (
-                            <div style={{ fontSize: '12px', color: '#9ca3af' }}>
-                                2-20 caractères, lettres, chiffres, _ et - uniquement
+                            <div style={{
+                                fontSize: '12px',
+                                color: 'rgba(255, 255, 255, 0.6)',
+                                background: 'rgba(255, 255, 255, 0.05)',
+                                padding: '6px 10px',
+                                borderRadius: '6px',
+                                fontStyle: 'italic'
+                            }}>
+                                📝 2-20 caractères, lettres, chiffres, _ et - uniquement
                             </div>
                         )}
                     </div>
@@ -299,17 +394,27 @@ const ProfilePage = () => {
 
                 {/* Profil Public */}
                 <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    marginBottom: '15px'
+                    background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.04) 100%)',
+                    backdropFilter: 'blur(10px)',
+                    borderRadius: '20px',
+                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                    padding: '20px 24px',
+                    marginBottom: '32px',
+                    boxShadow: '0 4px 16px rgba(0, 0, 0, 0.1)'
                 }}>
-                    <span style={{
-                        fontSize: '16px',
-                        fontWeight: '500'
+                    <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between'
                     }}>
-                        Profil Public
-                    </span>
+                        <span style={{
+                            fontSize: '16px',
+                            fontWeight: '600',
+                            color: 'white',
+                            letterSpacing: '-0.01em'
+                        }}>
+                            🌍 Profil Public
+                        </span>
                     <label style={{
                         position: 'relative',
                         display: 'inline-block',
@@ -372,20 +477,26 @@ const ProfilePage = () => {
                             )}
                         </span>
                     </label>
-                </div>
+                    </div>
 
-                {/* Texte d'info */}
-                <p style={{
-                    fontSize: '12px',
-                    color: '#9ca3af',
-                    marginBottom: '25px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '5px'
-                }}>
-                    <span style={{ fontSize: '14px' }}>ℹ️</span>
-                    Rendre public permet aux amis de voir vos stats agrégées.
-                </p>
+                    {/* Texte d'info */}
+                    <p style={{
+                        fontSize: '13px',
+                        color: 'rgba(255, 255, 255, 0.7)',
+                        marginTop: '16px',
+                        margin: '16px 0 0 0',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        background: 'rgba(255, 255, 255, 0.05)',
+                        padding: '10px 12px',
+                        borderRadius: '8px',
+                        fontWeight: '500'
+                    }}>
+                        <span style={{ fontSize: '16px' }}>ℹ️</span>
+                        Rendre public permet aux amis de voir vos stats agrégées.
+                    </p>
+                </div>
 
                 {/* Bouton Sauvegarder */}
                 <button
@@ -393,25 +504,38 @@ const ProfilePage = () => {
                     disabled={loading || checkingUsername || !usernameValidation.isValid || newUsername === userProfile?.username}
                     style={{
                         width: '100%',
-                        padding: '15px',
-                        backgroundColor: loading || checkingUsername || !usernameValidation.isValid || newUsername === userProfile?.username 
-                            ? '#6b7280' 
-                            : '#3b82f6',
+                        padding: '16px 24px',
+                        background: loading || checkingUsername || !usernameValidation.isValid || newUsername === userProfile?.username 
+                            ? 'rgba(107, 114, 128, 0.7)'
+                            : 'linear-gradient(135deg, rgba(59, 130, 246, 0.9) 0%, rgba(37, 99, 235, 0.9) 100%)',
+                        backdropFilter: 'blur(8px)',
                         color: 'white',
                         fontSize: '16px',
-                        fontWeight: 'bold',
-                        border: 'none',
-                        borderRadius: '8px',
+                        fontWeight: '700',
+                        border: loading || checkingUsername || !usernameValidation.isValid || newUsername === userProfile?.username 
+                            ? '1px solid rgba(107, 114, 128, 0.3)'
+                            : '1px solid rgba(59, 130, 246, 0.3)',
+                        borderRadius: '16px',
                         cursor: loading || checkingUsername || !usernameValidation.isValid || newUsername === userProfile?.username 
                             ? 'not-allowed' 
                             : 'pointer',
-                        marginBottom: '15px',
+                        marginBottom: '20px',
                         opacity: loading || checkingUsername || !usernameValidation.isValid || newUsername === userProfile?.username 
                             ? 0.7 
-                            : 1
+                            : 1,
+                        boxShadow: loading || checkingUsername || !usernameValidation.isValid || newUsername === userProfile?.username 
+                            ? 'none'
+                            : '0 4px 16px rgba(59, 130, 246, 0.3)',
+                        transition: 'all 0.3s ease',
+                        letterSpacing: '-0.01em',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px'
                     }}
+                    aria-label="Sauvegarder le profil"
                 >
-                    {loading ? <LoadingIcon /> : "Sauvegarder"}
+                    {loading ? <LoadingIcon /> : "💾 Sauvegarder"}
                 </button>
 
                 {/* Bouton Déconnexion */}
@@ -419,21 +543,26 @@ const ProfilePage = () => {
                     onClick={handleSignOut}
                     style={{
                         width: '100%',
-                        padding: '15px',
-                        backgroundColor: '#dc2626',
+                        padding: '16px 24px',
+                        background: 'linear-gradient(135deg, rgba(220, 38, 38, 0.9) 0%, rgba(185, 28, 28, 0.9) 100%)',
+                        backdropFilter: 'blur(8px)',
                         color: 'white',
                         fontSize: '16px',
-                        fontWeight: 'bold',
-                        border: 'none',
-                        borderRadius: '8px',
+                        fontWeight: '700',
+                        border: '1px solid rgba(220, 38, 38, 0.3)',
+                        borderRadius: '16px',
                         cursor: 'pointer',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        gap: '8px'
+                        gap: '10px',
+                        boxShadow: '0 4px 16px rgba(220, 38, 38, 0.3)',
+                        transition: 'all 0.3s ease',
+                        letterSpacing: '-0.01em'
                     }}
+                    aria-label="Se déconnecter de l'application"
                 >
-                    <span>↗</span>
+                    <span>🚀</span>
                     Déconnexion
                 </button>
             </div>

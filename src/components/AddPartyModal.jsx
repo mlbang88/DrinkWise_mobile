@@ -9,6 +9,7 @@ import QuizManagerSimple from './QuizManagerSimple';
 import { PlusCircle, Trash2, XCircle, Users, User } from 'lucide-react';
 import { storage } from '../firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { logger } from '../utils/logger.js';
 
 const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
     logger.debug("AddPartyModal rendu/re-rendu", { hasDraftData: !!draftData });
@@ -237,7 +238,6 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
             
             // Vérifier la durée via un élément vidéo temporaire
             const video = document.createElement('video');
-            video.preload = 'metadata';
             
             video.onloadedmetadata = function() {
                 if (video.duration > 20) {
@@ -459,10 +459,11 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
                 bottom: 0,
                 backgroundColor: 'rgba(0, 0, 0, 0.9)',
                 display: 'flex',
-                alignItems: 'center',
+                alignItems: 'flex-start',
                 justifyContent: 'center',
                 zIndex: 9999,
-                padding: '20px'
+                padding: '15px',
+                paddingTop: '15px'
             }}
         >
             <div 
@@ -472,9 +473,11 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
                     border: '2px solid #8b45ff',
                     width: '100%',
                     maxWidth: '500px',
-                    maxHeight: '90vh',
+                    height: '80vh',
                     position: 'relative',
-                    overflow: 'hidden'
+                    overflow: 'hidden',
+                    display: 'flex',
+                    flexDirection: 'column'
                 }}
             >
                 {/* Header avec titre et bouton close */}
@@ -482,60 +485,23 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    padding: 'clamp(16px, 5vw, 24px) clamp(16px, 5vw, 24px) 0 clamp(16px, 5vw, 24px)', // Responsive padding
-                    marginBottom: 'clamp(16px, 5vw, 24px)', // Responsive margin
-                    flexWrap: 'wrap',
-                    gap: '8px'
+                    padding: '16px 20px 12px 20px',
+                    flexShrink: 0,
+                    borderBottom: '1px solid rgba(139, 69, 255, 0.3)'
                 }}>
                     <h2 style={{
                         color: 'white',
-                        fontSize: 'clamp(18px, 5vw, 24px)', // Responsive font size
+                        fontSize: '20px',
                         fontWeight: '600',
                         margin: 0,
-                        textAlign: 'center',
-                        flex: 1,
-                        minWidth: 0,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap'
+                        flex: 1
                     }}>
                         {draftData ? '📝 Finaliser la Soirée' : 'Enregistrer une Soirée'}
                     </h2>
                     
-                    {draftData && (
-                        <div style={{
-                            position: 'absolute',
-                            top: '60px',
-                            left: '24px',
-                            right: '24px',
-                            backgroundColor: 'rgba(139, 69, 255, 0.2)',
-                            border: '1px solid #8b45ff',
-                            borderRadius: '8px',
-                            padding: '12px',
-                            textAlign: 'center'
-                        }}>
-                            <div style={{
-                                color: '#c084fc',
-                                fontSize: '14px',
-                                fontWeight: '600'
-                            }}>
-                                🎉 Données du Mode Soirée récupérées
-                            </div>
-                            <div style={{
-                                color: '#9ca3af',
-                                fontSize: '12px',
-                                marginTop: '4px'
-                            }}>
-                                Vous pouvez maintenant finaliser et compléter votre soirée
-                            </div>
-                        </div>
-                    )}
                     <button 
                         onClick={onClose}
                         style={{
-                            position: 'absolute',
-                            top: '16px',
-                            right: '16px',
                             backgroundColor: 'transparent',
                             border: 'none',
                             color: '#9ca3af',
@@ -559,6 +525,33 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
                         <XCircle size={24} />
                     </button>
                 </div>
+                
+                {draftData && (
+                    <div style={{
+                        margin: '0 24px 16px 24px',
+                        backgroundColor: 'rgba(139, 69, 255, 0.2)',
+                        border: '1px solid #8b45ff',
+                        borderRadius: '8px',
+                        padding: '12px',
+                        textAlign: 'center',
+                        flexShrink: 0
+                    }}>
+                        <div style={{
+                            color: '#c084fc',
+                            fontSize: '14px',
+                            fontWeight: '600'
+                        }}>
+                            🎉 Données du Mode Soirée récupérées
+                        </div>
+                        <div style={{
+                            color: '#9ca3af',
+                            fontSize: '12px',
+                            marginTop: '4px'
+                        }}>
+                            Vous pouvez maintenant finaliser et compléter votre soirée
+                        </div>
+                    </div>
+                )}
 
                 {(loadingSummary || uploadingPhotos || uploadingVideos) && (
                     <div style={{
@@ -584,12 +577,13 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
 
                 {/* Contenu scrollable */}
                 <div style={{
-                    padding: '0 24px 24px 24px',
-                    paddingTop: draftData ? '20px' : '0', // Espace supplémentaire si notification
-                    maxHeight: 'calc(90vh - 120px)',
-                    overflowY: 'auto'
+                    padding: '0 20px 20px 20px',
+                    paddingTop: draftData ? '8px' : '0', // Espace supplémentaire si notification
+                    flex: 1,
+                    overflowY: 'auto',
+                    minHeight: 0
                 }}>
-                    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                         {/* Date */}
                         <div>
                             <label style={{
@@ -597,7 +591,7 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
                                 color: '#9ca3af',
                                 fontSize: '16px',
                                 fontWeight: '500',
-                                marginBottom: '8px'
+                                marginBottom: '4px'
                             }}>
                                 Date:
                             </label>
@@ -608,7 +602,7 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
                                 required
                                 style={{
                                     width: '100%',
-                                    padding: '16px 20px',
+                                    padding: '14px 16px',
                                     backgroundColor: '#2d3748',
                                     border: '1px solid rgba(255, 255, 255, 0.1)',
                                     borderRadius: '12px',
@@ -645,16 +639,16 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
                             }}>
                                 Boissons:
                             </label>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                 {drinks.map((drink, index) => (
                                     <div key={index} style={{
                                         display: 'flex',
                                         gap: '8px',
                                         alignItems: 'center',
-                                        padding: '12px',
+                                        padding: '8px',
                                         backgroundColor: '#2d3748',
                                         border: '1px solid rgba(255, 255, 255, 0.1)',
-                                        borderRadius: '12px'
+                                        borderRadius: '8px'
                                     }}>
                                         <select 
                                             value={drink.type} 
@@ -751,7 +745,7 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
                                 onClick={addDrink}
                                 style={{
                                     width: '100%',
-                                    padding: '16px 24px',
+                                    padding: '10px 16px',
                                     backgroundColor: '#8b45ff',
                                     border: 'none',
                                     borderRadius: '12px',
@@ -1536,12 +1530,12 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
                             type="submit"
                             style={{
                                 width: '100%',
-                                padding: '18px 24px',
+                                padding: '16px 20px',
                                 backgroundColor: '#8b45ff',
                                 border: 'none',
                                 borderRadius: '12px',
                                 color: 'white',
-                                fontSize: '18px',
+                                fontSize: '17px',
                                 fontWeight: '600',
                                 cursor: 'pointer',
                                 marginTop: '8px',

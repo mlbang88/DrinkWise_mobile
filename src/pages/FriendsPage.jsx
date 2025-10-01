@@ -212,31 +212,42 @@ const FriendsPage = ({ setCurrentPage, setSelectedFriendId }) => {
     return (
         <>
             <h2 style={{
-                color: 'white',
-                fontSize: '32px',
-                fontWeight: 'bold',
+                background: 'linear-gradient(135deg, #06b6d4 0%, #0891b2 50%, #0e7490 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text',
+                fontSize: 'clamp(28px, 8vw, 36px)',
+                fontWeight: '800',
                 textAlign: 'center',
-                margin: '0 0 20px 0'
+                margin: '0 0 32px 0',
+                letterSpacing: '-0.03em',
+                filter: 'drop-shadow(0 2px 4px rgba(6, 182, 212, 0.3))'
             }}>
-                Amis
+                👥 Amis
             </h2>
 
             {/* Système de demandes d'amis */}
             <FriendRequestSystem />
 
             {/* Bouton de debug */}
-            <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+            <div style={{ textAlign: 'center', marginBottom: '24px' }}>
                 <button 
                     onClick={handleForceUpdateStats}
                     style={{
-                        padding: '8px 16px',
-                        backgroundColor: '#8b5cf6',
+                        padding: '12px 20px',
+                        background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.9) 0%, rgba(124, 58, 237, 0.9) 100%)',
+                        backdropFilter: 'blur(8px)',
                         color: 'white',
-                        border: 'none',
-                        borderRadius: '8px',
+                        border: '1px solid rgba(139, 92, 246, 0.3)',
+                        borderRadius: '12px',
                         cursor: 'pointer',
-                        fontSize: '12px'
+                        fontSize: '14px',
+                        fontWeight: '600',
+                        boxShadow: '0 4px 16px rgba(139, 92, 246, 0.3)',
+                        transition: 'all 0.3s ease',
+                        letterSpacing: '-0.01em'
                     }}
+                    aria-label="Mettre à jour les statistiques publiques"
                 >
                     🔄 Mettre à jour mes stats publiques
                 </button>
@@ -244,22 +255,28 @@ const FriendsPage = ({ setCurrentPage, setSelectedFriendId }) => {
 
             {/* Section Ajouter des Amis */}
             <div style={{
-                backgroundColor: 'rgba(0, 0, 0, 0.4)',
-                borderRadius: '20px',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
-                padding: '24px',
-                marginBottom: '24px',
+                background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%)',
+                backdropFilter: 'blur(10px)',
+                borderRadius: '24px',
+                border: '1px solid rgba(255, 255, 255, 0.2)',
+                padding: '28px',
+                marginBottom: '32px',
                 width: '100%',
-                boxSizing: 'border-box'
+                boxSizing: 'border-box',
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
             }}>
                 <h3 style={{
-                    color: 'white',
-                    fontSize: '20px',
-                    fontWeight: '600',
-                    margin: '0 0 20px 0',
+                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    backgroundClip: 'text',
+                    fontSize: 'clamp(18px, 5vw, 22px)',
+                    fontWeight: '700',
+                    margin: '0 0 24px 0',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '12px'
+                    gap: '12px',
+                    letterSpacing: '-0.02em'
                 }}>
                     👥 Ajouter des Amis
                 </h3>
@@ -267,45 +284,54 @@ const FriendsPage = ({ setCurrentPage, setSelectedFriendId }) => {
                 {/* Barre de recherche */}
                 <div style={{
                     display: 'flex',
-                    gap: '8px',
-                    marginBottom: '20px'
+                    gap: '12px',
+                    marginBottom: '24px'
                 }}>
                     <input 
                         type="text" 
-                        placeholder="Rechercher par nom" 
+                        placeholder="🔍 Rechercher par nom..." 
                         value={searchTerm} 
                         onChange={(e) => setSearchTerm(e.target.value)}
                         style={{
                             flex: 1,
-                            padding: '16px',
+                            padding: '16px 20px',
                             fontSize: '16px',
-                            backgroundColor: '#1a1a2e',
+                            background: 'rgba(255, 255, 255, 0.08)',
+                            backdropFilter: 'blur(8px)',
                             color: 'white',
                             border: '1px solid rgba(255, 255, 255, 0.2)',
-                            borderRadius: '12px',
+                            borderRadius: '16px',
                             outline: 'none',
-                            minWidth: 0
+                            minWidth: 0,
+                            transition: 'all 0.3s ease',
+                            '::placeholder': {
+                                color: 'rgba(255, 255, 255, 0.5)'
+                            }
                         }}
                     />
                     <button 
                         onClick={handleSearch} 
                         disabled={loadingSearch}
                         style={{
-                            padding: '16px 16px',
-                            fontSize: '14px',
+                            padding: '16px 20px',
+                            fontSize: '16px',
                             fontWeight: '600',
                             color: 'white',
-                            backgroundColor: '#3b82f6',
-                            border: 'none',
-                            borderRadius: '12px',
+                            background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.9) 0%, rgba(37, 99, 235, 0.9) 100%)',
+                            backdropFilter: 'blur(8px)',
+                            border: '1px solid rgba(59, 130, 246, 0.3)',
+                            borderRadius: '16px',
                             cursor: loadingSearch ? 'not-allowed' : 'pointer',
                             opacity: loadingSearch ? 0.7 : 1,
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '6px',
+                            gap: '8px',
                             flexShrink: 0,
-                            whiteSpace: 'nowrap'
+                            whiteSpace: 'nowrap',
+                            boxShadow: '0 4px 16px rgba(59, 130, 246, 0.3)',
+                            transition: 'all 0.3s ease'
                         }}
+                        aria-label="Rechercher des amis"
                     >
                         {loadingSearch ? <LoadingIcon /> : null}
                         🔍
@@ -315,42 +341,71 @@ const FriendsPage = ({ setCurrentPage, setSelectedFriendId }) => {
                 {/* Résultats de recherche */}
                 {searchResults.length > 0 && (
                     <div style={{
-                        maxHeight: '200px',
+                        maxHeight: '240px',
                         overflowY: 'auto',
                         display: 'flex',
                         flexDirection: 'column',
-                        gap: '12px'
+                        gap: '12px',
+                        marginBottom: '20px'
                     }}>
                         {searchResults.map(result => (
                             <div key={result.id} style={{
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'space-between',
-                                padding: '16px',
-                                backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                                borderRadius: '12px',
-                                border: '1px solid rgba(255, 255, 255, 0.1)'
+                                padding: '18px 20px',
+                                background: 'rgba(255, 255, 255, 0.08)',
+                                backdropFilter: 'blur(8px)',
+                                borderRadius: '16px',
+                                border: '1px solid rgba(255, 255, 255, 0.15)',
+                                transition: 'all 0.3s ease',
+                                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)'
                             }}>
-                                <span style={{
-                                    color: 'white',
-                                    fontSize: '16px',
-                                    fontWeight: '500'
+                                <div style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '12px'
                                 }}>
-                                    {result.username}
-                                </span>
+                                    <div style={{
+                                        width: '40px',
+                                        height: '40px',
+                                        borderRadius: '50%',
+                                        background: 'linear-gradient(135deg, #06b6d4 0%, #0891b2 100%)',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        fontSize: '18px',
+                                        fontWeight: '700',
+                                        color: 'white'
+                                    }}>
+                                        {result.username?.charAt(0).toUpperCase()}
+                                    </div>
+                                    <span style={{
+                                        color: 'white',
+                                        fontSize: '16px',
+                                        fontWeight: '600',
+                                        letterSpacing: '-0.01em'
+                                    }}>
+                                        {result.username}
+                                    </span>
+                                </div>
                                 {!(userProfile?.friends || []).includes(result.id) && (
                                     <button 
                                         onClick={() => handleSendFriendRequest(result.id)}
                                         style={{
-                                            padding: '8px 16px',
-                                            backgroundColor: '#10b981',
+                                            padding: '10px 16px',
+                                            background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.9) 0%, rgba(5, 150, 105, 0.9) 100%)',
+                                            backdropFilter: 'blur(8px)',
                                             color: 'white',
-                                            border: 'none',
-                                            borderRadius: '8px',
+                                            border: '1px solid rgba(16, 185, 129, 0.3)',
+                                            borderRadius: '12px',
                                             cursor: 'pointer',
                                             fontSize: '14px',
-                                            fontWeight: '600'
+                                            fontWeight: '600',
+                                            boxShadow: '0 2px 8px rgba(16, 185, 129, 0.3)',
+                                            transition: 'all 0.2s ease'
                                         }}
+                                        aria-label={`Inviter ${result.username}`}
                                     >
                                         📤 Inviter
                                     </button>
@@ -362,22 +417,28 @@ const FriendsPage = ({ setCurrentPage, setSelectedFriendId }) => {
 
                 {/* Section d'ajout par ID */}
                 <div style={{
-                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                    borderRadius: '16px',
-                    padding: '20px',
-                    marginBottom: '20px',
+                    background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.04) 100%)',
+                    backdropFilter: 'blur(10px)',
+                    borderRadius: '20px',
+                    padding: '24px',
+                    marginBottom: '24px',
                     border: '1px solid rgba(255, 255, 255, 0.2)',
                     width: '100%',
-                    boxSizing: 'border-box'
+                    boxSizing: 'border-box',
+                    boxShadow: '0 4px 16px rgba(0, 0, 0, 0.1)'
                 }}>
                     <h3 style={{
-                        color: 'white',
+                        background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                        WebkitBackgroundClip: 'text',
+                        WebkitTextFillColor: 'transparent',
+                        backgroundClip: 'text',
                         fontSize: '18px',
-                        fontWeight: '600',
-                        margin: '0 0 16px 0',
+                        fontWeight: '700',
+                        margin: '0 0 20px 0',
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '8px'
+                        gap: '10px',
+                        letterSpacing: '-0.01em'
                     }}>
                         🆔 Ajouter un ami par ID
                     </h3>
@@ -389,20 +450,22 @@ const FriendsPage = ({ setCurrentPage, setSelectedFriendId }) => {
                     }}>
                         <input 
                             type="text" 
-                            placeholder="ID de l'utilisateur (ex: T4mDJvOVKFPJEzBVr3VuWQPPA2x2)" 
+                            placeholder="🆔 ID de l'utilisateur (ex: T4mDJvOVKFPJEzBVr3VuWQPPA2x2)" 
                             value={friendIdInput} 
                             onChange={(e) => setFriendIdInput(e.target.value)}
                             style={{
                                 flex: 1,
-                                padding: '16px',
+                                padding: '16px 20px',
                                 fontSize: '14px',
-                                backgroundColor: '#1a1a2e',
+                                background: 'rgba(255, 255, 255, 0.08)',
+                                backdropFilter: 'blur(8px)',
                                 color: 'white',
                                 border: '1px solid rgba(255, 255, 255, 0.2)',
-                                borderRadius: '12px',
+                                borderRadius: '16px',
                                 outline: 'none',
                                 minWidth: 0,
-                                fontFamily: 'monospace'
+                                fontFamily: 'monospace',
+                                transition: 'all 0.3s ease'
                             }}
                         />
                         <button 
@@ -413,31 +476,63 @@ const FriendsPage = ({ setCurrentPage, setSelectedFriendId }) => {
                                 fontSize: '14px',
                                 fontWeight: '600',
                                 color: 'white',
-                                backgroundColor: loadingAddById || !friendIdInput.trim() ? '#666' : '#10b981',
-                                border: 'none',
-                                borderRadius: '12px',
+                                background: loadingAddById || !friendIdInput.trim() ? 
+                                    'rgba(107, 114, 128, 0.7)' : 
+                                    'linear-gradient(135deg, rgba(16, 185, 129, 0.9) 0%, rgba(5, 150, 105, 0.9) 100%)',
+                                backdropFilter: 'blur(8px)',
+                                border: loadingAddById || !friendIdInput.trim() ? 
+                                    '1px solid rgba(107, 114, 128, 0.3)' : 
+                                    '1px solid rgba(16, 185, 129, 0.3)',
+                                borderRadius: '16px',
                                 cursor: loadingAddById || !friendIdInput.trim() ? 'not-allowed' : 'pointer',
                                 opacity: loadingAddById || !friendIdInput.trim() ? 0.7 : 1,
                                 display: 'flex',
                                 alignItems: 'center',
-                                gap: '6px',
+                                gap: '8px',
                                 flexShrink: 0,
-                                whiteSpace: 'nowrap'
+                                whiteSpace: 'nowrap',
+                                boxShadow: loadingAddById || !friendIdInput.trim() ? 
+                                    'none' : 
+                                    '0 4px 16px rgba(16, 185, 129, 0.3)',
+                                transition: 'all 0.3s ease'
                             }}
+                            aria-label="Inviter un ami par ID"
                         >
                             {loadingAddById ? <LoadingIcon /> : null}
                             📤 Inviter
                         </button>
                     </div>
                     
-                    <p style={{
-                        color: 'rgba(255, 255, 255, 0.7)',
-                        fontSize: '12px',
-                        margin: '12px 0 0 0',
-                        fontStyle: 'italic'
+                    <div style={{
+                        background: 'rgba(255, 255, 255, 0.05)',
+                        borderRadius: '12px',
+                        padding: '16px',
+                        marginTop: '16px',
+                        border: '1px solid rgba(255, 255, 255, 0.1)'
                     }}>
-                        Votre ID utilisateur : <span style={{ fontFamily: 'monospace', color: '#10b981' }}>{user?.uid}</span>
-                    </p>
+                        <p style={{
+                            color: 'rgba(255, 255, 255, 0.8)',
+                            fontSize: '13px',
+                            margin: '0 0 8px 0',
+                            fontWeight: '500'
+                        }}>
+                            🏷️ Votre ID utilisateur :
+                        </p>
+                        <p style={{
+                            fontFamily: 'monospace',
+                            color: '#10b981',
+                            fontSize: '12px',
+                            margin: 0,
+                            fontWeight: '600',
+                            wordBreak: 'break-all',
+                            background: 'rgba(16, 185, 129, 0.1)',
+                            padding: '8px 12px',
+                            borderRadius: '8px',
+                            border: '1px solid rgba(16, 185, 129, 0.2)'
+                        }}>
+                            {user?.uid}
+                        </p>
+                    </div>
                 </div>
             </div>
 
@@ -446,21 +541,29 @@ const FriendsPage = ({ setCurrentPage, setSelectedFriendId }) => {
 
             {/* Section Votre Liste d'Amis */}
             <div style={{
-                backgroundColor: 'rgba(0, 0, 0, 0.4)',
-                borderRadius: '20px',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
-                padding: '24px',
+                background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%)',
+                backdropFilter: 'blur(10px)',
+                borderRadius: '24px',
+                border: '1px solid rgba(255, 255, 255, 0.2)',
+                padding: '28px',
                 width: '100%',
-                boxSizing: 'border-box'
+                boxSizing: 'border-box',
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
             }}>
                 <h3 style={{
-                    color: 'white',
-                    fontSize: '20px',
-                    fontWeight: '600',
-                    margin: '0 0 20px 0',
+                    background: 'linear-gradient(135deg, #ec4899 0%, #db2777 100%)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    backgroundClip: 'text',
+                    fontSize: 'clamp(18px, 5vw, 22px)',
+                    fontWeight: '700',
+                    margin: '0 0 24px 0',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '12px'
+                    gap: '12px',
+                    letterSpacing: '-0.02em',
+                    textAlign: 'center',
+                    justifyContent: 'center'
                 }}>
                     💖 Votre Liste d'Amis
                 </h3>

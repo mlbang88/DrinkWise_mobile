@@ -6,7 +6,7 @@ import { badgeService } from '../services/badgeService';
 import { challengeService } from '../services/challengeService';
 import LoadingSpinner from '../components/LoadingSpinner';
 import LoadingIcon from '../components/LoadingIcon';
-import OptimizedImage from '../components/OptimizedImage';
+
 import { Calendar, Users, Trophy, MapPin, Heart, MessageCircle } from 'lucide-react';
 import UserAvatar from '../components/UserAvatar';
 import EditPartyModal from '../components/EditPartyModal';
@@ -1054,26 +1054,33 @@ const FeedPage = () => {
                                         style={{
                                             minWidth: '85vw',
                                             maxWidth: '85vw',
-                                            aspectRatio: '16/10',
+                                            height: '300px',
                                             cursor: 'pointer',
                                             borderRadius: '12px',
                                             overflow: 'hidden',
                                             border: '1px solid rgba(255, 255, 255, 0.1)',
-                                            position: 'relative'
+                                            position: 'relative',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            backgroundColor: 'rgba(0, 0, 0, 0.1)'
                                         }}
                                         onClick={() => setSelectedPhoto(photoURL)}
                                     >
-                                        <OptimizedImage 
+                                        <img 
                                             src={photoURL}
                                             alt={`Photo ${index + 1}`}
                                             style={{
+                                                width: '100%',
+                                                height: '100%',
+                                                objectFit: 'cover',
+                                                objectPosition: 'center',
                                                 transition: 'transform 0.2s ease'
                                             }}
                                             onError={(e) => {
                                                 e.target.style.display = 'none';
                                                 logger.error('Erreur chargement image', { photoURL });
                                             }}
-                                            loading="lazy"
                                         />
                                         {/* Indicateur de position */}
                                         <div style={{
@@ -1099,11 +1106,15 @@ const FeedPage = () => {
                                         style={{
                                             minWidth: '85vw',
                                             maxWidth: '85vw',
-                                            aspectRatio: '16/10',
+                                            height: '300px',
                                             borderRadius: '12px',
                                             overflow: 'hidden',
                                             border: '1px solid rgba(255, 255, 255, 0.1)',
-                                            position: 'relative'
+                                            position: 'relative',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            backgroundColor: 'rgba(0, 0, 0, 0.1)'
                                         }}
                                     >
                                         <video 
@@ -1112,7 +1123,8 @@ const FeedPage = () => {
                                             style={{
                                                 width: '100%',
                                                 height: '100%',
-                                                objectFit: 'cover'
+                                                objectFit: 'cover',
+                                                objectPosition: 'center'
                                             }}
                                             onError={(e) => {
                                                 e.target.style.display = 'none';
@@ -1159,9 +1171,9 @@ const FeedPage = () => {
                                                 onClick={() => setSelectedPhoto(party.photoURL)}
                                                 style={{
                                                     width: '100%',
-                                                    height: 'auto',
-                                                    aspectRatio: '16/10',
+                                                    height: '250px',
                                                     objectFit: 'cover',
+                                                    objectPosition: 'center',
                                                     display: 'block',
                                                     transition: 'transform 0.2s ease'
                                                 }}
@@ -1169,7 +1181,6 @@ const FeedPage = () => {
                                                     e.target.style.display = 'none';
                                                     logger.error('Erreur chargement image', { photoURL: party.photoURL });
                                                 }}
-                                                loading="lazy"
                                             />
                                         </div>
                                     </div>
@@ -1303,62 +1314,114 @@ const FeedPage = () => {
         <>
             {/* Header */}
             <div style={{
+                background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%)',
+                backdropFilter: 'blur(10px)',
+                borderRadius: '24px',
+                border: '1px solid rgba(255, 255, 255, 0.2)',
+                padding: '20px 24px',
+                marginBottom: '32px',
+                width: '100%',
+                boxSizing: 'border-box',
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'space-between',
-                marginBottom: '24px',
-                width: '100%',
-                boxSizing: 'border-box'
+                justifyContent: 'space-between'
             }}>
-                <h2 style={{ color: 'white', fontSize: '28px', fontWeight: '600', margin: 0 }}>
-                    Fil d'actualité
+                <h2 style={{
+                    background: 'linear-gradient(135deg, #06b6d4 0%, #0891b2 50%, #0e7490 100%)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    backgroundClip: 'text',
+                    fontSize: 'clamp(24px, 6vw, 30px)',
+                    fontWeight: '800',
+                    margin: 0,
+                    letterSpacing: '-0.02em'
+                }}>
+                    📰 Fil d'actualité
                 </h2>
                 
-                <div style={{ display: 'flex', gap: '8px' }}>
-                    <button 
-                        onClick={async () => {
-                            setRefreshing(true);
-                            await loadFeed();
-                            setRefreshing(false);
-                        }}
-                        disabled={refreshing}
-                        style={{
-                            padding: '10px 16px',
-                            backgroundColor: refreshing ? '#6b7280' : '#8b45ff',
-                            border: 'none',
-                            borderRadius: '12px',
-                            color: 'white',
-                            fontSize: '14px',
-                            fontWeight: '600',
-                            cursor: refreshing ? 'not-allowed' : 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px'
-                        }}
-                    >
-                        {refreshing ? <LoadingIcon /> : '🔄'}
-                        {refreshing ? 'Actualisation...' : 'Actualiser'}
-                    </button>
-                </div>
+                <button 
+                    onClick={async () => {
+                        setRefreshing(true);
+                        await loadFeed();
+                        setRefreshing(false);
+                    }}
+                    disabled={refreshing}
+                    style={{
+                        padding: '12px 20px',
+                        background: refreshing 
+                            ? 'rgba(107, 114, 128, 0.7)'
+                            : 'linear-gradient(135deg, rgba(139, 69, 255, 0.9) 0%, rgba(124, 58, 237, 0.9) 100%)',
+                        backdropFilter: 'blur(8px)',
+                        border: refreshing 
+                            ? '1px solid rgba(107, 114, 128, 0.3)'
+                            : '1px solid rgba(139, 69, 255, 0.3)',
+                        borderRadius: '16px',
+                        color: 'white',
+                        fontSize: '14px',
+                        fontWeight: '600',
+                        cursor: refreshing ? 'not-allowed' : 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        boxShadow: refreshing 
+                            ? 'none'
+                            : '0 4px 16px rgba(139, 69, 255, 0.3)',
+                        transition: 'all 0.3s ease',
+                        letterSpacing: '-0.01em'
+                    }}
+                    aria-label="Actualiser le fil d'actualité"
+                >
+                    {refreshing ? <LoadingIcon /> : '🔄'}
+                    {refreshing ? 'Actualisation...' : 'Actualiser'}
+                </button>
             </div>
 
             {/* Contenu */}
             {feedItems.length === 0 ? (
                 <div style={{
-                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                    borderRadius: '16px',
-                    padding: '32px',
+                    background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.04) 100%)',
+                    backdropFilter: 'blur(10px)',
+                    borderRadius: '24px',
+                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                    padding: '48px 32px',
                     textAlign: 'center',
                     color: 'white',
                     width: '100%',
-                    boxSizing: 'border-box'
+                    boxSizing: 'border-box',
+                    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
                 }}>
-                    <Calendar size={48} style={{ margin: '0 auto 16px auto', color: '#9ca3af' }} />
-                    <h3 style={{ fontSize: '20px', fontWeight: '600', margin: '0 0 8px 0' }}>
+                    <div style={{
+                        background: 'linear-gradient(135deg, rgba(156, 163, 175, 0.2) 0%, rgba(107, 114, 128, 0.15) 100%)',
+                        borderRadius: '20px',
+                        padding: '20px',
+                        marginBottom: '24px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                    }}>
+                        <Calendar size={56} style={{ color: '#9ca3af', filter: 'drop-shadow(0 2px 4px rgba(156, 163, 175, 0.3))' }} />
+                    </div>
+                    <h3 style={{
+                        background: 'linear-gradient(135deg, #ffffff 0%, #e5e7eb 100%)',
+                        WebkitBackgroundClip: 'text',
+                        WebkitTextFillColor: 'transparent',
+                        backgroundClip: 'text',
+                        fontSize: '22px',
+                        fontWeight: '700',
+                        margin: '0 0 12px 0',
+                        letterSpacing: '-0.01em'
+                    }}>
                         Aucune activité récente
                     </h3>
-                    <p style={{ color: '#9ca3af', margin: 0 }}>
-                        Aucune activité à afficher. Organisez une soirée ou ajoutez des amis !
+                    <p style={{
+                        color: 'rgba(255, 255, 255, 0.7)',
+                        margin: 0,
+                        fontSize: '16px',
+                        lineHeight: '1.5',
+                        fontWeight: '500'
+                    }}>
+                        🎉 Aucune activité à afficher. Organisez une soirée ou ajoutez des amis !
                     </p>
                 </div>
             ) : (

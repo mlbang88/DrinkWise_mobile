@@ -10,7 +10,7 @@ import { drinkImageLibrary } from '../utils/data';
 import { PieChart, Pie, Cell, BarChart as ReBarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import LoadingSpinner from '../components/LoadingSpinner';
 import LoadingIcon from '../components/LoadingIcon';
-import { Flame, Trophy, Lightbulb, GitBranch, Rocket, SparklesIcon } from 'lucide-react';
+import { Flame, Trophy, Lightbulb, GitBranch, Rocket, Sparkles, Camera, Calendar, BarChart3 } from 'lucide-react';
 import { logger } from '../utils/logger.js';
 import EditPartyModal from '../components/EditPartyModal';
 import { DrinkWiseImages } from '../assets/DrinkWiseImages';
@@ -286,31 +286,50 @@ const StatsPage = () => {
     return (
         <div style={{
             minHeight: '100vh',
-            background: 'linear-gradient(rgba(0,0,0,0.75), rgba(0,0,0,0.75)), url("https://images.unsplash.com/photo-1543007629-5c4e8a83ba4c?q=80&w=1171&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D") center/cover',
-            padding: '20px 20px 20px 20px',
+            background: 'linear-gradient(135deg, rgba(139, 69, 255, 0.15) 0%, rgba(59, 130, 246, 0.15) 25%, rgba(16, 185, 129, 0.15) 75%, rgba(251, 191, 36, 0.15) 100%), linear-gradient(rgba(0,0,0,0.8), rgba(0,0,0,0.6)), url("https://images.unsplash.com/photo-1543007629-5c4e8a83ba4c?q=80&w=1171&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D") center/cover',
+            padding: 'clamp(16px, 4vw, 24px)',
             display: 'flex',
-            flexDirection: 'column'
+            flexDirection: 'column',
+            backdropFilter: 'blur(10px)'
         }}>
 
             {/* Titre principal */}
             <h2 style={{
-                color: 'white',
-                fontSize: 'clamp(20px, 6vw, 28px)',
-                fontWeight: '600',
+                background: 'linear-gradient(135deg, #8b45ff 0%, #3b82f6 50%, #10b981 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text',
+                fontSize: 'clamp(24px, 6vw, 32px)',
+                fontWeight: '700',
                 margin: '0 0 32px 0',
-                textAlign: 'left'
+                textAlign: 'center',
+                textShadow: '0 2px 4px rgba(0,0,0,0.3)'
             }}>
-                Statistiques & Outils
+                📊 Statistiques & Outils IA ✨
             </h2>
 
             {/* Section Souvenirs */}
-            <div style={{
-                backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                borderRadius: '20px',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
-                padding: 'clamp(16px, 5vw, 24px)',
-                marginBottom: '24px'
-            }}>
+            <div 
+                role="region"
+                aria-label="Section souvenirs et statistiques"
+                tabIndex={0}
+                style={{
+                    background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.015) 0%, rgba(255, 255, 255, 0.008) 100%)',
+                    borderRadius: 'clamp(16px, 4vw, 24px)',
+                    border: '1px solid rgba(255, 255, 255, 0.08)',
+                    padding: 'clamp(20px, 5vw, 28px)',
+                    marginBottom: 'clamp(20px, 4vw, 28px)',
+                    backdropFilter: 'blur(20px)',
+                    boxShadow: '0 12px 40px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1)'
+                }}
+                onFocus={(e) => {
+                    e.target.style.outline = '2px solid rgba(139, 69, 255, 0.6)';
+                    e.target.style.outlineOffset = '2px';
+                }}
+                onBlur={(e) => {
+                    e.target.style.outline = 'none';
+                }}
+            >
                 {memorySummary ? (
                     // Vue du souvenir généré
                     <div style={{
@@ -756,21 +775,27 @@ const StatsPage = () => {
                     {/* Stats de la Période */}
                     {displayStats && (
                         <div style={{
-                            backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                            borderRadius: '20px',
-                            border: '1px solid rgba(255, 255, 255, 0.1)',
-                            padding: '24px',
-                            marginBottom: '24px'
+                            background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.015) 0%, rgba(255, 255, 255, 0.008) 100%)',
+                            backdropFilter: 'blur(4px)',
+                            borderRadius: '24px',
+                            border: '1px solid rgba(255, 255, 255, 0.08)',
+                            padding: '28px',
+                            marginBottom: '24px',
+                            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.02)'
                         }}>
                             <h3 style={{
-                                color: 'white',
-                                fontSize: '20px',
-                                fontWeight: '600',
-                                margin: '0 0 24px 0',
+                                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                                WebkitBackgroundClip: 'text',
+                                WebkitTextFillColor: 'transparent',
+                                backgroundClip: 'text',
+                                fontSize: 'clamp(18px, 5vw, 22px)',
+                                fontWeight: '700',
+                                margin: '0 0 28px 0',
                                 display: 'flex',
-                                alignItems: 'center'
+                                alignItems: 'center',
+                                letterSpacing: '-0.02em'
                             }}>
-                                <BarChart size={20} style={{ marginRight: '8px', color: '#10b981' }} />
+                                <BarChart3 size={24} style={{ marginRight: '12px', color: '#10b981', filter: 'drop-shadow(0 2px 4px rgba(16, 185, 129, 0.3))' }} />
                                 Stats de la Période
                             </h3>
                             
@@ -779,72 +804,249 @@ const StatsPage = () => {
                                 display: 'grid',
                                 gridTemplateColumns: '1fr 1fr',
                                 gap: '16px',
-                                marginBottom: '24px'
+                                marginBottom: '32px'
                             }}>
-                                <div style={{ color: 'white' }}>
-                                    <span style={{ fontWeight: '600' }}>Soirées:</span> {displayStats.totalParties}
+                                <div style={{
+                                    background: 'rgba(255, 255, 255, 0.08)',
+                                    backdropFilter: 'blur(8px)',
+                                    borderRadius: '16px',
+                                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                                    padding: '16px',
+                                    textAlign: 'center',
+                                    transition: 'all 0.3s ease',
+                                    cursor: 'default'
+                                }}>
+                                    <span style={{ 
+                                        fontWeight: '500', 
+                                        color: 'rgba(255, 255, 255, 0.7)',
+                                        fontSize: '14px',
+                                        display: 'block',
+                                        marginBottom: '4px'
+                                    }}>Soirées</span>
+                                    <span style={{
+                                        fontWeight: '700',
+                                        color: 'white',
+                                        fontSize: '20px'
+                                    }}>{displayStats.totalParties}</span>
                                 </div>
-                                <div style={{ color: 'white' }}>
-                                    <span style={{ fontWeight: '600' }}>Boissons:</span> {displayStats.totalDrinks}
+                                <div style={{
+                                    background: 'rgba(255, 255, 255, 0.08)',
+                                    backdropFilter: 'blur(8px)',
+                                    borderRadius: '16px',
+                                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                                    padding: '16px',
+                                    textAlign: 'center',
+                                    transition: 'all 0.3s ease',
+                                    cursor: 'default'
+                                }}>
+                                    <span style={{ 
+                                        fontWeight: '500', 
+                                        color: 'rgba(255, 255, 255, 0.7)',
+                                        fontSize: '14px',
+                                        display: 'block',
+                                        marginBottom: '4px'
+                                    }}>Boissons</span>
+                                    <span style={{
+                                        fontWeight: '700',
+                                        color: 'white',
+                                        fontSize: '20px'
+                                    }}>{displayStats.totalDrinks}</span>
                                 </div>
-                                <div style={{ color: 'white' }}>
-                                    <span style={{ fontWeight: '600' }}>Volume total:</span> {displayStats.totalVolume ? `${(displayStats.totalVolume / 100).toFixed(1)}L` : '0L'}
+                                <div style={{
+                                    background: 'rgba(255, 255, 255, 0.08)',
+                                    backdropFilter: 'blur(8px)',
+                                    borderRadius: '16px',
+                                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                                    padding: '16px',
+                                    textAlign: 'center',
+                                    transition: 'all 0.3s ease',
+                                    cursor: 'default'
+                                }}>
+                                    <span style={{ 
+                                        fontWeight: '500', 
+                                        color: 'rgba(255, 255, 255, 0.7)',
+                                        fontSize: '14px',
+                                        display: 'block',
+                                        marginBottom: '4px'
+                                    }}>Volume total</span>
+                                    <span style={{
+                                        fontWeight: '700',
+                                        color: 'white',
+                                        fontSize: '20px'
+                                    }}>{displayStats.totalVolume ? `${(displayStats.totalVolume / 100).toFixed(1)}L` : '0L'}</span>
                                 </div>
-                                <div style={{ color: 'white' }}>
-                                    <span style={{ fontWeight: '600' }}>Bagarres:</span> {displayStats.totalFights}
+                                <div style={{
+                                    background: 'rgba(255, 255, 255, 0.08)',
+                                    backdropFilter: 'blur(8px)',
+                                    borderRadius: '16px',
+                                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                                    padding: '16px',
+                                    textAlign: 'center',
+                                    transition: 'all 0.3s ease',
+                                    cursor: 'default'
+                                }}>
+                                    <span style={{ 
+                                        fontWeight: '500', 
+                                        color: 'rgba(255, 255, 255, 0.7)',
+                                        fontSize: '14px',
+                                        display: 'block',
+                                        marginBottom: '4px'
+                                    }}>Bagarres</span>
+                                    <span style={{
+                                        fontWeight: '700',
+                                        color: 'white',
+                                        fontSize: '20px'
+                                    }}>{displayStats.totalFights}</span>
                                 </div>
-                                <div style={{ color: 'white' }}>
-                                    <span style={{ fontWeight: '600' }}>Vomis:</span> {displayStats.totalVomi}
+                                <div style={{
+                                    background: 'rgba(255, 255, 255, 0.08)',
+                                    backdropFilter: 'blur(8px)',
+                                    borderRadius: '16px',
+                                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                                    padding: '16px',
+                                    textAlign: 'center',
+                                    transition: 'all 0.3s ease',
+                                    cursor: 'default'
+                                }}>
+                                    <span style={{ 
+                                        fontWeight: '500', 
+                                        color: 'rgba(255, 255, 255, 0.7)',
+                                        fontSize: '14px',
+                                        display: 'block',
+                                        marginBottom: '4px'
+                                    }}>Vomis</span>
+                                    <span style={{
+                                        fontWeight: '700',
+                                        color: 'white',
+                                        fontSize: '20px'
+                                    }}>{displayStats.totalVomi}</span>
                                 </div>
-                                <div style={{ color: 'white' }}>
-                                    <span style={{ fontWeight: '600' }}>Recals:</span> {displayStats.totalRecal}
+                                <div style={{
+                                    background: 'rgba(255, 255, 255, 0.08)',
+                                    backdropFilter: 'blur(8px)',
+                                    borderRadius: '16px',
+                                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                                    padding: '16px',
+                                    textAlign: 'center',
+                                    transition: 'all 0.3s ease',
+                                    cursor: 'default'
+                                }}>
+                                    <span style={{ 
+                                        fontWeight: '500', 
+                                        color: 'rgba(255, 255, 255, 0.7)',
+                                        fontSize: '14px',
+                                        display: 'block',
+                                        marginBottom: '4px'
+                                    }}>Recals</span>
+                                    <span style={{
+                                        fontWeight: '700',
+                                        color: 'white',
+                                        fontSize: '20px'
+                                    }}>{displayStats.totalRecal}</span>
                                 </div>
-                                <div style={{ color: 'white' }}>
-                                    <span style={{ fontWeight: '600' }}>Filles parlées:</span> {displayStats.totalGirlsTalkedTo}
+                                <div style={{
+                                    background: 'rgba(255, 255, 255, 0.08)',
+                                    backdropFilter: 'blur(8px)',
+                                    borderRadius: '16px',
+                                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                                    padding: '16px',
+                                    textAlign: 'center',
+                                    transition: 'all 0.3s ease',
+                                    cursor: 'default'
+                                }}>
+                                    <span style={{ 
+                                        fontWeight: '500', 
+                                        color: 'rgba(255, 255, 255, 0.7)',
+                                        fontSize: '14px',
+                                        display: 'block',
+                                        marginBottom: '4px'
+                                    }}>Filles parlées</span>
+                                    <span style={{
+                                        fontWeight: '700',
+                                        color: 'white',
+                                        fontSize: '20px'
+                                    }}>{displayStats.totalGirlsTalkedTo}</span>
                                 </div>
                             </div>
 
                             {/* Elle veut, elle veut sur une ligne séparée */}
                             <div style={{
-                                color: 'white',
-                                marginBottom: '24px'
+                                background: 'linear-gradient(135deg, rgba(236, 72, 153, 0.15) 0%, rgba(219, 39, 119, 0.1) 100%)',
+                                backdropFilter: 'blur(8px)',
+                                borderRadius: '16px',
+                                border: '1px solid rgba(236, 72, 153, 0.3)',
+                                padding: '20px',
+                                marginBottom: '32px',
+                                textAlign: 'center',
+                                boxShadow: '0 4px 16px rgba(236, 72, 153, 0.1)'
                             }}>
-                                <span style={{ fontWeight: '600' }}>Elle veut, elle veut:</span> {displayStats.totalElleVeutElleVeut}
+                                <span style={{ 
+                                    fontWeight: '500', 
+                                    color: 'rgba(255, 255, 255, 0.8)',
+                                    fontSize: '14px',
+                                    display: 'block',
+                                    marginBottom: '8px'
+                                }}>Elle veut, elle veut</span>
+                                <span style={{
+                                    fontWeight: '700',
+                                    color: '#ec4899',
+                                    fontSize: '28px',
+                                    filter: 'drop-shadow(0 2px 4px rgba(236, 72, 153, 0.3))'
+                                }}>{displayStats.totalElleVeutElleVeut}</span>
                             </div>
 
                             {/* Boisson Préférée */}
                             <div style={{
-                                backgroundColor: 'rgba(255, 193, 7, 0.1)',
-                                border: '1px solid rgba(255, 193, 7, 0.3)',
-                                borderRadius: '12px',
-                                padding: '16px',
+                                background: 'linear-gradient(135deg, rgba(255, 193, 7, 0.15) 0%, rgba(245, 158, 11, 0.1) 100%)',
+                                backdropFilter: 'blur(10px)',
+                                border: '1px solid rgba(255, 193, 7, 0.4)',
+                                borderRadius: '20px',
+                                padding: '24px',
                                 display: 'flex',
                                 alignItems: 'center',
-                                marginBottom: '24px'
+                                marginBottom: '24px',
+                                boxShadow: '0 8px 32px rgba(255, 193, 7, 0.1)',
+                                transition: 'all 0.3s ease'
                             }}>
-                                <Trophy size={24} style={{ color: '#ffc107', marginRight: '12px' }} />
-                                <div>
+                                <div style={{
+                                    background: 'linear-gradient(135deg, #ffc107 0%, #f59e0b 100%)',
+                                    borderRadius: '16px',
+                                    padding: '12px',
+                                    marginRight: '20px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    boxShadow: '0 4px 16px rgba(255, 193, 7, 0.3)'
+                                }}>
+                                    <Trophy size={28} style={{ color: 'white' }} />
+                                </div>
+                                <div style={{ flex: 1 }}>
                                     <p style={{ 
                                         color: 'white', 
-                                        fontWeight: '600', 
-                                        margin: '0 0 4px 0',
-                                        fontSize: '16px'
+                                        fontWeight: '700', 
+                                        margin: '0 0 8px 0',
+                                        fontSize: '18px',
+                                        letterSpacing: '-0.02em'
                                     }}>
                                         Boisson Préférée
                                     </p>
                                     <p style={{ 
-                                        color: '#ffc107', 
-                                        margin: '0 0 4px 0',
+                                        background: 'linear-gradient(135deg, #ffc107 0%, #f59e0b 100%)',
+                                        WebkitBackgroundClip: 'text',
+                                        WebkitTextFillColor: 'transparent',
+                                        backgroundClip: 'text',
+                                        margin: '0 0 6px 0',
                                         fontSize: '16px',
-                                        fontWeight: '600'
+                                        fontWeight: '700'
                                     }}>
                                         {displayStats.mostConsumedDrink?.type} ({displayStats.mostConsumedDrink?.quantity} verres)
                                     </p>
                                     {displayStats.mostConsumedDrink?.brand && (
                                         <p style={{ 
-                                            color: '#9ca3af', 
+                                            color: 'rgba(255, 255, 255, 0.7)', 
                                             margin: 0,
-                                            fontSize: '14px'
+                                            fontSize: '14px',
+                                            fontWeight: '500'
                                         }}>
                                             Marque favorite : {displayStats.mostConsumedDrink.brand}
                                         </p>
@@ -855,30 +1057,54 @@ const StatsPage = () => {
                             {/* Détail des volumes par type */}
                             {displayStats.drinkVolumes && Object.keys(displayStats.drinkVolumes).length > 0 && (
                                 <div style={{
-                                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                                    border: '1px solid rgba(59, 130, 246, 0.3)',
-                                    borderRadius: '12px',
-                                    padding: '16px'
+                                    background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(37, 99, 235, 0.1) 100%)',
+                                    backdropFilter: 'blur(10px)',
+                                    border: '1px solid rgba(59, 130, 246, 0.4)',
+                                    borderRadius: '20px',
+                                    padding: '24px',
+                                    boxShadow: '0 8px 32px rgba(59, 130, 246, 0.1)'
                                 }}>
                                     <h4 style={{
-                                        color: 'white',
-                                        fontSize: '16px',
-                                        fontWeight: '600',
-                                        margin: '0 0 12px 0',
+                                        background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+                                        WebkitBackgroundClip: 'text',
+                                        WebkitTextFillColor: 'transparent',
+                                        backgroundClip: 'text',
+                                        fontSize: '18px',
+                                        fontWeight: '700',
+                                        margin: '0 0 20px 0',
                                         display: 'flex',
-                                        alignItems: 'center'
+                                        alignItems: 'center',
+                                        letterSpacing: '-0.02em'
                                     }}>
-                                        <Sparkles size={18} style={{ marginRight: '8px', color: '#3b82f6' }} />
+                                        <Sparkles size={22} style={{ marginRight: '12px', color: '#3b82f6', filter: 'drop-shadow(0 2px 4px rgba(59, 130, 246, 0.3))' }} />
                                         Volumes par type de boisson
                                     </h4>
                                     <div style={{
                                         display: 'grid',
-                                        gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
-                                        gap: '8px'
+                                        gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+                                        gap: '12px'
                                     }}>
                                         {Object.entries(displayStats.drinkVolumes).map(([type, volume]) => (
-                                            <div key={type} style={{ color: '#e5e7eb', fontSize: '14px' }}>
-                                                <span style={{ color: '#3b82f6', fontWeight: '600' }}>{type}:</span> {(volume / 100).toFixed(1)}L
+                                            <div key={type} style={{
+                                                background: 'rgba(255, 255, 255, 0.08)',
+                                                backdropFilter: 'blur(8px)',
+                                                borderRadius: '12px',
+                                                border: '1px solid rgba(255, 255, 255, 0.1)',
+                                                padding: '12px',
+                                                textAlign: 'center',
+                                                transition: 'all 0.3s ease'
+                                            }}>
+                                                <div style={{ 
+                                                    color: '#3b82f6', 
+                                                    fontWeight: '600',
+                                                    fontSize: '14px',
+                                                    marginBottom: '4px'
+                                                }}>{type}</div>
+                                                <div style={{
+                                                    color: 'white',
+                                                    fontWeight: '700',
+                                                    fontSize: '16px'
+                                                }}>{(volume / 100).toFixed(1)}L</div>
                                             </div>
                                         ))}
                                     </div>
@@ -889,25 +1115,45 @@ const StatsPage = () => {
 
                     {/* Résumés des Soirées */}
                     <div style={{
-                        backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                        borderRadius: '20px',
-                        border: '1px solid rgba(255, 255, 255, 0.1)',
-                        padding: '24px',
-                        marginBottom: '24px'
+                        background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.015) 0%, rgba(255, 255, 255, 0.008) 100%)',
+                        backdropFilter: 'blur(4px)',
+                        borderRadius: '24px',
+                        border: '1px solid rgba(255, 255, 255, 0.08)',
+                        padding: '28px',
+                        marginBottom: '24px',
+                        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.02)'
                     }}>
                         <h3 style={{
-                            color: 'white',
-                            fontSize: '20px',
-                            fontWeight: '600',
-                            margin: '0 0 24px 0'
+                            background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+                            WebkitBackgroundClip: 'text',
+                            WebkitTextFillColor: 'transparent',
+                            backgroundClip: 'text',
+                            fontSize: 'clamp(20px, 5.5vw, 24px)',
+                            fontWeight: '700',
+                            margin: '0 0 28px 0',
+                            letterSpacing: '-0.02em',
+                            textAlign: 'center'
                         }}>
-                            Résumés de Soirées
+                            📖 Résumés de Soirées
                         </h3>
                         
                         {filteredParties.length === 0 ? (
-                            <p style={{ color: '#9ca3af', textAlign: 'center', margin: 0 }}>
-                                Aucune soirée pour cette période.
-                            </p>
+                            <div style={{
+                                background: 'rgba(255, 255, 255, 0.05)',
+                                borderRadius: '16px',
+                                border: '1px solid rgba(255, 255, 255, 0.1)',
+                                padding: '32px',
+                                textAlign: 'center'
+                            }}>
+                                <p style={{ 
+                                    color: 'rgba(255, 255, 255, 0.6)', 
+                                    margin: 0,
+                                    fontSize: '16px',
+                                    fontWeight: '500'
+                                }}>
+                                    🎭 Aucune soirée pour cette période.
+                                </p>
+                            </div>
                         ) : (
                             <div style={{
                                 maxHeight: '400px',
@@ -920,57 +1166,69 @@ const StatsPage = () => {
                                     <div 
                                         key={party.id} 
                                         style={{
-                                            backgroundColor: 'rgba(0, 0, 0, 0.3)',
-                                            border: '1px solid rgba(255, 255, 255, 0.1)',
-                                            borderRadius: '12px',
-                                            padding: '16px',
-                                            position: 'relative'
+                                            background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.04) 100%)',
+                                            backdropFilter: 'blur(10px)',
+                                            border: '1px solid rgba(255, 255, 255, 0.15)',
+                                            borderRadius: '16px',
+                                            padding: '20px',
+                                            position: 'relative',
+                                            transition: 'all 0.3s ease',
+                                            cursor: 'default',
+                                            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.1)'
                                         }}
                                     >
                                         {/* Boutons Edit/Delete */}
                                         <div style={{
                                             position: 'absolute',
-                                            top: '12px',
-                                            right: '12px',
+                                            top: '16px',
+                                            right: '16px',
                                             display: 'flex',
-                                            gap: '6px',
+                                            gap: '8px',
                                             zIndex: 10
                                         }}>
                                             <button
                                                 onClick={() => handleEditParty(party)}
                                                 style={{
-                                                    padding: '6px 8px',
-                                                    backgroundColor: 'rgba(59, 130, 246, 0.9)',
-                                                    border: 'none',
-                                                    borderRadius: '6px',
+                                                    padding: '8px 10px',
+                                                    background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.9) 0%, rgba(37, 99, 235, 0.9) 100%)',
+                                                    backdropFilter: 'blur(8px)',
+                                                    border: '1px solid rgba(59, 130, 246, 0.3)',
+                                                    borderRadius: '10px',
                                                     color: 'white',
                                                     cursor: 'pointer',
                                                     display: 'flex',
                                                     alignItems: 'center',
                                                     justifyContent: 'center',
                                                     fontSize: '12px',
-                                                    fontWeight: '600'
+                                                    fontWeight: '600',
+                                                    boxShadow: '0 2px 8px rgba(59, 130, 246, 0.3)',
+                                                    transition: 'all 0.2s ease'
                                                 }}
                                                 title="Modifier cette soirée"
+                                                aria-label="Modifier cette soirée"
                                             >
                                                 ✏️
                                             </button>
                                             <button
                                                 onClick={() => handleDeleteParty(party)}
                                                 style={{
-                                                    padding: '6px 8px',
-                                                    backgroundColor: 'rgba(220, 38, 38, 0.9)',
-                                                    border: 'none',
-                                                    borderRadius: '6px',
+                                                    padding: '8px 10px',
+                                                    background: 'linear-gradient(135deg, rgba(220, 38, 38, 0.9) 0%, rgba(185, 28, 28, 0.9) 100%)',
+                                                    backdropFilter: 'blur(8px)',
+                                                    border: '1px solid rgba(220, 38, 38, 0.3)',
+                                                    borderRadius: '10px',
                                                     color: 'white',
                                                     cursor: 'pointer',
                                                     display: 'flex',
                                                     alignItems: 'center',
                                                     justifyContent: 'center',
                                                     fontSize: '12px',
-                                                    fontWeight: '600'
+                                                    fontWeight: '600',
+                                                    boxShadow: '0 2px 8px rgba(220, 38, 38, 0.3)',
+                                                    transition: 'all 0.2s ease'
                                                 }}
                                                 title="Supprimer cette soirée"
+                                                aria-label="Supprimer cette soirée"
                                             >
                                                 🗑️
                                             </button>
@@ -979,21 +1237,31 @@ const StatsPage = () => {
                                             display: 'flex',
                                             justifyContent: 'space-between',
                                             alignItems: 'center',
-                                            marginBottom: '8px'
+                                            marginBottom: '12px',
+                                            paddingRight: '100px'
                                         }}>
                                             <h4 style={{
-                                                color: 'white',
+                                                background: 'linear-gradient(135deg, #ffffff 0%, #e5e7eb 100%)',
+                                                WebkitBackgroundClip: 'text',
+                                                WebkitTextFillColor: 'transparent',
+                                                backgroundClip: 'text',
                                                 fontSize: '16px',
-                                                fontWeight: '600',
-                                                margin: 0
+                                                fontWeight: '700',
+                                                margin: 0,
+                                                letterSpacing: '-0.01em'
                                             }}>
                                                 {party.date} - {party.category}
                                             </h4>
                                             <span style={{
-                                                color: '#9ca3af',
-                                                fontSize: '14px'
+                                                color: 'rgba(255, 255, 255, 0.6)',
+                                                fontSize: '13px',
+                                                fontWeight: '500',
+                                                background: 'rgba(255, 255, 255, 0.05)',
+                                                padding: '4px 8px',
+                                                borderRadius: '8px',
+                                                border: '1px solid rgba(255, 255, 255, 0.1)'
                                             }}>
-                                                {party.location || 'Lieu non spécifié'}
+                                                📍 {party.location || 'Lieu non spécifié'}
                                             </span>
                                         </div>
                                         
