@@ -19,7 +19,6 @@ import { DrinkWiseImages } from '../assets/DrinkWiseImages';
 import AnimatedCard from '../components/AnimatedCard';
 import AnimatedChart from '../components/AnimatedChart';
 import AnimatedList from '../components/AnimatedList';
-import { useScrollAnimation } from '../hooks/useAnimation';
 
 const StatsPage = () => {
     const { db, user, appId, setMessageBox, functions } = useContext(FirebaseContext);

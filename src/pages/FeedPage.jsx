@@ -11,7 +11,6 @@ import LoadingIcon from '../components/LoadingIcon';
 import AnimatedList from '../components/AnimatedList';
 import AnimatedCard from '../components/AnimatedCard';
 import FeedbackOverlay from '../components/FeedbackOverlay';
-import { useScrollAnimation } from '../hooks/useAnimation';
 
 import { Calendar, Users, Trophy, MapPin, Heart, MessageCircle } from 'lucide-react';
 import UserAvatar from '../components/UserAvatar';
