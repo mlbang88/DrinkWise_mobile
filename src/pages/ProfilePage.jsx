@@ -18,15 +18,21 @@ const ProfilePage = () => {
     const [usernameValidation, setUsernameValidation] = useState({ isValid: true, error: null });
     const [checkingUsername, setCheckingUsername] = useState(false);
     const [currentProfilePhoto, setCurrentProfilePhoto] = useState(userProfile?.profilePhoto || null);
+    const [hasSync, setHasSync] = useState(false);
 
-    // Synchroniser les stats au chargement pour assurer cohérence
+    // Synchroniser les stats au chargement pour assurer cohérence - AVEC CONTRÔLE
+    
     useEffect(() => {
-        if (user && userProfile && db) {
+        if (user && userProfile && db && !hasSync) {
+            setHasSync(true);
             ExperienceService.syncUserStats(db, appId, user.uid, userProfile)
                 .then(() => console.log("✅ ProfilePage - Stats synchronisées"))  
-                .catch(err => console.error("❌ ProfilePage - Erreur sync:", err));
+                .catch(err => {
+                    console.error("❌ ProfilePage - Erreur sync:", err);
+                    setHasSync(false); // Réinitialiser en cas d'erreur
+                });
         }
-    }, [user, userProfile, db, appId]);
+    }, [user, userProfile, db, appId, hasSync]);
 
     // Calcul unifié via ExperienceService - FORCER L'USAGE DES STATS PUBLIQUES
     const stats = {

@@ -10,6 +10,7 @@ const FriendsLeaderboard = ({ selectedCategory = 'level', title = "🏆 Classeme
     const { db, user, appId } = useContext(FirebaseContext);
     const [leaderboard, setLeaderboard] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [hasLoaded, setHasLoaded] = useState(false);
 
     const categories = [
         { id: 'level', name: 'Niveau', icon: Trophy, color: '#fbbf24' },
@@ -21,16 +22,21 @@ const FriendsLeaderboard = ({ selectedCategory = 'level', title = "🏆 Classeme
     ];
 
     useEffect(() => {
-        loadLeaderboard();
-    }, [selectedCategory, user, appId]);
+        if (!hasLoaded || selectedCategory) {
+            loadLeaderboard();
+        }
+    }, [selectedCategory]);
 
     const loadLeaderboard = async () => {
         if (!user || !db) return;
         
         try {
             setLoading(true);
-            // Synchroniser les stats de l'utilisateur actuel avant de charger le leaderboard
-            await SocialComparisonService.syncCurrentUserStats(db, appId, user.uid);
+            // Synchroniser les stats de l'utilisateur actuel avant de charger le leaderboard - AVEC PROTECTION
+            if (!hasLoaded) {
+                await SocialComparisonService.syncCurrentUserStats(db, appId, user.uid);
+                setHasLoaded(true);
+            }
             
             const data = await SocialComparisonService.getFriendsLeaderboard(
                 db, appId, user.uid, selectedCategory
@@ -39,6 +45,7 @@ const FriendsLeaderboard = ({ selectedCategory = 'level', title = "🏆 Classeme
         } catch (error) {
             console.error('Erreur chargement leaderboard:', error);
             setLeaderboard([]);
+            setHasLoaded(false); // Réinitialiser en cas d'erreur
         } finally {
             setLoading(false);
         }

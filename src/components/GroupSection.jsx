@@ -17,6 +17,7 @@ const GroupSection = () => {
     const [showInviteForm, setShowInviteForm] = useState(false);
     const [showAdminPanel, setShowAdminPanel] = useState(false);
     const [memberProfiles, setMemberProfiles] = useState({});
+    const [hasLoadedGroups, setHasLoadedGroups] = useState(false);
     
     // États pour les formulaires
     const [newGroupName, setNewGroupName] = useState('');
@@ -56,19 +57,21 @@ const GroupSection = () => {
             const userGroups = await groupService.getUserGroups(db, appId, user.uid);
             console.log('✅ Groupes chargés:', userGroups);
             setGroups(userGroups);
+            setHasLoadedGroups(true);
         } catch (error) {
             console.error('❌ Erreur chargement groupes:', error);
             setMessageBox({ message: 'Erreur lors du chargement des groupes', type: 'error' });
+            setHasLoadedGroups(false); // Réinitialiser en cas d'erreur
         } finally {
             setLoading(false);
         }
     };
 
     useEffect(() => {
-        if (user && appId) {
+        if (user && appId && !hasLoadedGroups) {
             loadUserGroups();
         }
-    }, [user, appId]);
+    }, [user, appId, hasLoadedGroups]);
 
     // Créer un nouveau groupe
     const handleCreateGroup = async (e) => {
