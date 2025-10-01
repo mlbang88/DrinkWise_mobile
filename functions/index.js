@@ -10,6 +10,7 @@ const logger = require("firebase-functions/logger");
 const cors = require('cors');
 const admin = require('firebase-admin');
 const functions = require('firebase-functions');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 // Initialiser Admin SDK
 if (!admin.apps.length) {
@@ -288,7 +289,7 @@ exports.forceAddFriend = onCall({
   }
 });
 
-// Fonction pour analyser une image avec Gemini de manière sécurisée
+// Fonction pour analyser une image avec Gemini de manière sécurisée (SDK officiel)
 exports.analyzeImageSecure = onCall({
   region: 'us-central1',
   cors: corsOptions,
@@ -302,6 +303,25 @@ exports.analyzeImageSecure = onCall({
       throw new Error('Utilisateur non authentifié');
     }
     
+    // Valider et normaliser le type MIME
+    const supportedMimeTypes = [
+      'image/jpeg',
+      'image/jpg', 
+      'image/png',
+      'image/webp',
+      'image/gif'
+    ];
+    
+    let normalizedMimeType = mimeType?.toLowerCase() || 'image/jpeg';
+    
+    // Convertir les types non supportés vers JPEG
+    if (!supportedMimeTypes.includes(normalizedMimeType)) {
+      logger.warn(`⚠️ Type MIME non supporté: ${normalizedMimeType}, conversion vers JPEG`);
+      normalizedMimeType = 'image/jpeg';
+    }
+    
+    logger.info(`📷 Type MIME utilisé: ${normalizedMimeType}`);
+    
     // Clé API stockée de manière sécurisée côté serveur
     const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
     
@@ -311,62 +331,38 @@ exports.analyzeImageSecure = onCall({
     
     logger.info('🤖 Analyse d\'image sécurisée pour utilisateur:', request.auth.uid);
     
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
+    // Initialiser le SDK Google Generative AI
+    const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
     
-    const payload = {
-      contents: [{
-        parts: [
-          {
-            text: `Analyse cette image et identifie la boisson visible. 
-            Réponds au format JSON avec les clés "type" et "brand" (marque).
-            
-            Pour le type, utilise l'un de ces termes : "Bière", "Vin", "Spiritueux", "Cocktail", "Autre"
-            Pour la marque, identifie la marque visible sur l'étiquette/bouteille (ex: "Heineken", "Corona", "Absolut", "Jack Daniel's", etc.)
-            Si aucune marque n'est visible ou identifiable, mets "brand": null
-            
-            Exemple de réponse:
-            {"type": "Bière", "brand": "Heineken"}
-            {"type": "Spiritueux", "brand": "Jack Daniel's"}
-            {"type": "Vin", "brand": null}
-            
-            Si aucune boisson n'est visible, réponds: {"type": "Autre", "brand": null}`
-          },
-          {
-            inline_data: {
-              mime_type: mimeType || "image/jpeg",
-              data: imageBase64
-            }
-          }
-        ]
-      }],
-      generationConfig: {
-        temperature: 0.1,
-        topK: 1,
-        topP: 0.8,
-        maxOutputTokens: 100
+    // Préparer le prompt et l'image
+    const prompt = `Analyse cette image et identifie la boisson visible. 
+Réponds au format JSON avec les clés "type" et "brand" (marque).
+
+Pour le type, utilise l'un de ces termes : "Bière", "Vin", "Spiritueux", "Cocktail", "Autre"
+Pour la marque, identifie la marque visible sur l'étiquette/bouteille (ex: "Heineken", "Corona", "Absolut", "Jack Daniel's", etc.)
+Si aucune marque n'est visible ou identifiable, mets "brand": null
+
+Exemple de réponse:
+{"type": "Bière", "brand": "Heineken"}
+{"type": "Spiritueux", "brand": "Jack Daniel's"}
+{"type": "Vin", "brand": null}
+
+Si aucune boisson n'est visible, réponds: {"type": "Autre", "brand": null}`;
+    
+    const imagePart = {
+      inlineData: {
+        data: imageBase64,
+        mimeType: normalizedMimeType
       }
     };
     
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(payload)
-    });
+    // Générer le contenu avec le SDK
+    const result = await model.generateContent([prompt, imagePart]);
+    const response = await result.response;
+    const text = response.text();
     
-    if (!response.ok) {
-      throw new Error(`Erreur API Gemini: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    
-    if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) {
-      throw new Error('Réponse API invalide');
-    }
-    
-    const text = data.candidates[0].content.parts[0].text;
-    logger.info('Réponse Gemini brute:', text);
+    logger.info('✅ Réponse Gemini brute:', text);
     
     // Parser la réponse JSON
     let drinkInfo;
@@ -395,6 +391,17 @@ exports.analyzeImageSecure = onCall({
   } catch (error) {
     logger.error('❌ Erreur analyse image:', error);
     
+    // Afficher les détails de l'erreur pour le débogage
+    if (error.message.includes('not found') || error.message.includes('404')) {
+      logger.error('🔍 Erreur de modèle - Modèle Gemini non trouvé');
+    } else if (error.message.includes('Unsupported MIME type')) {
+      logger.error('🔍 Erreur format d\'image - Type MIME non supporté:', error.message);
+    } else if (error.message.includes('400') || error.message.includes('Bad Request')) {
+      logger.error('🔍 Erreur requête - Paramètres invalides:', error.message);
+    } else if (error.message.includes('403') || error.message.includes('Forbidden')) {
+      logger.error('🔍 Erreur permissions - Clé API ou quotas:', error.message);
+    }
+    
     // Fallback gracieux - retourner un résultat par défaut au lieu d'échouer
     logger.warn('🔄 Utilisation du fallback - analyse IA temporairement indisponible');
     return {
@@ -402,8 +409,81 @@ exports.analyzeImageSecure = onCall({
       drinkInfo: { 
         type: 'Autre', 
         brand: null,
-        note: 'Analyse automatique temporairement indisponible'
+        note: 'Analyse automatique temporairement indisponible',
+        error: error.message
       }
+    };
+  }
+});
+
+// Fonction de débogage pour lister les modèles Gemini disponibles
+exports.listGeminiModels = onCall({
+  region: 'us-central1',
+  cors: corsOptions,
+  secrets: ['GEMINI_API_KEY']
+}, async (request) => {
+  try {
+    // Vérifier l'authentification
+    if (!request.auth) {
+      throw new Error('Utilisateur non authentifié');
+    }
+    
+    const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+    if (!GEMINI_API_KEY) {
+      throw new Error('Configuration API manquante');
+    }
+    
+    logger.info('🔍 Listage des modèles Gemini disponibles...');
+    
+    // Tester différents modèles un par un
+    const modelsToTest = [
+      'gemini-1.5-pro',
+      'gemini-1.5-flash', 
+      'gemini-pro-vision',
+      'gemini-pro',
+      'models/gemini-1.5-pro',
+      'models/gemini-1.5-flash',
+      'models/gemini-pro-vision',
+      'models/gemini-pro'
+    ];
+    
+    const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+    const availableModels = [];
+    
+    for (const modelName of modelsToTest) {
+      try {
+        const model = genAI.getGenerativeModel({ model: modelName });
+        // Essayer une génération de test simple
+        const result = await model.generateContent("Test");
+        availableModels.push({
+          name: modelName,
+          status: 'available',
+          supportsImages: modelName.includes('pro-vision') || modelName.includes('1.5')
+        });
+        logger.info(`✅ Modèle disponible: ${modelName}`);
+      } catch (error) {
+        logger.warn(`❌ Modèle non disponible: ${modelName} - ${error.message}`);
+        availableModels.push({
+          name: modelName,
+          status: 'unavailable',
+          error: error.message
+        });
+      }
+    }
+    
+    logger.info('📋 Résumé des modèles:', availableModels);
+    
+    return {
+      success: true,
+      models: availableModels,
+      recommendation: availableModels.find(m => m.status === 'available' && m.supportsImages)?.name || 'Aucun modèle vision disponible'
+    };
+    
+  } catch (error) {
+    logger.error('❌ Erreur listage modèles:', error);
+    return {
+      success: false,
+      error: error.message
     };
   }
 });

@@ -18,6 +18,27 @@ const DrinkAnalyzer = ({ onDrinkDetected }) => {
         }
     };
 
+    const convertImageToSupportedFormat = async (file) => {
+        return new Promise((resolve) => {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const img = new Image();
+            
+            img.onload = () => {
+                canvas.width = img.width;
+                canvas.height = img.height;
+                ctx.drawImage(img, 0, 0);
+                
+                // Convertir en JPEG avec qualité optimisée
+                canvas.toBlob((blob) => {
+                    resolve(new File([blob], 'converted-image.jpg', { type: 'image/jpeg' }));
+                }, 'image/jpeg', 0.8);
+            };
+            
+            img.src = URL.createObjectURL(file);
+        });
+    };
+
     const handleImageUpload = async (file) => {
         if (!file || !file.type.startsWith('image/')) {
             setMessageBox({ 
@@ -27,6 +48,27 @@ const DrinkAnalyzer = ({ onDrinkDetected }) => {
             return;
         }
 
+        // Convertir les formats non supportés (AVIF, HEIC, etc.) vers JPEG
+        let processedFile = file;
+        const unsupportedFormats = ['image/avif', 'image/heic', 'image/heif'];
+        
+        if (unsupportedFormats.includes(file.type.toLowerCase())) {
+            setMessageBox({ 
+                message: " Conversion du format d'image en cours...", 
+                type: "info" 
+            });
+            
+            try {
+                processedFile = await convertImageToSupportedFormat(file);
+            } catch (conversionError) {
+                setMessageBox({ 
+                    message: " Erreur lors de la conversion de l'image", 
+                    type: "warning" 
+                });
+                return;
+            }
+        }
+
         setIsAnalyzing(true);
         setMessageBox({ 
             message: " Analyse de la boisson en cours...", 
@@ -34,7 +76,7 @@ const DrinkAnalyzer = ({ onDrinkDetected }) => {
         });
 
         try {
-            const drinkInfo = await geminiService.analyzeImage(file);
+            const drinkInfo = await geminiService.analyzeImage(processedFile);
             const mappedDrinkInfo = geminiService.mapToAppDrinkType(drinkInfo);
             
             const displayMessage = mappedDrinkInfo.brand 
