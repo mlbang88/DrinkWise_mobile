@@ -2,6 +2,7 @@ import React, { useState, useEffect, useContext } from 'react';
 import { collection, onSnapshot, query } from 'firebase/firestore';
 import { FirebaseContext } from '../contexts/FirebaseContext.jsx';
 import { badgeService } from '../services/badgeService';
+import { ExperienceService } from '../services/experienceService';
 import { normalizeString } from '../utils/helpers';
 import { drinkImageLibrary } from '../utils/data';
 import LoadingSpinner from '../components/LoadingSpinner';

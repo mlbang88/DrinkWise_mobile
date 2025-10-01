@@ -5,6 +5,7 @@ import { FirebaseContext } from '../contexts/FirebaseContext.jsx';
 import { useTheme } from '../styles/ThemeContext.jsx';
 import ThemedText from '../styles/ThemedText.jsx';
 import { badgeService } from '../services/badgeService';
+import { ExperienceService } from '../services/experienceService';
 import { normalizeString } from '../utils/helpers';
 import { drinkImageLibrary } from '../utils/data';
 import { PieChart, Pie, Cell, BarChart as ReBarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from 'recharts';
