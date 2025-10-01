@@ -417,7 +417,7 @@ const StatsPage = () => {
                         }}>
                             <img 
                                 src={memorySummary.imageUrl}
-                                alt={memorySummary.stats.mostConsumedDrink.brand || memorySummary.stats.mostConsumedDrink.type}
+                                alt={memorySummary.stats.mostConsumedDrink?.brand || memorySummary.stats.mostConsumedDrink?.type || 'Boisson favorite'}
                                 style={{
                                     width: '100%',
                                     height: '100%',
@@ -466,7 +466,7 @@ const StatsPage = () => {
                             overflowWrap: 'break-word',
                             lineHeight: '1.2'
                         }}>
-                            {memorySummary.stats.mostConsumedDrink.brand || memorySummary.stats.mostConsumedDrink.type}
+                            {memorySummary.stats.mostConsumedDrink?.brand || memorySummary.stats.mostConsumedDrink?.type || 'Aucune boisson'}
                         </h3>
 
                         {/* Quantité */}
@@ -476,7 +476,7 @@ const StatsPage = () => {
                             color: 'rgba(255, 255, 255, 0.9)',
                             margin: '0 0 32px 0'
                         }}>
-                            {memorySummary.stats.mostConsumedDrink.quantity} verres bus
+                            {memorySummary.stats.mostConsumedDrink?.quantity || 0} verres bus
                         </p>
 
                         {/* Statistiques */}

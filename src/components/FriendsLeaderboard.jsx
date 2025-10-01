@@ -29,6 +29,9 @@ const FriendsLeaderboard = ({ selectedCategory = 'level', title = "🏆 Classeme
         
         try {
             setLoading(true);
+            // Synchroniser les stats de l'utilisateur actuel avant de charger le leaderboard
+            await SocialComparisonService.syncCurrentUserStats(db, appId, user.uid);
+            
             const data = await SocialComparisonService.getFriendsLeaderboard(
                 db, appId, user.uid, selectedCategory
             );

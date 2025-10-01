@@ -4,6 +4,24 @@ import { collection, query, where, getDocs, doc, getDoc, setDoc } from 'firebase
 
 export class SocialComparisonService {
     
+    // === SYNCHRONISATION STATS UTILISATEUR ACTUEL ===
+    static async syncCurrentUserStats(db, appId, userId) {
+        try {
+            // Récupérer le profil utilisateur
+            const profileRef = doc(db, `artifacts/${appId}/users/${userId}/profile`, 'data');
+            const profileDoc = await getDoc(profileRef);
+            const userProfile = profileDoc.exists() ? profileDoc.data() : {};
+            
+            // Synchroniser les stats via ExperienceService
+            await ExperienceService.syncUserStats(db, appId, userId, userProfile);
+            console.log("✅ Stats utilisateur synchronisées pour leaderboard");
+            
+        } catch (error) {
+            console.error('❌ Erreur sync stats utilisateur:', error);
+            throw error;
+        }
+    }
+    
     // === CLASSEMENT AMIS PAR CATÉGORIE ===
     static async getFriendsLeaderboard(db, appId, userId, category = 'level') {
         try {

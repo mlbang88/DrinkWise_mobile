@@ -50,7 +50,14 @@ export default function FriendStatsPage({ friendId }) {
         // Mettre à jour les stats publiques de l'utilisateur actuel si nécessaire
         if (user && userProfile) {
             console.log("🔍 Vérification des stats publiques:", userProfile.publicStats);
-            badgeService.updatePublicStats(db, user, appId, userProfile);
+            // Synchroniser avec le nouveau système unifié
+            ExperienceService.syncUserStats(db, appId, user.uid, userProfile).then(() => {
+                console.log("✅ Stats publiques synchronisées avec ExperienceService");
+            }).catch(error => {
+                console.error("❌ Erreur sync stats publiques:", error);
+                // Fallback vers l'ancien système
+                badgeService.updatePublicStats(db, user, appId, userProfile);
+            });
         }
 
         const statsRef = doc(db, `artifacts/${appId}/public_user_stats`, friendId);
