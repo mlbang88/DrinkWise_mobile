@@ -22,7 +22,7 @@ import AnimatedChart from '../components/AnimatedChart';
 import AnimatedList from '../components/AnimatedList';
 
 const StatsPage = () => {
-    const { db, user, appId, setMessageBox, functions } = useContext(FirebaseContext);
+    const { db, user, appId, setMessageBox, functions, userProfile } = useContext(FirebaseContext);
     const { theme } = useTheme();
     const [myParties, setMyParties] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -108,11 +108,11 @@ const StatsPage = () => {
     }, [myParties, timeFilter]);
 
     useEffect(() => {
-        if (filteredParties) {
+        if (filteredParties && userProfile) {
             const stats = ExperienceService.calculateRealStats(filteredParties, userProfile);
             setDisplayStats(stats);
         }
-    }, [filteredParties]);
+    }, [filteredParties, userProfile]);
 
     const analyzeWhatIfScenario = async () => {
         if (!selectedPartyForWhatIf || !whatIfChangesInput.trim()) return;
@@ -221,12 +221,13 @@ const StatsPage = () => {
 
     const generateNarrativeFromTemplate = (stats, period) => {
         const volumeInLiters = stats.totalVolume ? (stats.totalVolume / 100).toFixed(1) : '0';
-        const favoriteVolume = stats.drinkVolumes[stats.mostConsumedDrink.type] ? (stats.drinkVolumes[stats.mostConsumedDrink.type] / 100).toFixed(1) : '0';
+        const mostConsumed = stats.mostConsumedDrink || { type: 'boissons', quantity: 0, brand: '' };
+        const favoriteVolume = stats.drinkVolumes?.[mostConsumed.type] ? (stats.drinkVolumes[mostConsumed.type] / 100).toFixed(1) : '0';
         const templates = [
-            `Ce fut un(e) ${period} mémorable ! Vous avez participé à ${stats.totalParties} soirées, consommant ${volumeInLiters}L de liquide, avec une préférence marquée pour le/la ${stats.mostConsumedDrink.brand || stats.mostConsumedDrink.type}, que vous avez savouré ${stats.mostConsumedDrink.quantity} fois (${favoriteVolume}L au total).`,
-            `Quel(le) ${period} ! Entre vos ${stats.totalParties} soirées et ${volumeInLiters}L de boissons, le/la ${stats.mostConsumedDrink.brand || stats.mostConsumedDrink.type} a été votre fidèle allié, avec ${stats.mostConsumedDrink.quantity} verres au compteur soit ${favoriteVolume}L.`,
-            `Bilan de votre ${period} : ${stats.totalParties} soirées endiablées et ${volumeInLiters}L de liquide consommé. Votre boisson de prédilection ? Le/la ${stats.mostConsumedDrink.brand || stats.mostConsumedDrink.type}, sans hésitation (${stats.mostConsumedDrink.quantity} verres = ${favoriteVolume}L).`,
-            `Ce ${period}, vous n'avez pas chômé avec ${stats.totalParties} soirées et ${volumeInLiters}L ingurgités ! Le carburant de vos exploits était clairement le/la ${stats.mostConsumedDrink.brand || stats.mostConsumedDrink.type}, consommé ${stats.mostConsumedDrink.quantity} fois pour un total de ${favoriteVolume}L.`
+            `Ce fut un(e) ${period} mémorable ! Vous avez participé à ${stats.totalParties} soirées, consommant ${volumeInLiters}L de liquide, avec une préférence marquée pour le/la ${mostConsumed.brand || mostConsumed.type}, que vous avez savouré ${mostConsumed.quantity} fois (${favoriteVolume}L au total).`,
+            `Quel(le) ${period} ! Entre vos ${stats.totalParties} soirées et ${volumeInLiters}L de boissons, le/la ${mostConsumed.brand || mostConsumed.type} a été votre fidèle allié, avec ${mostConsumed.quantity} verres au compteur soit ${favoriteVolume}L.`,
+            `Bilan de votre ${period} : ${stats.totalParties} soirées endiablées et ${volumeInLiters}L de liquide consommé. Votre boisson de prédilection ? Le/la ${mostConsumed.brand || mostConsumed.type}, sans hésitation (${mostConsumed.quantity} verres = ${favoriteVolume}L).`,
+            `Ce ${period}, vous n'avez pas chômé avec ${stats.totalParties} soirées et ${volumeInLiters}L ingurgités ! Le carburant de vos exploits était clairement le/la ${mostConsumed.brand || mostConsumed.type}, consommé ${mostConsumed.quantity} fois pour un total de ${favoriteVolume}L.`
         ];
         const randomIndex = Math.floor(Math.random() * templates.length);
         return templates[randomIndex];
@@ -251,6 +252,12 @@ const StatsPage = () => {
 
         if (filteredParties.length === 0) {
             setMessageBox({ message: "Aucune soirée trouvée pour cette période.", type: "info" });
+            setGenerating(false);
+            return;
+        }
+
+        if (!userProfile) {
+            setMessageBox({ message: "Profil utilisateur non disponible.", type: "error" });
             setGenerating(false);
             return;
         }

@@ -114,6 +114,51 @@ export class ExperienceService {
             }
         });
 
+        // Calcul de la boisson la plus consommée
+        let mostConsumedDrink = { type: 'Aucune', quantity: 0, brand: '' };
+        let maxQuantity = 0;
+        
+        for (const drinkType in stats.drinkTypes) {
+            if (stats.drinkTypes[drinkType] > maxQuantity) {
+                maxQuantity = stats.drinkTypes[drinkType];
+                mostConsumedDrink.type = drinkType;
+                mostConsumedDrink.quantity = maxQuantity;
+            }
+        }
+        
+        // Trouver la marque la plus populaire pour ce type de boisson
+        let mostPopularBrand = '';
+        let maxBrandCount = 0;
+        const brandCombinations = {};
+        
+        parties.forEach(party => {
+            party.drinks?.forEach(drink => {
+                if (drink.type === mostConsumedDrink.type && drink.brand) {
+                    const key = `${drink.type} - ${drink.brand}`;
+                    brandCombinations[key] = (brandCombinations[key] || 0) + (drink.quantity || 0);
+                }
+            });
+        });
+        
+        for (const combination in brandCombinations) {
+            if (combination.startsWith(mostConsumedDrink.type) && brandCombinations[combination] > maxBrandCount) {
+                maxBrandCount = brandCombinations[combination];
+                mostPopularBrand = combination.split(' - ')[1];
+            }
+        }
+        
+        mostConsumedDrink.brand = mostPopularBrand;
+        stats.mostConsumedDrink = mostConsumedDrink;
+        
+        // Calcul des volumes par type de boisson (pour compatibilité)
+        stats.drinkVolumes = {};
+        parties.forEach(party => {
+            party.drinks?.forEach(drink => {
+                const volume = calculateDrinkVolume(drink.type, party.category, drink.quantity || 0);
+                stats.drinkVolumes[drink.type] = (stats.drinkVolumes[drink.type] || 0) + volume;
+            });
+        });
+
         stats.uniqueLocations = stats.uniqueLocations.size;
         stats.totalXP = this.calculateTotalXP(stats);
         stats.level = this.calculateLevel(stats.totalXP);
