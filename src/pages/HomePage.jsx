@@ -5,7 +5,7 @@ import { useTheme } from '../styles/ThemeContext.jsx';
 import ThemedText from '../styles/ThemedText.jsx';
 import { badgeService } from '../services/badgeService';
 import { badgeList, gameplayConfig } from '../utils/data';
-import AddPartyModal from '../components/AddPartyModal';
+import PartyModeSelector from '../components/PartyModeSelector';
 import LoadingIcon from '../components/LoadingIcon';
 import RewardNotification from '../components/RewardNotification';
 import GlassButton from '../components/GlassButton';
@@ -17,7 +17,7 @@ const HomePage = () => {
     const { db, user, appId, userProfile } = useContext(FirebaseContext);
     
     const { theme } = useTheme();
-    const [showAddPartyModal, setShowAddPartyModal] = useState(false);
+    const [showPartyModeSelector, setShowPartyModeSelector] = useState(false);
     const [weeklyStats, setWeeklyStats] = useState(null);
     const [lastBadge, setLastBadge] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -48,8 +48,12 @@ const HomePage = () => {
             badgeService.updatePublicStats(db, user, appId, userProfile);
         }
 
-        const q = query(collection(db, `artifacts/${appId}/users/${user.uid}/parties`));
-        const unsubscribe = onSnapshot(q, (snap) => {
+        let unsubscribe = null;
+        
+        // Petit délai pour éviter les conflits de listeners
+        const timeoutId = setTimeout(() => {
+            const q = query(collection(db, `artifacts/${appId}/users/${user.uid}/parties`));
+            unsubscribe = onSnapshot(q, (snap) => {
             const partiesData = snap.docs.map(d => d.data());
 
             const now = new Date();
@@ -65,12 +69,22 @@ const HomePage = () => {
             }
 
             setLoading(false);
-        }, (error) => {
-            logger.error('HOMEPAGE', 'Erreur lecture soirées pour le tableau de bord', error);
-            setLoading(false);
-        });
+            }, (error) => {
+                logger.error('HOMEPAGE', 'Erreur lecture soirées pour le tableau de bord', error);
+                setLoading(false);
+            });
+        }, 100);
 
-        return () => unsubscribe();
+        return () => {
+            clearTimeout(timeoutId);
+            if (unsubscribe) {
+                try {
+                    unsubscribe();
+                } catch (error) {
+                    console.warn('⚠️ Erreur nettoyage listener homepage:', error);
+                }
+            }
+        };
     }, [db, user, appId, userProfile]);
 
     const containerClassName = "backdrop-blur-md border border-gray-600 shadow-lg";
@@ -122,7 +136,7 @@ const HomePage = () => {
             {/* Bouton Nouvelle Soirée */}
             <div className="mobile-card">
                 <GlassButton
-                    onClick={() => setShowAddPartyModal(true)}
+                    onClick={() => setShowPartyModeSelector(true)}
                     variant="primary"
                     size="large"
                     style={{ 
@@ -218,11 +232,11 @@ const HomePage = () => {
             </div>
 
             {/* Modales */}
-            {showAddPartyModal && (
-                <AddPartyModal 
-                    onClose={() => setShowAddPartyModal(false)}
+            {showPartyModeSelector && (
+                <PartyModeSelector 
+                    onClose={() => setShowPartyModeSelector(false)}
                     onPartySaved={() => {
-                        setShowAddPartyModal(false);
+                        setShowPartyModeSelector(false);
                     }}
                 />
             )}

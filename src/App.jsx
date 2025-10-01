@@ -10,15 +10,16 @@ import MessageBox from './components/MessageBox';
 import AuthPage from './pages/AuthPage';
 import HomePage from './pages/HomePage';
 
-// Lazy load pages (loaded on demand)
-const StatsPage = React.lazy(() => import('./pages/StatsPage'));
-const BadgesPage = React.lazy(() => import('./pages/BadgesPage'));
-const ChallengesPage = React.lazy(() => import('./pages/ChallengesPage'));
-const FriendsPage = React.lazy(() => import('./pages/FriendsPage'));
-const ProfilePage = React.lazy(() => import('./pages/ProfilePage'));
-const FriendStatsPage = React.lazy(() => import('./pages/FriendStatsPage'));
-const FeedPage = React.lazy(() => import('./pages/FeedPage'));
-const Phase2CDemo = React.lazy(() => import('./components/Phase2CDemo'));
+// Import pages directly (fixing import issues)
+import StatsPage from './pages/StatsPage';
+import BadgesPage from './pages/BadgesPage';
+import ChallengesPage from './pages/ChallengesPage';
+import FriendsPage from './pages/FriendsPage';
+import ProfilePage from './pages/ProfilePage';
+import FriendStatsPage from './pages/FriendStatsPage';
+import FeedPage from './pages/FeedPage';
+import Phase2CDemo from './components/Phase2CDemo';
+import BattleRoyale from './components/BattleRoyale';
 
 // Import icons for the nav bar
 import { Home, BarChart, Users, Award, User as UserIcon, Shield, Rss, Target, Sparkles } from 'lucide-react';
@@ -76,6 +77,7 @@ const AppContent = () => {
     const navItems = [
         { id: 'home', icon: Home, label: 'Accueil' },
         { id: 'feed', icon: Rss, label: 'Fil' },
+        { id: 'battle', icon: Shield, label: 'Battle' },
         { id: 'stats', icon: BarChart, label: 'Stats' },
         { id: 'badges', icon: Award, label: 'Badges' },
         { id: 'challenges', icon: Target, label: 'Défis' },
@@ -89,6 +91,7 @@ const AppContent = () => {
             switch (currentPage) {
                 case 'home': return <HomePage />;
                 case 'feed': return <FeedPage />;
+                case 'battle': return <BattleRoyale />;
                 case 'stats': return <StatsPage />;
                 case 'badges': return <BadgesPage />;
                 case 'challenges': return <ChallengesPage />;
@@ -101,15 +104,13 @@ const AppContent = () => {
         };
 
         return (
-            <React.Suspense fallback={<LoadingSpinner />}>
-                <PageTransition 
-                    isActive={!isTransitioning}
-                    direction="fade"
-                    duration={300}
-                >
-                    <PageComponent />
-                </PageTransition>
-            </React.Suspense>
+            <PageTransition 
+                isActive={!isTransitioning}
+                direction="fade"
+                duration={300}
+            >
+                <PageComponent />
+            </PageTransition>
         );
     };
     

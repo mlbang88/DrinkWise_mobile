@@ -9,6 +9,7 @@ const {onDocumentCreated, onDocumentUpdated} = require("firebase-functions/v2/fi
 const logger = require("firebase-functions/logger");
 const cors = require('cors');
 const admin = require('firebase-admin');
+const functions = require('firebase-functions');
 
 // Initialiser Admin SDK
 if (!admin.apps.length) {
@@ -40,7 +41,8 @@ const corsHandler = cors(corsOptions);
 // Fonction pour générer un résumé de soirée avec IA
 exports.generateSummary = onCall({
   region: 'us-central1',
-  cors: corsOptions
+  cors: corsOptions,
+  secrets: ['GEMINI_API_KEY']
 }, async (request) => {
   try {
     const { partyData, drunkLevel, appId } = request.data;
@@ -92,114 +94,7 @@ exports.generateSummary = onCall({
   }
 });
 
-// Fonction pour analyser une image avec Gemini de manière sécurisée
-exports.analyzeImageSecure = onCall({
-  region: 'us-central1',
-  cors: corsOptions
-}, async (request) => {
-  try {
-    const { imageBase64 } = request.data;
-    
-    // Vérifier l'authentification
-    if (!request.auth) {
-      throw new Error('Utilisateur non authentifié');
-    }
-    
-    // Clé API stockée de manière sécurisée côté serveur
-    const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-    
-    if (!GEMINI_API_KEY) {
-      throw new Error('Configuration API manquante');
-    }
-    
-    logger.info('🤖 Analyse d\'image sécurisée pour utilisateur:', request.auth.uid);
-    
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
-    
-    const payload = {
-      contents: [{
-        parts: [
-          {
-            text: `Analyse cette image et identifie la boisson visible. 
-            Réponds au format JSON avec les clés "type" et "brand" (marque).
-            
-            Pour le type, utilise l'un de ces termes : "Bière", "Vin", "Spiritueux", "Cocktail", "Autre"
-            Pour la marque, identifie la marque visible sur l'étiquette/bouteille (ex: "Heineken", "Corona", "Absolut", "Jack Daniel's", etc.)
-            Si aucune marque n'est visible ou identifiable, mets "brand": null
-            
-            Exemple de réponse:
-            {"type": "Bière", "brand": "Heineken"}
-            {"type": "Spiritueux", "brand": "Jack Daniel's"}
-            {"type": "Vin", "brand": null}
-            
-            Si aucune boisson n'est visible, réponds: {"type": "Autre", "brand": null}`
-          },
-          {
-            inline_data: {
-              mime_type: "image/jpeg",
-              data: imageBase64
-            }
-          }
-        ]
-      }],
-      generationConfig: {
-        temperature: 0.1,
-        topK: 1,
-        topP: 0.8,
-        maxOutputTokens: 200
-      }
-    };
-    
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(payload)
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Erreur API Gemini: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    
-    if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) {
-      throw new Error('Réponse API invalide');
-    }
-    
-    const text = data.candidates[0].content.parts[0].text;
-    logger.info('Réponse Gemini brute:', text);
-    
-    // Parser la réponse JSON
-    let drinkInfo;
-    try {
-      const cleanedText = text.replace(/```json|```/g, '').replace(/\n/g, '').trim();
-      drinkInfo = JSON.parse(cleanedText);
-      
-      // Standardiser le format de réponse
-      drinkInfo = {
-        type: drinkInfo.type || 'Autre',
-        brand: drinkInfo.brand || null
-      };
-    } catch (parseError) {
-      logger.warn('Parsing JSON échoué, fallback:', parseError);
-      // Fallback si parsing échoue
-      drinkInfo = { type: 'Autre', brand: null };
-    }
-    
-    logger.info('✅ Analyse terminée:', drinkInfo);
-    
-    return {
-      success: true,
-      drinkInfo: drinkInfo
-    };
-    
-  } catch (error) {
-    logger.error('❌ Erreur analyse image:', error);
-    throw new Error(`Erreur analyse: ${error.message}`);
-  }
-});
+
 
 // Fonction helper pour appeler Gemini avec du texte uniquement
 async function callGeminiForText(prompt) {
@@ -210,7 +105,7 @@ async function callGeminiForText(prompt) {
       throw new Error('Configuration API manquante');
     }
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
     
     const payload = {
       contents: [{
@@ -396,7 +291,8 @@ exports.forceAddFriend = onCall({
 // Fonction pour analyser une image avec Gemini de manière sécurisée
 exports.analyzeImageSecure = onCall({
   region: 'us-central1',
-  cors: corsOptions
+  cors: corsOptions,
+  secrets: ['GEMINI_API_KEY']
 }, async (request) => {
   try {
     const { imageBase64, mimeType } = request.data;
@@ -415,7 +311,7 @@ exports.analyzeImageSecure = onCall({
     
     logger.info('🤖 Analyse d\'image sécurisée pour utilisateur:', request.auth.uid);
     
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
     
     const payload = {
       contents: [{
@@ -498,7 +394,17 @@ exports.analyzeImageSecure = onCall({
     
   } catch (error) {
     logger.error('❌ Erreur analyse image:', error);
-    throw new Error(`Erreur analyse: ${error.message}`);
+    
+    // Fallback gracieux - retourner un résultat par défaut au lieu d'échouer
+    logger.warn('🔄 Utilisation du fallback - analyse IA temporairement indisponible');
+    return {
+      success: true,
+      drinkInfo: { 
+        type: 'Autre', 
+        brand: null,
+        note: 'Analyse automatique temporairement indisponible'
+      }
+    };
   }
 });
 

@@ -146,6 +146,12 @@ const FeedPage = () => {
 
     // Charger le feed principal
     const loadFeed = useCallback(async () => {
+        if (!db || !user || !appId) {
+            console.log('⏳ Firebase pas encore prêt, attente...');
+            setLoading(false);
+            return;
+        }
+        
         try {
             setLoading(true);
             logger.info('Chargement du feed...');
@@ -1282,10 +1288,10 @@ const FeedPage = () => {
 
     // Charger le feed au démarrage
     useEffect(() => {
-        if (user && userProfile) {
+        if (user && userProfile && db) {
             loadFeed();
         }
-    }, [user, userProfile]);
+    }, [user, userProfile, db, loadFeed]);
 
     // Listener pour rafraîchissement automatique du feed
     useEffect(() => {

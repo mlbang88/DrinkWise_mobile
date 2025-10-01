@@ -13,7 +13,6 @@ const EditPartyModal = ({ partyData, onClose, onPartyUpdated, onPartyDeleted }) 
     const [date, setDate] = useState('');
     const [drinks, setDrinks] = useState([]);
     const [stats, setStats] = useState({
-        girlsTalkedTo: 0,
         fights: 0,
         recal: 0,
         vomi: 0,
@@ -33,7 +32,6 @@ const EditPartyModal = ({ partyData, onClose, onPartyUpdated, onPartyDeleted }) 
             
             setDrinks(partyData.drinks || [{ type: 'Bière', brand: '', quantity: 1 }]);
             setStats({
-                girlsTalkedTo: partyData.girlsTalkedTo || 0,
                 fights: partyData.fights || 0,
                 recal: partyData.recal || 0,
                 vomi: partyData.vomi || 0,
@@ -148,7 +146,7 @@ const EditPartyModal = ({ partyData, onClose, onPartyUpdated, onPartyDeleted }) 
                 padding: '24px',
                 width: '100%',
                 maxWidth: '500px',
-                maxHeight: '90vh',
+                maxHeight: '98vh',
                 overflow: 'auto',
                 position: 'relative',
                 border: '1px solid rgba(255, 255, 255, 0.1)'
@@ -375,28 +373,7 @@ const EditPartyModal = ({ partyData, onClose, onPartyUpdated, onPartyDeleted }) 
                             gridTemplateColumns: '1fr 1fr',
                             gap: '16px'
                         }}>
-                            <div>
-                                <label style={{ display: 'block', color: '#9ca3af', fontSize: '14px', marginBottom: '4px' }}>
-                                    Filles parlées:
-                                </label>
-                                <input 
-                                    type="number" 
-                                    value={stats.girlsTalkedTo} 
-                                    onChange={(e) => handleStatChange('girlsTalkedTo', e.target.value)} 
-                                    min="0"
-                                    style={{
-                                        width: '100%',
-                                        padding: '12px',
-                                        backgroundColor: '#2d3748',
-                                        border: '1px solid rgba(255, 255, 255, 0.1)',
-                                        borderRadius: '8px',
-                                        color: 'white',
-                                        fontSize: '14px',
-                                        outline: 'none',
-                                        textAlign: 'center'
-                                    }}
-                                />
-                            </div>
+
                             
                             <div>
                                 <label style={{ display: 'block', color: '#9ca3af', fontSize: '14px', marginBottom: '4px' }}>

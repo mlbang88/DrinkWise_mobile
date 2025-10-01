@@ -1,0 +1,1271 @@
+import React, { useState, useContext, useCallback, useEffect } from 'react';
+import { Timestamp, addDoc, collection, doc, updateDoc, getDocs, query, where } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { FirebaseContext } from '../contexts/FirebaseContext.jsx';
+import { drinkOptions, partyCategories } from '../utils/data.jsx';
+import { Upload, X, Trash2, PlusCircle, Plus, Minus, Users, User, Video } from 'lucide-react';
+import DrinkAnalyzer from './DrinkAnalyzer';
+import UserAvatar from './UserAvatar';
+import { logger } from '../utils/logger.js';
+
+const BasicPartyModal = ({ onClose, onPartySaved }) => {
+    const { db, storage, user, appId, userProfile, setMessageBox } = useContext(FirebaseContext);
+    
+    // États de base
+    const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+    const [drinks, setDrinks] = useState([{ type: 'Bière', brand: '', quantity: 1 }]);
+    const [stats, setStats] = useState({
+        newNumbersGot: 0,
+        elleVeut: 0,
+        timeFightsStarted: 0,
+        vomitCount: 0
+    });
+    const [location, setLocation] = useState('');
+    const [category, setCategory] = useState(partyCategories[0]);
+    const [companions, setCompanions] = useState({ type: 'none', selectedIds: [], selectedNames: [] });
+    
+    // États pour les médias
+    const [photoFiles, setPhotoFiles] = useState([]);
+    const [videoFiles, setVideoFiles] = useState([]);
+    const [uploadingPhotos, setUploadingPhotos] = useState(false);
+    const [uploadingVideos, setUploadingVideos] = useState(false);
+
+    // États pour la gestion des amis et groupes
+    const [friendsList, setFriendsList] = useState([]);
+    const [groupsList, setGroupsList] = useState([]);
+    const [loadingCompanions, setLoadingCompanions] = useState(false);
+
+    const handleStatChange = (field, value) => setStats(prev => ({ ...prev, [field]: Math.max(0, Number(value)) }));
+    
+    const handleDrinkChange = (index, field, value) => {
+        const newDrinks = [...drinks];
+        newDrinks[index][field] = field === 'quantity' ? parseInt(value, 10) || 0 : value;
+        if (field === 'type') newDrinks[index].brand = '';
+        setDrinks(newDrinks);
+    };
+
+    // Gestion des compagnons
+    const toggleCompanionSelection = (type, id, name) => {
+        setCompanions(prev => {
+            const isSelected = prev.selectedIds.includes(id);
+            if (isSelected) {
+                return {
+                    ...prev,
+                    selectedIds: prev.selectedIds.filter(selectedId => selectedId !== id),
+                    selectedNames: prev.selectedNames.filter(selectedName => selectedName !== name)
+                };
+            } else {
+                return {
+                    ...prev,
+                    selectedIds: [...prev.selectedIds, id],
+                    selectedNames: [...prev.selectedNames, name]
+                };
+            }
+        });
+    };
+
+    // Fonction pour gérer la détection automatique de boisson
+    const handleDrinkDetected = (drinkType, detectedBrand) => {
+        console.log('🤖 Boisson détectée:', { drinkType, detectedBrand });
+        
+        const newDrinks = [...drinks];
+        if (newDrinks.length === 0) {
+            newDrinks.push({ 
+                type: drinkType, 
+                brand: detectedBrand || '', 
+                quantity: 1 
+            });
+        } else {
+            newDrinks[0] = { 
+                ...newDrinks[0], 
+                type: drinkType, 
+                brand: detectedBrand || newDrinks[0].brand || ''
+            };
+        }
+        setDrinks(newDrinks);
+    };
+
+    const addDrink = () => setDrinks([...drinks, { type: 'Bière', brand: '', quantity: 1 }]);
+    const removeDrink = (index) => setDrinks(drinks.filter((_, i) => i !== index));
+
+    const handlePhotoAdd = (e) => {
+        const files = Array.from(e.target.files);
+        const newPhotos = files.slice(0, 5 - photoFiles.length);
+        setPhotoFiles(prev => [...prev, ...newPhotos]);
+    };
+
+    const removePhoto = (index) => {
+        setPhotoFiles(prev => prev.filter((_, i) => i !== index));
+    };
+
+    // Fonctions pour gérer les vidéos
+    const handleVideoAdd = (e) => {
+        const files = Array.from(e.target.files);
+        const validVideos = [];
+        
+        for (const file of files) {
+            if (file.size > 50 * 1024 * 1024) {
+                setMessageBox({ 
+                    message: `Vidéo "${file.name}" trop volumineuse (max 50MB)`, 
+                    type: "error" 
+                });
+                continue;
+            }
+            
+            const video = document.createElement('video');
+            video.onloadedmetadata = function() {
+                if (video.duration > 20) {
+                    setMessageBox({ 
+                        message: `Vidéo "${file.name}" trop longue (max 20 secondes)`, 
+                        type: "error" 
+                    });
+                } else {
+                    validVideos.push(file);
+                    if (validVideos.length > 0 && videoFiles.length + validVideos.length <= 3) {
+                        setVideoFiles(prev => [...prev, ...validVideos.slice(0, 3 - prev.length)]);
+                    }
+                }
+                URL.revokeObjectURL(video.src);
+            };
+            
+            video.src = URL.createObjectURL(file);
+        }
+    };
+
+    const removeVideo = (index) => {
+        setVideoFiles(prev => prev.filter((_, i) => i !== index));
+    };
+
+    // Charger les amis et groupes au montage du composant
+    useEffect(() => {
+        const loadCompanionsData = async () => {
+            if (!user || !db || !userProfile) return;
+            
+            setLoadingCompanions(true);
+            try {
+                // Charger les amis
+                if (userProfile.friends && userProfile.friends.length > 0) {
+                    const friendsData = [];
+                    for (const friendId of userProfile.friends) {
+                        try {
+                            const friendQuery = query(
+                                collection(db, `artifacts/${appId}/public_user_stats`),
+                                where('__name__', '==', friendId)
+                            );
+                            const friendSnapshot = await getDocs(friendQuery);
+                            if (!friendSnapshot.empty) {
+                                const friendData = friendSnapshot.docs[0].data();
+                                friendsData.push({
+                                    id: friendId,
+                                    username: friendData.username || 'Ami',
+                                    displayName: friendData.displayName || friendData.username || 'Ami'
+                                });
+                            }
+                        } catch (error) {
+                            logger.error('Erreur chargement ami', { error: error.message });
+                        }
+                    }
+                    setFriendsList(friendsData);
+                }
+
+                // Charger les groupes
+                try {
+                    const groupsQuery = query(
+                        collection(db, `artifacts/${appId}/groups`),
+                        where('members', 'array-contains', user.uid)
+                    );
+                    const groupsSnapshot = await getDocs(groupsQuery);
+                    const groupsData = groupsSnapshot.docs.map(doc => ({
+                        id: doc.id,
+                        name: doc.data().name || 'Groupe',
+                        ...doc.data()
+                    }));
+                    setGroupsList(groupsData);
+                } catch (error) {
+                    logger.error('Erreur chargement groupes', { error: error.message });
+                }
+            } catch (error) {
+                console.error('Erreur chargement compagnons:', error);
+            } finally {
+                setLoadingCompanions(false);
+            }
+        };
+
+        loadCompanionsData();
+    }, [user, db, userProfile, appId]);
+
+    // Fonction pour gérer le changement de type de compagnon
+    const handleCompanionTypeChange = (type) => {
+        setCompanions({ type, selectedIds: [], selectedNames: [] });
+    };
+
+    // Fonction pour gérer la sélection/désélection d'amis
+    const handleFriendToggle = (friendId, friendName) => {
+        setCompanions(prev => {
+            const isSelected = prev.selectedIds.includes(friendId);
+            if (isSelected) {
+                return {
+                    ...prev,
+                    selectedIds: prev.selectedIds.filter(id => id !== friendId),
+                    selectedNames: prev.selectedNames.filter(name => name !== friendName)
+                };
+            } else {
+                return {
+                    ...prev,
+                    selectedIds: [...prev.selectedIds, friendId],
+                    selectedNames: [...prev.selectedNames, friendName]
+                };
+            }
+        });
+    };
+
+    // Fonction pour gérer la sélection de groupe
+    const handleGroupSelect = (groupId, groupName) => {
+        setCompanions({
+            type: 'group',
+            selectedIds: [groupId],
+            selectedNames: [groupName]
+        });
+    };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        
+        if (!user || !db) return setMessageBox({ message: "Connexion requise.", type: "error" });
+
+        const partyData = { 
+            date, 
+            drinks, 
+            ...stats, 
+            location, 
+            category, 
+            companions,
+            timestamp: Timestamp.now(), 
+            userId: user.uid, 
+            username: userProfile?.username || "Anonyme",
+            mode: 'basic' // Marqueur pour identifier le mode
+        };
+        
+        try {
+            const docRef = await addDoc(collection(db, `artifacts/${appId}/users/${user.uid}/parties`), partyData);
+            
+            // Upload photos en arrière-plan si présentes
+            if (photoFiles.length > 0) {
+                setUploadingPhotos(true);
+                try {
+                    const photoURLs = [];
+                    
+                    for (let i = 0; i < photoFiles.length; i++) {
+                        const photoFile = photoFiles[i];
+                        const storagePath = `artifacts/${appId}/users/${user.uid}/parties/${docRef.id}/photo_${i + 1}.jpg`;
+                        const storageRefPhoto = ref(storage, storagePath);
+                        await uploadBytes(storageRefPhoto, photoFile);
+                        const photoURL = await getDownloadURL(storageRefPhoto);
+                        photoURLs.push(photoURL);
+                    }
+                    
+                    // Mettre à jour avec les URLs des photos
+                    await updateDoc(doc(db, `artifacts/${appId}/users/${user.uid}/parties`, docRef.id), { 
+                        photoURLs: photoURLs,
+                        photosCount: photoURLs.length 
+                    });
+                } catch (photoError) {
+                    console.error("Erreur upload photos:", photoError);
+                } finally {
+                    setUploadingPhotos(false);
+                }
+            }
+
+            // Upload vidéos en arrière-plan si présentes
+            if (videoFiles.length > 0) {
+                setUploadingVideos(true);
+                try {
+                    const videoURLs = [];
+                    
+                    for (let i = 0; i < videoFiles.length; i++) {
+                        const videoFile = videoFiles[i];
+                        const storagePath = `artifacts/${appId}/users/${user.uid}/parties/${docRef.id}/video_${i + 1}.mp4`;
+                        const storageRefVideo = ref(storage, storagePath);
+                        await uploadBytes(storageRefVideo, videoFile);
+                        const videoURL = await getDownloadURL(storageRefVideo);
+                        videoURLs.push(videoURL);
+                    }
+                    
+                    // Mettre à jour avec les URLs des vidéos
+                    await updateDoc(doc(db, `artifacts/${appId}/users/${user.uid}/parties`, docRef.id), { 
+                        videoURLs: videoURLs,
+                        videosCount: videoURLs.length 
+                    });
+                } catch (videoError) {
+                    console.error("Erreur upload vidéos:", videoError);
+                } finally {
+                    setUploadingVideos(false);
+                }
+            }
+
+            setMessageBox({ message: "Soirée enregistrée avec succès !", type: "success" });
+            
+            // Déclencher rafraîchissement du feed
+            window.dispatchEvent(new CustomEvent('refreshFeed'));
+            
+            if (onPartySaved) onPartySaved();
+            onClose();
+            
+        } catch (error) {
+            console.error("Erreur sauvegarde:", error);
+            setMessageBox({ message: "Erreur lors de la sauvegarde", type: "error" });
+        }
+    };
+
+    return (
+        <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+            display: 'flex',
+            alignItems: 'flex-start',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: '20px',
+            paddingTop: '40px',
+            overflowY: 'auto'
+        }}>
+            <div style={{
+                backgroundColor: '#1a202c',
+                borderRadius: '20px',
+                padding: '24px',
+                maxWidth: '500px',
+                width: '100%',
+                maxHeight: '98vh',
+                overflowY: 'auto',
+                boxShadow: '0 25px 50px rgba(0, 0, 0, 0.5)'
+            }}>
+                {/* Header */}
+                <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: '24px'
+                }}>
+                    <h2 style={{
+                        color: 'white',
+                        fontSize: '24px',
+                        fontWeight: '700',
+                        margin: 0
+                    }}>
+                        📝 Nouvelle Soirée
+                    </h2>
+                    <button
+                        onClick={onClose}
+                        style={{
+                            background: 'rgba(255, 255, 255, 0.1)',
+                            border: 'none',
+                            borderRadius: '50%',
+                            padding: '8px',
+                            cursor: 'pointer',
+                            color: 'white'
+                        }}
+                    >
+                        <X size={20} />
+                    </button>
+                </div>
+
+                <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    {/* Date */}
+                    <div>
+                        <label style={{
+                            display: 'block',
+                            color: 'white',
+                            fontSize: '15px',
+                            fontWeight: '600',
+                            marginBottom: '8px'
+                        }}>
+                            Date:
+                        </label>
+                        <input 
+                            type="date" 
+                            value={date} 
+                            onChange={(e) => setDate(e.target.value)} 
+                            required
+                            style={{
+                                width: '100%',
+                                padding: '12px 16px',
+                                background: 'rgba(255, 255, 255, 0.08)',
+                                border: '1px solid rgba(255, 255, 255, 0.2)',
+                                borderRadius: '12px',
+                                color: 'white',
+                                fontSize: '16px',
+                                outline: 'none'
+                            }}
+                        />
+                    </div>
+
+                    {/* Boissons */}
+                    <div>
+                        <label style={{
+                            display: 'block',
+                            color: 'white',
+                            fontSize: '15px',
+                            fontWeight: '600',
+                            marginBottom: '12px'
+                        }}>
+                            Boissons:
+                        </label>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            {drinks.map((drink, index) => (
+                                <div key={index} style={{
+                                    display: 'flex',
+                                    gap: '12px',
+                                    alignItems: 'center',
+                                    padding: '12px',
+                                    background: 'rgba(255, 255, 255, 0.06)',
+                                    borderRadius: '12px'
+                                }}>
+                                    <select 
+                                        value={drink.type} 
+                                        onChange={(e) => handleDrinkChange(index, 'type', e.target.value)}
+                                        style={{
+                                            width: '120px',
+                                            padding: '8px',
+                                            background: 'rgba(255, 255, 255, 0.1)',
+                                            border: 'none',
+                                            borderRadius: '8px',
+                                            color: 'white',
+                                            outline: 'none'
+                                        }}
+                                    >
+                                        {drinkOptions.map(opt => (
+                                            <option key={opt.type} value={opt.type} style={{ backgroundColor: '#374151', color: 'white' }}>
+                                                {opt.type}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    
+                                    {drinkOptions.find(opt => opt.type === drink.type)?.brands.length > 0 && (
+                                        <select 
+                                            value={drink.brand} 
+                                            onChange={(e) => handleDrinkChange(index, 'brand', e.target.value)}
+                                            style={{
+                                                flex: 1,
+                                                padding: '8px',
+                                                background: 'rgba(255, 255, 255, 0.1)',
+                                                border: 'none',
+                                                borderRadius: '8px',
+                                                color: 'white',
+                                                outline: 'none'
+                                            }}
+                                        >
+                                            <option value="">Marque</option>
+                                            {drinkOptions.find(opt => opt.type === drink.type)?.brands.map(brand => (
+                                                <option key={brand} value={brand} style={{ backgroundColor: '#374151', color: 'white' }}>
+                                                    {brand}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    )}
+                                    
+                                    <input 
+                                        type="number" 
+                                        value={drink.quantity} 
+                                        onChange={(e) => handleDrinkChange(index, 'quantity', e.target.value)} 
+                                        min="1"
+                                        style={{
+                                            width: '60px',
+                                            padding: '8px',
+                                            background: 'rgba(255, 255, 255, 0.1)',
+                                            border: 'none',
+                                            borderRadius: '8px',
+                                            color: 'white',
+                                            textAlign: 'center',
+                                            outline: 'none'
+                                        }}
+                                    />
+                                    
+                                    <button 
+                                        type="button" 
+                                        onClick={() => removeDrink(index)}
+                                        style={{
+                                            background: '#dc2626',
+                                            border: 'none',
+                                            borderRadius: '6px',
+                                            padding: '8px',
+                                            color: 'white',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                        
+                        <button 
+                            type="button" 
+                            onClick={addDrink}
+                            style={{
+                                width: '100%',
+                                padding: '12px',
+                                background: '#8b45ff',
+                                border: 'none',
+                                borderRadius: '8px',
+                                color: 'white',
+                                fontSize: '14px',
+                                fontWeight: '600',
+                                cursor: 'pointer',
+                                marginTop: '12px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '8px'
+                            }}
+                        >
+                            <PlusCircle size={16} />
+                            Ajouter une boisson
+                        </button>
+                    </div>
+
+                    {/* Détection IA des boissons */}
+                    <div>
+                        <label style={{
+                            display: 'block',
+                            color: 'white',
+                            fontSize: '15px',
+                            fontWeight: '600',
+                            marginBottom: '8px'
+                        }}>
+                            🤖 IA Détection de boissons:
+                        </label>
+                        <DrinkAnalyzer 
+                            isDarkMode={true}
+                            onDrinkDetected={handleDrinkDetected}
+                        />
+                    </div>
+
+                    {/* Statistiques détaillées */}
+                    <div>
+                        <label style={{
+                            display: 'block',
+                            color: 'white',
+                            fontSize: '15px',
+                            fontWeight: '600',
+                            marginBottom: '12px'
+                        }}>
+                            Statistiques de la soirée:
+                        </label>
+                        <div style={{ 
+                            display: 'grid', 
+                            gridTemplateColumns: '1fr 1fr', 
+                            gap: '12px',
+                            marginBottom: '16px'
+                        }}>
+                            {/* Bagarres */}
+                            <div style={{
+                                background: 'rgba(251, 146, 60, 0.1)',
+                                padding: '12px',
+                                borderRadius: '12px',
+                                border: '1px solid rgba(251, 146, 60, 0.3)'
+                            }}>
+                                <div style={{ color: '#fb923c', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
+                                    Bagarres
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleStatChange('timeFightsStarted', stats.timeFightsStarted - 1)}
+                                        style={{
+                                            width: '32px',
+                                            height: '32px',
+                                            background: 'rgba(251, 146, 60, 0.2)',
+                                            border: 'none',
+                                            borderRadius: '50%',
+                                            color: '#fb923c',
+                                            fontSize: '18px',
+                                            fontWeight: 'bold',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        -
+                                    </button>
+                                    <span style={{ color: 'white', fontSize: '18px', fontWeight: 'bold', minWidth: '24px', textAlign: 'center' }}>
+                                        {stats.timeFightsStarted}
+                                    </span>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleStatChange('timeFightsStarted', stats.timeFightsStarted + 1)}
+                                        style={{
+                                            width: '32px',
+                                            height: '32px',
+                                            background: 'rgba(251, 146, 60, 0.2)',
+                                            border: 'none',
+                                            borderRadius: '50%',
+                                            color: '#fb923c',
+                                            fontSize: '18px',
+                                            fontWeight: 'bold',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        +
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Vomissements */}
+                            <div style={{
+                                background: 'rgba(239, 68, 68, 0.1)',
+                                padding: '12px',
+                                borderRadius: '12px',
+                                border: '1px solid rgba(239, 68, 68, 0.3)'
+                            }}>
+                                <div style={{ color: '#ef4444', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
+                                    Vomissements
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleStatChange('vomitCount', stats.vomitCount - 1)}
+                                        style={{
+                                            width: '32px',
+                                            height: '32px',
+                                            background: 'rgba(239, 68, 68, 0.2)',
+                                            border: 'none',
+                                            borderRadius: '50%',
+                                            color: '#ef4444',
+                                            fontSize: '18px',
+                                            fontWeight: 'bold',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        -
+                                    </button>
+                                    <span style={{ color: 'white', fontSize: '18px', fontWeight: 'bold', minWidth: '24px', textAlign: 'center' }}>
+                                        {stats.vomitCount}
+                                    </span>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleStatChange('vomitCount', stats.vomitCount + 1)}
+                                        style={{
+                                            width: '32px',
+                                            height: '32px',
+                                            background: 'rgba(239, 68, 68, 0.2)',
+                                            border: 'none',
+                                            borderRadius: '50%',
+                                            color: '#ef4444',
+                                            fontSize: '18px',
+                                            fontWeight: 'bold',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        +
+                                    </button>
+                                </div>
+                            </div>
+
+
+
+                            {/* Nouveaux numéros */}
+                            <div style={{
+                                background: 'rgba(34, 197, 94, 0.1)',
+                                padding: '12px',
+                                borderRadius: '12px',
+                                border: '1px solid rgba(34, 197, 94, 0.3)'
+                            }}>
+                                <div style={{ color: '#22c55e', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
+                                    Nouveaux numéros
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleStatChange('newNumbersGot', stats.newNumbersGot - 1)}
+                                        style={{
+                                            width: '32px',
+                                            height: '32px',
+                                            background: 'rgba(34, 197, 94, 0.2)',
+                                            border: 'none',
+                                            borderRadius: '50%',
+                                            color: '#22c55e',
+                                            fontSize: '18px',
+                                            fontWeight: 'bold',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        -
+                                    </button>
+                                    <span style={{ color: 'white', fontSize: '18px', fontWeight: 'bold', minWidth: '24px', textAlign: 'center' }}>
+                                        {stats.newNumbersGot}
+                                    </span>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleStatChange('newNumbersGot', stats.newNumbersGot + 1)}
+                                        style={{
+                                            width: '32px',
+                                            height: '32px',
+                                            background: 'rgba(34, 197, 94, 0.2)',
+                                            border: 'none',
+                                            borderRadius: '50%',
+                                            color: '#22c55e',
+                                            fontSize: '18px',
+                                            fontWeight: 'bold',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        +
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Elle veut */}
+                            <div style={{
+                                background: 'rgba(59, 130, 246, 0.1)',
+                                padding: '12px',
+                                borderRadius: '12px',
+                                border: '1px solid rgba(59, 130, 246, 0.3)'
+                            }}>
+                                <div style={{ color: '#3b82f6', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
+                                    Elle veut
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleStatChange('elleVeut', stats.elleVeut - 1)}
+                                        style={{
+                                            width: '32px',
+                                            height: '32px',
+                                            background: 'rgba(59, 130, 246, 0.2)',
+                                            border: 'none',
+                                            borderRadius: '50%',
+                                            color: '#3b82f6',
+                                            fontSize: '18px',
+                                            fontWeight: 'bold',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        -
+                                    </button>
+                                    <span style={{ color: 'white', fontSize: '18px', fontWeight: 'bold', minWidth: '24px', textAlign: 'center' }}>
+                                        {stats.elleVeut}
+                                    </span>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleStatChange('elleVeut', stats.elleVeut + 1)}
+                                        style={{
+                                            width: '32px',
+                                            height: '32px',
+                                            background: 'rgba(59, 130, 246, 0.2)',
+                                            border: 'none',
+                                            borderRadius: '50%',
+                                            color: '#3b82f6',
+                                            fontSize: '18px',
+                                            fontWeight: 'bold',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        +
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Lieu */}
+                    <div>
+                        <label style={{
+                            display: 'block',
+                            color: 'white',
+                            fontSize: '15px',
+                            fontWeight: '600',
+                            marginBottom: '8px'
+                        }}>
+                            Lieu (optionnel):
+                        </label>
+                        <input 
+                            type="text" 
+                            value={location} 
+                            onChange={(e) => setLocation(e.target.value)} 
+                            placeholder="Où s'est déroulée la soirée ?"
+                            style={{
+                                width: '100%',
+                                padding: '12px 16px',
+                                background: 'rgba(255, 255, 255, 0.08)',
+                                border: '1px solid rgba(255, 255, 255, 0.2)',
+                                borderRadius: '12px',
+                                color: 'white',
+                                fontSize: '16px',
+                                outline: 'none'
+                            }}
+                        />
+                    </div>
+
+                    {/* Catégorie */}
+                    <div>
+                        <label style={{
+                            display: 'block',
+                            color: 'white',
+                            fontSize: '15px',
+                            fontWeight: '600',
+                            marginBottom: '8px'
+                        }}>
+                            Type de soirée:
+                        </label>
+                        <select 
+                            value={category} 
+                            onChange={(e) => setCategory(e.target.value)}
+                            style={{
+                                width: '100%',
+                                padding: '12px 16px',
+                                background: 'rgba(255, 255, 255, 0.08)',
+                                border: '1px solid rgba(255, 255, 255, 0.2)',
+                                borderRadius: '12px',
+                                color: 'white',
+                                fontSize: '16px',
+                                outline: 'none'
+                            }}
+                        >
+                            {partyCategories.map(cat => (
+                                <option key={cat} value={cat} style={{ backgroundColor: '#374151', color: 'white' }}>
+                                    {cat}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+
+                    {/* Sélection des compagnons */}
+                    <div>
+                        <label style={{
+                            display: 'block',
+                            color: 'white',
+                            fontSize: '15px',
+                            fontWeight: '600',
+                            marginBottom: '12px'
+                        }}>
+                            Avec qui étiez-vous ?
+                        </label>
+                        
+                        {/* Type de compagnie */}
+                        <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+                            <button
+                                type="button"
+                                onClick={() => setCompanions({ type: 'none', selectedIds: [], selectedNames: [] })}
+                                style={{
+                                    flex: 1,
+                                    padding: '10px',
+                                    background: companions.type === 'none' ? '#8b45ff' : 'rgba(255, 255, 255, 0.1)',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    color: 'white',
+                                    fontSize: '14px',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                Seul(e)
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setCompanions({ type: 'friends', selectedIds: [], selectedNames: [] })}
+                                style={{
+                                    flex: 1,
+                                    padding: '10px',
+                                    background: companions.type === 'friends' ? '#8b45ff' : 'rgba(255, 255, 255, 0.1)',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    color: 'white',
+                                    fontSize: '14px',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                <User size={16} style={{ marginRight: '6px', display: 'inline' }} />
+                                Amis
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setCompanions({ type: 'groups', selectedIds: [], selectedNames: [] })}
+                                style={{
+                                    flex: 1,
+                                    padding: '10px',
+                                    background: companions.type === 'groups' ? '#8b45ff' : 'rgba(255, 255, 255, 0.1)',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    color: 'white',
+                                    fontSize: '14px',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                <Users size={16} style={{ marginRight: '6px', display: 'inline' }} />
+                                Groupes
+                            </button>
+                        </div>
+
+                        {/* Liste des amis */}
+                        {companions.type === 'friends' && friendsList.length > 0 && (
+                            <div style={{
+                                maxHeight: '150px',
+                                overflowY: 'auto',
+                                background: 'rgba(255, 255, 255, 0.05)',
+                                borderRadius: '8px',
+                                padding: '8px'
+                            }}>
+                                {friendsList.map(friend => (
+                                    <div
+                                        key={friend.id}
+                                        onClick={() => toggleCompanionSelection('friends', friend.id, friend.displayName)}
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '10px',
+                                            padding: '8px',
+                                            background: companions.selectedIds.includes(friend.id) ? 'rgba(139, 69, 255, 0.3)' : 'transparent',
+                                            borderRadius: '6px',
+                                            cursor: 'pointer',
+                                            border: companions.selectedIds.includes(friend.id) ? '1px solid #8b45ff' : '1px solid transparent'
+                                        }}
+                                    >
+                                        <UserAvatar user={friend} size={32} />
+                                        <span style={{ color: 'white', fontSize: '14px' }}>
+                                            {friend.displayName}
+                                        </span>
+                                        {companions.selectedIds.includes(friend.id) && (
+                                            <div style={{
+                                                marginLeft: 'auto',
+                                                width: '16px',
+                                                height: '16px',
+                                                background: '#8b45ff',
+                                                borderRadius: '50%',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                color: 'white',
+                                                fontSize: '12px'
+                                            }}>
+                                                ✓
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* Liste des groupes */}
+                        {companions.type === 'groups' && groupsList.length > 0 && (
+                            <div style={{
+                                maxHeight: '150px',
+                                overflowY: 'auto',
+                                background: 'rgba(255, 255, 255, 0.05)',
+                                borderRadius: '8px',
+                                padding: '8px'
+                            }}>
+                                {groupsList.map(group => (
+                                    <div
+                                        key={group.id}
+                                        onClick={() => toggleCompanionSelection('groups', group.id, group.name)}
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '10px',
+                                            padding: '8px',
+                                            background: companions.selectedIds.includes(group.id) ? 'rgba(139, 69, 255, 0.3)' : 'transparent',
+                                            borderRadius: '6px',
+                                            cursor: 'pointer',
+                                            border: companions.selectedIds.includes(group.id) ? '1px solid #8b45ff' : '1px solid transparent'
+                                        }}
+                                    >
+                                        <div style={{
+                                            width: '32px',
+                                            height: '32px',
+                                            background: 'linear-gradient(135deg, #8b45ff, #a855f7)',
+                                            borderRadius: '50%',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            color: 'white',
+                                            fontSize: '14px',
+                                            fontWeight: 'bold'
+                                        }}>
+                                            <Users size={16} />
+                                        </div>
+                                        <div>
+                                            <div style={{ color: 'white', fontSize: '14px', fontWeight: '500' }}>
+                                                {group.name}
+                                            </div>
+                                            <div style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: '12px' }}>
+                                                {group.memberCount} membres
+                                            </div>
+                                        </div>
+                                        {companions.selectedIds.includes(group.id) && (
+                                            <div style={{
+                                                marginLeft: 'auto',
+                                                width: '16px',
+                                                height: '16px',
+                                                background: '#8b45ff',
+                                                borderRadius: '50%',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                color: 'white',
+                                                fontSize: '12px'
+                                            }}>
+                                                ✓
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* Messages d'information */}
+                        {companions.type === 'friends' && friendsList.length === 0 && !loadingCompanions && (
+                            <div style={{
+                                padding: '12px',
+                                background: 'rgba(255, 255, 0, 0.1)',
+                                borderRadius: '8px',
+                                color: '#fbbf24',
+                                fontSize: '14px',
+                                textAlign: 'center'
+                            }}>
+                                Aucun ami trouvé. Ajoutez des amis pour les sélectionner !
+                            </div>
+                        )}
+
+                        {companions.type === 'groups' && groupsList.length === 0 && !loadingCompanions && (
+                            <div style={{
+                                padding: '12px',
+                                background: 'rgba(255, 255, 0, 0.1)',
+                                borderRadius: '8px',
+                                color: '#fbbf24',
+                                fontSize: '14px',
+                                textAlign: 'center'
+                            }}>
+                                Aucun groupe trouvé. Créez ou rejoignez des groupes !
+                            </div>
+                        )}
+
+                        {loadingCompanions && (
+                            <div style={{
+                                padding: '12px',
+                                textAlign: 'center',
+                                color: 'rgba(255, 255, 255, 0.6)'
+                            }}>
+                                Chargement des compagnons...
+                            </div>
+                        )}
+                    </div>
+
+
+
+                    {/* Vidéos */}
+                    <div>
+                        <label style={{
+                            display: 'block',
+                            color: 'white',
+                            fontSize: '15px',
+                            fontWeight: '600',
+                            marginBottom: '8px'
+                        }}>
+                            Vidéos (max 3, 20s chacune):
+                        </label>
+                        
+                        {videoFiles.length < 3 && (
+                            <label style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '8px',
+                                padding: '12px',
+                                background: 'rgba(255, 255, 255, 0.08)',
+                                border: '2px dashed rgba(255, 255, 255, 0.3)',
+                                borderRadius: '12px',
+                                color: 'white',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s ease'
+                            }}>
+                                <Video size={20} />
+                                <span>Ajouter des vidéos</span>
+                                <input
+                                    type="file"
+                                    accept="video/*"
+                                    multiple
+                                    onChange={handleVideoAdd}
+                                    style={{ display: 'none' }}
+                                />
+                            </label>
+                        )}
+                        
+                        {videoFiles.length > 0 && (
+                            <div style={{
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
+                                gap: '8px',
+                                marginTop: '12px'
+                            }}>
+                                {videoFiles.map((file, index) => (
+                                    <div key={index} style={{
+                                        position: 'relative',
+                                        aspectRatio: '16/9',
+                                        borderRadius: '8px',
+                                        overflow: 'hidden',
+                                        background: 'rgba(255, 255, 255, 0.1)'
+                                    }}>
+                                        <video
+                                            src={URL.createObjectURL(file)}
+                                            style={{
+                                                width: '100%',
+                                                height: '100%',
+                                                objectFit: 'cover'
+                                            }}
+                                            muted
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => removeVideo(index)}
+                                            style={{
+                                                position: 'absolute',
+                                                top: '4px',
+                                                right: '4px',
+                                                background: 'rgba(220, 38, 38, 0.8)',
+                                                border: 'none',
+                                                borderRadius: '50%',
+                                                width: '24px',
+                                                height: '24px',
+                                                color: 'white',
+                                                cursor: 'pointer',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center'
+                                            }}
+                                        >
+                                            <X size={14} />
+                                        </button>
+                                        <div style={{
+                                            position: 'absolute',
+                                            bottom: '4px',
+                                            left: '4px',
+                                            background: 'rgba(0, 0, 0, 0.7)',
+                                            color: 'white',
+                                            padding: '2px 6px',
+                                            borderRadius: '4px',
+                                            fontSize: '10px'
+                                        }}>
+                                            {file.name.length > 15 ? file.name.substring(0, 15) + '...' : file.name}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Détails de la soirée (optionnel) */}
+                    <div>
+
+                    </div>
+
+                    {/* Photos */}
+                    <div>
+                        <label style={{
+                            display: 'block',
+                            color: 'white',
+                            fontSize: '15px',
+                            fontWeight: '600',
+                            marginBottom: '8px'
+                        }}>
+                            Photos (max 5):
+                        </label>
+                        
+                        {photoFiles.length < 5 && (
+                            <label style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '8px',
+                                padding: '12px',
+                                background: 'rgba(255, 255, 255, 0.08)',
+                                border: '2px dashed rgba(255, 255, 255, 0.3)',
+                                borderRadius: '12px',
+                                color: 'white',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s ease'
+                            }}>
+                                <Upload size={20} />
+                                <span>Ajouter des photos</span>
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    multiple
+                                    onChange={handlePhotoAdd}
+                                    style={{ display: 'none' }}
+                                />
+                            </label>
+                        )}
+                        
+                        {photoFiles.length > 0 && (
+                            <div style={{
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))',
+                                gap: '8px',
+                                marginTop: '12px'
+                            }}>
+                                {photoFiles.map((file, index) => (
+                                    <div key={index} style={{
+                                        position: 'relative',
+                                        aspectRatio: '1',
+                                        borderRadius: '8px',
+                                        overflow: 'hidden'
+                                    }}>
+                                        <img
+                                            src={URL.createObjectURL(file)}
+                                            alt={`Preview ${index + 1}`}
+                                            style={{
+                                                width: '100%',
+                                                height: '100%',
+                                                objectFit: 'cover'
+                                            }}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => removePhoto(index)}
+                                            style={{
+                                                position: 'absolute',
+                                                top: '4px',
+                                                right: '4px',
+                                                background: 'rgba(0, 0, 0, 0.7)',
+                                                border: 'none',
+                                                borderRadius: '50%',
+                                                padding: '4px',
+                                                color: 'white',
+                                                cursor: 'pointer'
+                                            }}
+                                        >
+                                            <X size={12} />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Submit Button */}
+                    <button 
+                        type="submit"
+                        disabled={uploadingPhotos}
+                        style={{
+                            width: '100%',
+                            padding: '16px',
+                            background: uploadingPhotos ? '#6b7280' : 'linear-gradient(135deg, #8b45ff, #3b82f6)',
+                            border: 'none',
+                            borderRadius: '12px',
+                            color: 'white',
+                            fontSize: '16px',
+                            fontWeight: '700',
+                            cursor: uploadingPhotos ? 'not-allowed' : 'pointer',
+                            marginTop: '8px'
+                        }}
+                    >
+                        {uploadingPhotos ? '⏳ Upload en cours...' : '💾 Enregistrer la soirée'}
+                    </button>
+                </form>
+            </div>
+        </div>
+    );
+};
+
+export default BasicPartyModal;

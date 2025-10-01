@@ -124,7 +124,11 @@ export const FirebaseProvider = ({ children }) => {
         const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
             // Nettoyer la précédente écoute si elle existe
             if (unsubProfile) {
-                unsubProfile();
+                try {
+                    unsubProfile();
+                } catch (error) {
+                    console.warn('⚠️ Erreur lors du nettoyage du listener profil:', error);
+                }
                 unsubProfile = null;
             }
             
@@ -220,16 +224,10 @@ export const FirebaseProvider = ({ children }) => {
                     }
                     
                     // Démarrer le service d'écoute des amitiés avec synchronisation automatique
-                    // Mais seulement si on n'est pas en mode d'urgence
+                    // TEMPORAIREMENT DÉSACTIVÉ pour diagnostiquer l'erreur Firestore INTERNAL ASSERTION FAILED
                     try {
-                        // Vérifier si mode d'urgence n'est pas actif
-                        const emergencyCheck = sessionStorage.getItem('emergencyAuth');
-                        if (!emergencyCheck) {
-                            friendshipListenerService.startListening(db, appId, firebaseUser.uid, setMessageBox, functions);
-                            console.log("🤝 Service d'écoute des amitiés avec auto-sync démarré");
-                        } else {
-                            console.log("🚨 Service d'écoute désactivé - Mode d'urgence détecté");
-                        }
+                        console.log("🔧 Service d'écoute des amitiés temporairement désactivé pour diagnostic");
+                        // friendshipListenerService.startListening(db, appId, firebaseUser.uid, setMessageBox, functions);
                     } catch (error) {
                         console.error("❌ Erreur démarrage service d'écoute:", error);
                     }

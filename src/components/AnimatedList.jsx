@@ -1,5 +1,5 @@
 import React from 'react';
-import { useListAnimation } from '../hooks/useAnimation';
+import { useListAnimation } from '../hooks/useListAnimation';
 
 const AnimatedList = ({ 
     items, 

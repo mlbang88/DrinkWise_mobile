@@ -14,17 +14,33 @@ const ChallengesPage = () => {
     const [parties, setParties] = useState([]);
 
     useEffect(() => {
-        if (!user) return;
-        const q = query(collection(db, `artifacts/${appId}/users/${user.uid}/parties`));
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            const partiesData = snapshot.docs.map(doc => doc.data());
-            setParties(partiesData);
-            setLoading(false);
-        }, (error) => {
-            logger.error("Error fetching parties for challenges", { error: error.message });
-            setLoading(false);
-        });
-        return () => unsubscribe();
+        if (!user || !db) return;
+        
+        let unsubscribe = null;
+        
+        // Petit délai pour éviter les conflits de listeners
+        const timeoutId = setTimeout(() => {
+            const q = query(collection(db, `artifacts/${appId}/users/${user.uid}/parties`));
+            unsubscribe = onSnapshot(q, (snapshot) => {
+                const partiesData = snapshot.docs.map(doc => doc.data());
+                setParties(partiesData);
+                setLoading(false);
+            }, (error) => {
+                logger.error("Error fetching parties for challenges", { error: error.message });
+                setLoading(false);
+            });
+        }, 100);
+        
+        return () => {
+            clearTimeout(timeoutId);
+            if (unsubscribe) {
+                try {
+                    unsubscribe();
+                } catch (error) {
+                    console.warn('⚠️ Erreur nettoyage listener challenges:', error);
+                }
+            }
+        };
     }, [db, user, appId]);
 
     // Fonction pour sauvegarder les défis complétés

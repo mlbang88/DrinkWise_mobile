@@ -11,6 +11,8 @@ import { storage } from '../firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { logger } from '../utils/logger.js';
 import { useModalAnimation, useStaggeredAnimation } from '../hooks/useAnimation.js';
+import useBattleRoyale from '../hooks/useBattleRoyale.js';
+import BattleModeGuide from './BattleModeGuide.jsx';
 
 // Phase 2C: Animation components
 import AnimatedButton from './AnimatedButton';
@@ -43,7 +45,7 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
         return {
             date: new Date().toISOString().split('T')[0],
             drinks: [{ type: 'Bière', brand: '', quantity: 1 }],
-            stats: { girlsTalkedTo: 0, fights: 0, recal: 0, vomi: 0, elleVeutElleVeut: 0 },
+            stats: { fights: 0, recal: 0, vomi: 0, elleVeutElleVeut: 0 },
             location: '',
             category: partyCategories[0],
             companions: { type: 'none', selectedIds: [], selectedNames: [] }
@@ -66,6 +68,12 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
     const [uploadingPhotos, setUploadingPhotos] = useState(false);
     const [uploadingVideos, setUploadingVideos] = useState(false);
     
+    // États pour les données temporelles améliorées
+    const [partyStartTime, setPartyStartTime] = useState('');
+    const [partyEndTime, setPartyEndTime] = useState('');
+    const [isPartyOngoing, setIsPartyOngoing] = useState(false);
+    const [realTimeMode, setRealTimeMode] = useState(false);
+    
     // États pour la gestion des amis et groupes
     const [friendsList, setFriendsList] = useState([]);
     const [groupsList, setGroupsList] = useState([]);
@@ -73,6 +81,11 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
     
     // État pour l'animation du modal
     const [isModalOpen, setIsModalOpen] = useState(true);
+    
+    // Battle Royale integration
+    const { userTournaments, processPartyForTournaments } = useBattleRoyale();
+    const [selectedBattleMode, setSelectedBattleMode] = useState('balanced');
+    const [showModeGuide, setShowModeGuide] = useState(null);
     
     // Animation hook
     const { isVisible, isAnimating, animationStyles } = useModalAnimation(isModalOpen, onClose, 350);
@@ -198,6 +211,12 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
         const newDrinks = [...drinks];
         newDrinks[index][field] = field === 'quantity' ? parseInt(value, 10) || 0 : value;
         if (field === 'type') newDrinks[index].brand = '';
+        
+        // Ajouter un timestamp si c'est la première fois qu'on modifie cette boisson
+        if (!newDrinks[index].timestamp) {
+            newDrinks[index].timestamp = realTimeMode ? new Date().toISOString() : null;
+        }
+        
         setDrinks(newDrinks);
     };
 
@@ -222,8 +241,40 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
         }
         setDrinks(newDrinks);
     };
-    const addDrink = () => setDrinks([...drinks, { type: 'Bière', brand: '', quantity: 1 }]);
+    const addDrink = () => {
+        const newDrink = { 
+            type: 'Bière', 
+            brand: '', 
+            quantity: 1,
+            timestamp: realTimeMode ? new Date().toISOString() : null
+        };
+        setDrinks([...drinks, newDrink]);
+    };
+    
     const removeDrink = (index) => setDrinks(drinks.filter((_, i) => i !== index));
+    
+    // Fonctions pour gérer la durée de la soirée
+    const handleStartParty = () => {
+        const now = new Date().toISOString();
+        setPartyStartTime(now);
+        setIsPartyOngoing(true);
+        setRealTimeMode(true);
+        console.log("🎉 Soirée commencée en temps réel:", now);
+    };
+    
+    const handleEndParty = () => {
+        const now = new Date().toISOString();
+        setPartyEndTime(now);
+        setIsPartyOngoing(false);
+        console.log("⏰ Soirée terminée:", now);
+    };
+    
+    const calculatePartyDuration = () => {
+        if (!partyStartTime || !partyEndTime) return 0;
+        const start = new Date(partyStartTime);
+        const end = new Date(partyEndTime);
+        return (end - start) / (1000 * 60 * 60); // Durée en heures
+    };
 
     // Fonctions pour gérer les photos
     const handlePhotoAdd = (e) => {
@@ -288,6 +339,9 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
         
         if (!user || !db) return setMessageBox({ message: "Connexion requise.", type: "error" });
 
+        // Calculer la durée automatiquement si pas déjà calculée
+        const partyDuration = calculatePartyDuration();
+        
         const partyData = { 
             date, 
             drinks, 
@@ -297,13 +351,39 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
             companions,
             timestamp: Timestamp.now(), 
             userId: user.uid, 
-            username: userProfile?.username || "Anonyme" 
+            username: userProfile?.username || "Anonyme",
+            // Nouvelles données temporelles
+            startTime: partyStartTime || null,
+            endTime: partyEndTime || null,
+            duration: partyDuration || null,
+            realTimeTracking: realTimeMode
         };
         console.log("📋 Données de soirée:", partyData);
         
         try {
             const docRef = await addDoc(collection(db, `artifacts/${appId}/users/${user.uid}/parties`), partyData);
             console.log("✅ Soirée sauvegardée avec ID:", docRef.id);
+            
+            // 🏆 Calculer les points Battle Royale si l'utilisateur participe à des tournois
+            if (userTournaments.length > 0) {
+                try {
+                    console.log("🏆 Calcul des points Battle Royale en cours...");
+                    const additionalData = {
+                        isNewVenue: location && location.trim() !== '',
+                        isOrganizer: companions.type !== 'none',
+                        consistencyScore: 85, // Peut être calculé selon l'historique
+                        adaptedToContext: true,
+                        isPersonalRecord: drinks.length >= 8, // Record si >=8 boissons
+                        madeOthersDance: stats.elleVeutElleVeut > 1 // Critère d'influence sociale
+                    };
+                    
+                    await processPartyForTournaments(partyData, selectedBattleMode, additionalData);
+                    console.log("✅ Points Battle Royale calculés et attribués !");
+                } catch (battleError) {
+                    console.error("❌ Erreur calcul points Battle Royale:", battleError);
+                    // Ne pas bloquer le flux principal en cas d'erreur
+                }
+            }
             
             // Préparer et lancer le quiz IMMÉDIATEMENT
             setLastPartyData(partyData);
@@ -498,7 +578,7 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
                     width: '100%',
                     ...animationStyles.modal,
                     maxWidth: '500px',
-                    height: '80vh',
+                    height: '98vh',
                     position: 'relative',
                     overflow: 'hidden',
                     display: 'flex',
@@ -663,8 +743,148 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
                             />
                         </div>
 
-                        {/* Analyseur de boisson IA */}
+                        {/* Gestion temporelle de la soirée */}
                         <div style={getItemStyle(1)}>
+                            <label style={{
+                                display: 'block',
+                                color: 'white',
+                                fontSize: '15px',
+                                fontWeight: '600',
+                                marginBottom: '12px',
+                                letterSpacing: '-0.01em'
+                            }}>
+                                ⏰ Suivi de la soirée:
+                            </label>
+                            
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                {/* Mode temps réel */}
+                                <div style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    padding: '16px',
+                                    background: isPartyOngoing ? 'rgba(34, 197, 94, 0.15)' : 'rgba(255, 255, 255, 0.08)',
+                                    border: `1px solid ${isPartyOngoing ? 'rgba(34, 197, 94, 0.3)' : 'rgba(255, 255, 255, 0.2)'}`,
+                                    borderRadius: '12px'
+                                }}>
+                                    <div>
+                                        <span style={{ color: 'white', fontSize: '14px', fontWeight: '500' }}>
+                                            {isPartyOngoing ? '🟢 Soirée en cours' : '🔵 Mode saisie manuelle'}
+                                        </span>
+                                        {partyStartTime && (
+                                            <div style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '12px', marginTop: '4px' }}>
+                                                Commencée: {new Date(partyStartTime).toLocaleTimeString()}
+                                                {partyEndTime && ` - Terminée: ${new Date(partyEndTime).toLocaleTimeString()}`}
+                                                {partyStartTime && partyEndTime && (
+                                                    <span style={{ color: '#22c55e', fontWeight: '600', marginLeft: '8px' }}>
+                                                        ({calculatePartyDuration().toFixed(1)}h)
+                                                    </span>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                    
+                                    {!isPartyOngoing && !partyEndTime ? (
+                                        <button
+                                            type="button"
+                                            onClick={handleStartParty}
+                                            style={{
+                                                padding: '8px 16px',
+                                                background: 'linear-gradient(135deg, #22c55e, #16a34a)',
+                                                border: 'none',
+                                                borderRadius: '8px',
+                                                color: 'white',
+                                                fontSize: '13px',
+                                                fontWeight: '600',
+                                                cursor: 'pointer',
+                                                transition: 'all 0.2s ease'
+                                            }}
+                                            onMouseEnter={(e) => e.target.style.transform = 'scale(1.05)'}
+                                            onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
+                                        >
+                                            🚀 Commencer
+                                        </button>
+                                    ) : isPartyOngoing ? (
+                                        <button
+                                            type="button"
+                                            onClick={handleEndParty}
+                                            style={{
+                                                padding: '8px 16px',
+                                                background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+                                                border: 'none',
+                                                borderRadius: '8px',
+                                                color: 'white',
+                                                fontSize: '13px',
+                                                fontWeight: '600',
+                                                cursor: 'pointer',
+                                                transition: 'all 0.2s ease'
+                                            }}
+                                            onMouseEnter={(e) => e.target.style.transform = 'scale(1.05)'}
+                                            onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
+                                        >
+                                            ⏹️ Terminer
+                                        </button>
+                                    ) : null}
+                                </div>
+
+                                {/* Durée manuelle si pas de mode temps réel */}
+                                {!realTimeMode && (
+                                    <div style={{ display: 'flex', gap: '12px' }}>
+                                        <div style={{ flex: 1 }}>
+                                            <label style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: '12px', marginBottom: '4px', display: 'block' }}>
+                                                Heure de début
+                                            </label>
+                                            <input
+                                                type="time"
+                                                value={partyStartTime ? new Date(partyStartTime).toTimeString().slice(0, 5) : ''}
+                                                onChange={(e) => {
+                                                    if (e.target.value) {
+                                                        const today = new Date().toISOString().split('T')[0];
+                                                        setPartyStartTime(`${today}T${e.target.value}:00.000Z`);
+                                                    }
+                                                }}
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '12px',
+                                                    background: 'rgba(255, 255, 255, 0.08)',
+                                                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                                                    borderRadius: '8px',
+                                                    color: 'white',
+                                                    fontSize: '14px'
+                                                }}
+                                            />
+                                        </div>
+                                        <div style={{ flex: 1 }}>
+                                            <label style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: '12px', marginBottom: '4px', display: 'block' }}>
+                                                Heure de fin
+                                            </label>
+                                            <input
+                                                type="time"
+                                                value={partyEndTime ? new Date(partyEndTime).toTimeString().slice(0, 5) : ''}
+                                                onChange={(e) => {
+                                                    if (e.target.value) {
+                                                        const today = new Date().toISOString().split('T')[0];
+                                                        setPartyEndTime(`${today}T${e.target.value}:00.000Z`);
+                                                    }
+                                                }}
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '12px',
+                                                    background: 'rgba(255, 255, 255, 0.08)',
+                                                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                                                    borderRadius: '8px',
+                                                    color: 'white',
+                                                    fontSize: '14px'
+                                                }}
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Analyseur de boisson IA */}
+                        <div style={getItemStyle(2)}>
                             <DrinkAnalyzer 
                             onDrinkDetected={handleDrinkDetected}
                             setMessageBox={setMessageBox}
@@ -672,7 +892,7 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
                         </div>
 
                         {/* Boissons */}
-                        <div style={getItemStyle(2)}>
+                        <div style={getItemStyle(3)}>
                             <label style={{
                                 display: 'block',
                                 color: 'white',
@@ -687,8 +907,8 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
                                 {drinks.map((drink, index) => (
                                     <div key={index} style={{
                                         display: 'flex',
-                                        gap: '12px',
-                                        alignItems: 'center',
+                                        flexDirection: 'column',
+                                        gap: '8px',
                                         padding: '16px',
                                         background: 'rgba(255, 255, 255, 0.06)',
                                         backdropFilter: 'blur(10px)',
@@ -696,94 +916,123 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
                                         borderRadius: '16px',
                                         boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
                                     }}>
-                                        <select 
-                                            value={drink.type} 
-                                            onChange={(e) => handleDrinkChange(index, 'type', e.target.value)}
-                                            style={{
-                                                width: '110px',
-                                                padding: '12px 10px',
-                                                background: 'rgba(255, 255, 255, 0.1)',
-                                                backdropFilter: 'blur(8px)',
-                                                border: '1px solid rgba(255, 255, 255, 0.2)',
-                                                borderRadius: '12px',
-                                                color: 'white',
-                                                fontSize: '13px',
-                                                outline: 'none',
-                                                transition: 'all 0.2s ease'
-                                            }}
-                                        >
-                                            {drinkOptions.map(opt => (
-                                                <option key={opt.type} value={opt.type} style={{ backgroundColor: '#374151', color: 'white' }}>
-                                                    {opt.type}
-                                                </option>
-                                            ))}
-                                        </select>
-                                        
-                                        {drinkOptions.find(opt => opt.type === drink.type)?.brands.length > 0 && (
+                                        {/* Ligne principale avec les contrôles */}
+                                        <div style={{
+                                            display: 'flex',
+                                            gap: '12px',
+                                            alignItems: 'center'
+                                        }}>
                                             <select 
-                                                value={drink.brand} 
-                                                onChange={(e) => handleDrinkChange(index, 'brand', e.target.value)}
+                                                value={drink.type} 
+                                                onChange={(e) => handleDrinkChange(index, 'type', e.target.value)}
                                                 style={{
-                                                    flex: 1,
-                                                    minWidth: 0,
+                                                    width: '110px',
+                                                    padding: '12px 10px',
+                                                    background: 'rgba(255, 255, 255, 0.1)',
+                                                    backdropFilter: 'blur(8px)',
+                                                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                                                    borderRadius: '12px',
+                                                    color: 'white',
+                                                    fontSize: '13px',
+                                                    outline: 'none',
+                                                    transition: 'all 0.2s ease'
+                                                }}
+                                            >
+                                                {drinkOptions.map(opt => (
+                                                    <option key={opt.type} value={opt.type} style={{ backgroundColor: '#374151', color: 'white' }}>
+                                                        {opt.type}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            
+                                            {drinkOptions.find(opt => opt.type === drink.type)?.brands.length > 0 && (
+                                                <select 
+                                                    value={drink.brand} 
+                                                    onChange={(e) => handleDrinkChange(index, 'brand', e.target.value)}
+                                                    style={{
+                                                        flex: 1,
+                                                        minWidth: 0,
+                                                        padding: '10px 8px',
+                                                        backgroundColor: '#374151',
+                                                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                                                        borderRadius: '8px',
+                                                        color: 'white',
+                                                        fontSize: '11px',
+                                                        outline: 'none'
+                                                    }}
+                                                >
+                                                    <option value="" style={{ backgroundColor: '#374151', color: 'white' }}>Marque</option>
+                                                    {drinkOptions.find(opt => opt.type === drink.type)?.brands.map(brand => (
+                                                        <option key={brand} value={brand} style={{ backgroundColor: '#374151', color: 'white' }}>
+                                                            {brand}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            )}
+                                            
+                                            <input 
+                                                type="number" 
+                                                value={drink.quantity} 
+                                                onChange={(e) => handleDrinkChange(index, 'quantity', e.target.value)} 
+                                                min="1"
+                                                style={{
+                                                    width: '50px',
                                                     padding: '10px 8px',
                                                     backgroundColor: '#374151',
                                                     border: '1px solid rgba(255, 255, 255, 0.1)',
                                                     borderRadius: '8px',
                                                     color: 'white',
-                                                    fontSize: '11px',
-                                                    outline: 'none'
+                                                    fontSize: '14px',
+                                                    outline: 'none',
+                                                    textAlign: 'center'
                                                 }}
+                                            />
+                                            
+                                            <button 
+                                                type="button" 
+                                                onClick={() => removeDrink(index)}
+                                                style={{
+                                                    width: '40px',
+                                                    height: '40px',
+                                                    backgroundColor: '#dc2626',
+                                                    border: 'none',
+                                                    borderRadius: '8px',
+                                                    color: 'white',
+                                                    cursor: 'pointer',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    transition: 'all 0.2s ease',
+                                                    flexShrink: 0
+                                                }}
+                                                onMouseEnter={(e) => e.target.style.backgroundColor = '#b91c1c'}
+                                                onMouseLeave={(e) => e.target.style.backgroundColor = '#dc2626'}
                                             >
-                                                <option value="" style={{ backgroundColor: '#374151', color: 'white' }}>Marque</option>
-                                                {drinkOptions.find(opt => opt.type === drink.type)?.brands.map(brand => (
-                                                    <option key={brand} value={brand} style={{ backgroundColor: '#374151', color: 'white' }}>
-                                                        {brand}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                        )}
+                                                <Trash2 size={18} />
+                                            </button>
+                                        </div>
                                         
-                                        <input 
-                                            type="number" 
-                                            value={drink.quantity} 
-                                            onChange={(e) => handleDrinkChange(index, 'quantity', e.target.value)} 
-                                            min="1"
-                                            style={{
-                                                width: '50px',
-                                                padding: '10px 8px',
-                                                backgroundColor: '#374151',
-                                                border: '1px solid rgba(255, 255, 255, 0.1)',
-                                                borderRadius: '8px',
-                                                color: 'white',
-                                                fontSize: '14px',
-                                                outline: 'none',
-                                                textAlign: 'center'
-                                            }}
-                                        />
-                                        
-                                        <button 
-                                            type="button" 
-                                            onClick={() => removeDrink(index)}
-                                            style={{
-                                                width: '40px',
-                                                height: '40px',
-                                                backgroundColor: '#dc2626',
-                                                border: 'none',
-                                                borderRadius: '8px',
-                                                color: 'white',
-                                                cursor: 'pointer',
+                                        {/* Ligne d'information temporelle */}
+                                        {(realTimeMode && drink.timestamp) && (
+                                            <div style={{
                                                 display: 'flex',
                                                 alignItems: 'center',
-                                                justifyContent: 'center',
-                                                transition: 'all 0.2s ease',
-                                                flexShrink: 0
-                                            }}
-                                            onMouseEnter={(e) => e.target.style.backgroundColor = '#b91c1c'}
-                                            onMouseLeave={(e) => e.target.style.backgroundColor = '#dc2626'}
-                                        >
-                                            <Trash2 size={18} />
-                                        </button>
+                                                gap: '8px',
+                                                padding: '8px 12px',
+                                                background: 'rgba(34, 197, 94, 0.1)',
+                                                borderRadius: '8px',
+                                                fontSize: '12px',
+                                                color: 'rgba(255, 255, 255, 0.8)'
+                                            }}>
+                                                <span>🕒</span>
+                                                <span>Ajoutée à {new Date(drink.timestamp).toLocaleTimeString()}</span>
+                                                {index > 0 && drinks[index - 1].timestamp && (
+                                                    <span style={{ color: '#22c55e', fontWeight: '600', marginLeft: '8px' }}>
+                                                        (+{Math.round((new Date(drink.timestamp) - new Date(drinks[index - 1].timestamp)) / (1000 * 60))}min)
+                                                    </span>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
                                 ))}
                             </div>
@@ -920,35 +1169,7 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
                                     />
                                 </div>
 
-                                {/* Filles parlées */}
-                                <div>
-                                    <label style={{
-                                        display: 'block',
-                                        color: '#9ca3af',
-                                        fontSize: '16px',
-                                        fontWeight: '500',
-                                        marginBottom: '8px'
-                                    }}>
-                                        Filles parlées:
-                                    </label>
-                                    <input 
-                                        type="number" 
-                                        value={stats.girlsTalkedTo} 
-                                        onChange={(e) => handleStatChange('girlsTalkedTo', e.target.value)} 
-                                        min="0"
-                                        style={{
-                                            width: '100%',
-                                            padding: '16px 20px',
-                                            backgroundColor: '#2d3748',
-                                            border: '1px solid rgba(255, 255, 255, 0.1)',
-                                            borderRadius: '12px',
-                                            color: 'white',
-                                            fontSize: '16px',
-                                            outline: 'none',
-                                            textAlign: 'center'
-                                        }}
-                                    />
-                                </div>
+
                             </div>
                         </div>
 
@@ -1296,6 +1517,187 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
                                 ))}
                             </select>
                         </div>
+
+                        {/* Mode Battle Royale (affiché seulement si participant à des tournois) */}
+                        {/* Debug: toujours afficher pour les tests */}
+                        {(userTournaments.length > 0 || true) && (
+                            <div style={{
+                                background: 'linear-gradient(135deg, rgba(255, 107, 53, 0.1), rgba(139, 69, 255, 0.1))',
+                                border: '1px solid rgba(255, 107, 53, 0.3)',
+                                borderRadius: '16px',
+                                padding: '20px',
+                                marginTop: '10px'
+                            }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                                    <label style={{
+                                        color: '#FF6B35',
+                                        fontSize: '16px',
+                                        fontWeight: '600',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '8px'
+                                    }}>
+                                        ⚔️ Mode Battle Royale
+                                        <span style={{ fontSize: '12px', color: '#ccc', fontWeight: 'normal' }}>
+                                            ({userTournaments.length > 0 ? `${userTournaments.length} tournoi${userTournaments.length > 1 ? 's' : ''}` : 'Test'})
+                                        </span>
+                                    </label>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowModeGuide(selectedBattleMode)}
+                                        style={{
+                                            background: 'rgba(255, 107, 53, 0.2)',
+                                            border: '1px solid rgba(255, 107, 53, 0.5)',
+                                            borderRadius: '20px',
+                                            color: '#FF6B35',
+                                            fontSize: '12px',
+                                            padding: '4px 12px',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        ❓ Aide
+                                    </button>
+                                </div>
+                                <select 
+                                    value={selectedBattleMode} 
+                                    onChange={(e) => setSelectedBattleMode(e.target.value)}
+                                    style={{
+                                        width: '100%',
+                                        padding: '16px 20px',
+                                        backgroundColor: 'rgba(255, 107, 53, 0.1)',
+                                        border: '1px solid rgba(255, 107, 53, 0.3)',
+                                        borderRadius: '12px',
+                                        color: '#FF6B35',
+                                        fontSize: '16px',
+                                        fontWeight: '500',
+                                        outline: 'none',
+                                        transition: 'all 0.2s ease'
+                                    }}
+                                    onFocus={(e) => {
+                                        e.target.style.borderColor = '#FF6B35';
+                                        e.target.style.backgroundColor = 'rgba(255, 107, 53, 0.2)';
+                                    }}
+                                    onBlur={(e) => {
+                                        e.target.style.borderColor = 'rgba(255, 107, 53, 0.3)';
+                                        e.target.style.backgroundColor = 'rgba(255, 107, 53, 0.1)';
+                                    }}
+                                >
+                                    <option value="balanced" style={{ backgroundColor: '#2d3748', color: '#F59E0B' }}>
+                                        🎯 Balanced Player - Équilibre parfait
+                                    </option>
+                                    <option value="moderation" style={{ backgroundColor: '#2d3748', color: '#10B981' }}>
+                                        🧠 Modération Master - Maîtrise & responsabilité
+                                    </option>
+                                    <option value="explorer" style={{ backgroundColor: '#2d3748', color: '#8B5CF6' }}>
+                                        ✨ Explorer Pro - Découverte & créativité
+                                    </option>
+                                    <option value="social" style={{ backgroundColor: '#2d3748', color: '#EF4444' }}>
+                                        ❤️ Social Host - Animation & organisation  
+                                    </option>
+                                    <option value="party" style={{ backgroundColor: '#2d3748', color: '#FF6B35' }}>
+                                        ⚡ Party Beast - Maximum fun & endurance
+                                    </option>
+                                </select>
+                                <div style={{ 
+                                    marginTop: '10px', 
+                                    fontSize: '12px', 
+                                    color: '#ccc',
+                                    fontStyle: 'italic'
+                                }}>
+                                    {userTournaments.length > 0 
+                                        ? `Tes points seront calculés selon ce mode dans tes ${userTournaments.length} tournoi${userTournaments.length > 1 ? 's' : ''} actifs !`
+                                        : 'Rejoins un tournoi pour que tes points soient calculés automatiquement !'
+                                    }
+                                </div>
+                                
+                                {/* Prévisualisation des points */}
+                                {userTournaments.length > 0 && drinks.length > 0 && (
+                                    <div style={{
+                                        marginTop: '16px',
+                                        padding: '16px',
+                                        background: 'linear-gradient(135deg, rgba(139, 69, 255, 0.15), rgba(255, 107, 53, 0.15))',
+                                        border: '1px solid rgba(139, 69, 255, 0.3)',
+                                        borderRadius: '12px',
+                                        backdropFilter: 'blur(10px)'
+                                    }}>
+                                        <div style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '8px',
+                                            marginBottom: '12px'
+                                        }}>
+                                            <span style={{ fontSize: '16px' }}>🏆</span>
+                                            <span style={{ 
+                                                color: 'white', 
+                                                fontSize: '14px', 
+                                                fontWeight: '600' 
+                                            }}>
+                                                Aperçu des points
+                                            </span>
+                                        </div>
+                                        
+                                        <div style={{
+                                            display: 'grid',
+                                            gridTemplateColumns: '1fr 1fr',
+                                            gap: '8px',
+                                            fontSize: '12px'
+                                        }}>
+                                            <div style={{ color: 'rgba(255, 255, 255, 0.8)' }}>
+                                                🍻 Boissons: {drinks.length}
+                                            </div>
+                                            <div style={{ color: 'rgba(255, 255, 255, 0.8)' }}>
+                                                ⏰ Durée: {partyStartTime && partyEndTime ? 
+                                                    `${calculatePartyDuration().toFixed(1)}h` : 
+                                                    'Non définie'
+                                                }
+                                            </div>
+                                            <div style={{ color: 'rgba(255, 255, 255, 0.8)' }}>
+                                                👥 Compagnons: {companions.type !== 'none' ? 
+                                                    companions.selectedNames.length : 0
+                                                }
+                                            </div>
+                                            <div style={{ color: 'rgba(255, 255, 255, 0.8)' }}>
+                                                📍 Nouveau lieu: {location ? 'Oui' : 'Non'}
+                                            </div>
+                                        </div>
+                                        
+                                        <div style={{
+                                            marginTop: '12px',
+                                            padding: '8px 12px',
+                                            background: 'rgba(34, 197, 94, 0.2)',
+                                            borderRadius: '8px',
+                                            textAlign: 'center'
+                                        }}>
+                                            <span style={{ 
+                                                color: '#22c55e', 
+                                                fontSize: '14px', 
+                                                fontWeight: '700' 
+                                            }}>
+                                                ≈ {Math.max(30, Math.min(100, 
+                                                    50 + 
+                                                    (selectedBattleMode === 'moderation' ? -drinks.length * 5 + 20 : 0) +
+                                                    (selectedBattleMode === 'party' ? drinks.length * 8 : 0) +
+                                                    (selectedBattleMode === 'explorer' ? drinks.length * 5 + (location ? 20 : 0) : 0) +
+                                                    (selectedBattleMode === 'social' ? companions.selectedNames.length * 10 : 0) +
+                                                    (calculatePartyDuration() > 0 ? 15 : 0)
+                                                ))} points estimés
+                                            </span>
+                                        </div>
+                                        
+                                        <div style={{
+                                            marginTop: '8px',
+                                            fontSize: '11px',
+                                            color: 'rgba(255, 255, 255, 0.6)',
+                                            textAlign: 'center',
+                                            fontStyle: 'italic'
+                                        }}>
+                                            Points calculés après soumission de la soirée
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
                         {/* Section Photos avec interface smartphone */}
                         <div>
                             <label style={{
@@ -1622,6 +2024,14 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
                     </form>
                 </div>
             </div>
+            
+            {/* Guide des modes Battle Royale */}
+            {showModeGuide && (
+                <BattleModeGuide 
+                    mode={showModeGuide} 
+                    onClose={() => setShowModeGuide(null)} 
+                />
+            )}
         </div>
     );
 };

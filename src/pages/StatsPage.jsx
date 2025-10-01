@@ -51,26 +51,42 @@ const StatsPage = () => {
 
     useEffect(() => {
         if (!user || !db) { setLoading(false); return; }
-        const q = query(collection(db, `artifacts/${appId}/users/${user.uid}/parties`));
-        const unsubscribe = onSnapshot(q, (snap) => {
-            const partiesData = snap.docs.map(d => ({ ...d.data(), id: d.id }));
-            const sortedParties = partiesData.sort((a, b) => (b.timestamp?.toDate() || 0) - (a.timestamp?.toDate() || 0));
-            setMyParties(sortedParties);
-            
-            // Calculer les années disponibles pour les souvenirs
-            const years = [...new Set(partiesData.map(p => p.timestamp.toDate().getFullYear()))];
-            setAvailableYears(years.sort((a, b) => b - a));
-            if (years.length > 0 && !years.includes(selectedYear)) {
-                setSelectedYear(years[0]);
+        
+        let unsubscribe = null;
+        
+        // Petit délai pour éviter les conflits de listeners
+        const timeoutId = setTimeout(() => {
+            const q = query(collection(db, `artifacts/${appId}/users/${user.uid}/parties`));
+            unsubscribe = onSnapshot(q, (snap) => {
+                const partiesData = snap.docs.map(d => ({ ...d.data(), id: d.id }));
+                const sortedParties = partiesData.sort((a, b) => (b.timestamp?.toDate() || 0) - (a.timestamp?.toDate() || 0));
+                setMyParties(sortedParties);
+                
+                // Calculer les années disponibles pour les souvenirs
+                const years = [...new Set(partiesData.map(p => p.timestamp.toDate().getFullYear()))];
+                setAvailableYears(years.sort((a, b) => b - a));
+                if (years.length > 0 && !years.includes(selectedYear)) {
+                    setSelectedYear(years[0]);
+                }
+                
+                setLoading(false);
+            }, (error) => {
+                logger.error("Erreur lecture soirées", { error: error.message });
+                setMessageBox({ message: "Erreur chargement de vos soirées.", type: "error" });
+                setLoading(false);
+            });
+        }, 100);
+        
+        return () => {
+            clearTimeout(timeoutId);
+            if (unsubscribe) {
+                try {
+                    unsubscribe();
+                } catch (error) {
+                    console.warn('⚠️ Erreur nettoyage listener stats:', error);
+                }
             }
-            
-            setLoading(false);
-        }, (error) => {
-            logger.error("Erreur lecture soirées", { error: error.message });
-            setMessageBox({ message: "Erreur chargement de vos soirées.", type: "error" });
-            setLoading(false);
-        });
-        return () => unsubscribe();
+        };
     }, [db, user, appId, setMessageBox]);
 
     useEffect(() => {
