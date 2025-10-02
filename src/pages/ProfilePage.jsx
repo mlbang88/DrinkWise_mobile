@@ -14,6 +14,19 @@ import { logger } from '../utils/logger.js';
 const ProfilePage = () => {
     const { auth, user, userProfile, db, appId, setMessageBox } = useContext(FirebaseContext);
     
+    // États du composant (déclarés AVANT les useEffect)
+    const [newUsername, setNewUsername] = useState(userProfile?.username || '');
+    const [loading, setLoading] = useState(false);
+    const [usernameValidation, setUsernameValidation] = useState({ isValid: true, error: null });
+    const [checkingUsername, setCheckingUsername] = useState(false);
+    const [currentProfilePhoto, setCurrentProfilePhoto] = useState(userProfile?.profilePhoto || null);
+    const [hasSync, setHasSync] = useState(false);
+    const [syncInProgress, setSyncInProgress] = useState(false);
+    const [stableStats, setStableStats] = useState(null);
+    const [lastSyncTimestamp, setLastSyncTimestamp] = useState(0);
+    const [cachedXP, setCachedXP] = useState(null);
+    const [frozenStats, setFrozenStats] = useState(null);
+
     // Debug pour tracer les re-montages de composant
     useEffect(() => {
         console.log("🏗️ ProfilePage MONTÉ/REMONTÉ - timestamp:", Date.now());
@@ -36,17 +49,6 @@ const ProfilePage = () => {
             }
         }
     }, [user?.uid, frozenStats]);
-    const [newUsername, setNewUsername] = useState(userProfile?.username || '');
-    const [loading, setLoading] = useState(false);
-    const [usernameValidation, setUsernameValidation] = useState({ isValid: true, error: null });
-    const [checkingUsername, setCheckingUsername] = useState(false);
-    const [currentProfilePhoto, setCurrentProfilePhoto] = useState(userProfile?.profilePhoto || null);
-    const [hasSync, setHasSync] = useState(false);
-    const [syncInProgress, setSyncInProgress] = useState(false);
-    const [stableStats, setStableStats] = useState(null);
-    const [lastSyncTimestamp, setLastSyncTimestamp] = useState(0);
-    const [cachedXP, setCachedXP] = useState(null);
-    const [frozenStats, setFrozenStats] = useState(null);
 
     // Synchroniser les stats au chargement pour assurer cohérence - AVEC CONTRÔLE ANTI-SPAM
     useEffect(() => {
