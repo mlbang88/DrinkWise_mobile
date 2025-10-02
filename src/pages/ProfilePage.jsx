@@ -19,6 +19,23 @@ const ProfilePage = () => {
         console.log("🏗️ ProfilePage MONTÉ/REMONTÉ - timestamp:", Date.now());
         return () => console.log("🗑️ ProfilePage DÉMONTÉ");
     }, []);
+
+    // Initialisation depuis localStorage une fois user disponible
+    useEffect(() => {
+        if (user?.uid && !frozenStats) {
+            const savedFrozen = localStorage.getItem(`frozenStats_${user.uid}`);
+            const savedStable = localStorage.getItem(`stableStats_${user.uid}`);
+            
+            if (savedFrozen) {
+                console.log("❄️ RÉCUPÉRATION STATS FREEZÉES:", savedFrozen);
+                setFrozenStats(JSON.parse(savedFrozen));
+            }
+            if (savedStable) {
+                console.log("💾 RÉCUPÉRATION stableStats:", savedStable);
+                setStableStats(JSON.parse(savedStable));
+            }
+        }
+    }, [user?.uid, frozenStats]);
     const [newUsername, setNewUsername] = useState(userProfile?.username || '');
     const [loading, setLoading] = useState(false);
     const [usernameValidation, setUsernameValidation] = useState({ isValid: true, error: null });
@@ -26,13 +43,10 @@ const ProfilePage = () => {
     const [currentProfilePhoto, setCurrentProfilePhoto] = useState(userProfile?.profilePhoto || null);
     const [hasSync, setHasSync] = useState(false);
     const [syncInProgress, setSyncInProgress] = useState(false);
-    const [stableStats, setStableStats] = useState(() => {
-        // Initialisation avec localStorage pour persistance inter-sessions
-        const saved = localStorage.getItem(`stableStats_${user?.uid || 'anonymous'}`);
-        return saved ? JSON.parse(saved) : null;
-    });
+    const [stableStats, setStableStats] = useState(null);
     const [lastSyncTimestamp, setLastSyncTimestamp] = useState(0);
     const [cachedXP, setCachedXP] = useState(null);
+    const [frozenStats, setFrozenStats] = useState(null);
 
     // Synchroniser les stats au chargement pour assurer cohérence - AVEC CONTRÔLE ANTI-SPAM
     useEffect(() => {
@@ -50,9 +64,20 @@ const ProfilePage = () => {
             
             ExperienceService.syncUserStats(db, appId, user.uid, userProfile)
                 .then((realStats) => {
-                    console.log("✅ ProfilePage - Stats synchronisées et sauvegardées:", realStats);
+                    console.log("✅ ProfilePage - Stats synchronisées et FREEZÉES:", realStats);
+                    const frozenStatsObject = {
+                        totalParties: realStats.totalParties || 0,
+                        totalDrinks: realStats.totalDrinks || 0,
+                        totalChallenges: realStats.totalChallenges || 0,
+                        totalBadges: realStats.totalBadges || 0,
+                        totalQuizQuestions: realStats.totalQuizQuestions || 0,
+                        frozenAt: Date.now()
+                    };
+                    
                     setStableStats(realStats);
-                    // Persistance cross-session
+                    setFrozenStats(frozenStatsObject);
+                    // Persistance cross-session des stats freezées
+                    localStorage.setItem(`frozenStats_${user.uid}`, JSON.stringify(frozenStatsObject));
                     localStorage.setItem(`stableStats_${user.uid}`, JSON.stringify(realStats));
                 })  
                 .catch(err => {
@@ -78,11 +103,32 @@ const ProfilePage = () => {
         }
     }, [stableStats, hasSync, user?.uid]);
 
-    // Calcul unifié via ExperienceService - PROTECTION ABSOLUE CONTRE RÉGRESSION
+    // Fonction de debug pour dégeler les stats si nécessaire
+    const unfreezeStats = () => {
+        if (user?.uid) {
+            localStorage.removeItem(`frozenStats_${user.uid}`);
+            setFrozenStats(null);
+            setHasSync(false);
+            console.log("🔓 STATS DÉGELÉES - Prochaine sync créera de nouvelles stats freezées");
+        }
+    };
+
+    // Calcul unifié via ExperienceService - STATS COMPLÈTEMENT FREEZÉES
     const stats = useMemo(() => {
-        // ✅ Protection absolue : si on a déjà eu des stableStats, ne jamais revenir en arrière
-        if (stableStats) {
-            console.log("🔒 UTILISATION STATS STABLES FORCÉE - Protection anti-régression");
+        // ❄️ PRIORITÉ ABSOLUE : Stats freezées (immutables)
+        if (frozenStats) {
+            console.log("❄️ UTILISATION STATS FREEZÉES - Immutables depuis:", new Date(frozenStats.frozenAt));
+            return {
+                totalParties: frozenStats.totalParties,
+                totalDrinks: frozenStats.totalDrinks,
+                totalChallenges: frozenStats.totalChallenges,
+                totalBadges: frozenStats.totalBadges,
+                totalQuizQuestions: frozenStats.totalQuizQuestions
+            };
+        }
+        // 🔒 Fallback vers stableStats
+        else if (stableStats) {
+            console.log("🔒 UTILISATION STATS STABLES - Attente freezing");
             return {
                 totalParties: stableStats.totalParties || 0,
                 totalDrinks: stableStats.totalDrinks || 0,
@@ -90,9 +136,10 @@ const ProfilePage = () => {
                 totalBadges: stableStats.totalBadges || 0,
                 totalQuizQuestions: stableStats.totalQuizQuestions || 0
             };
-        } else {
+        } 
+        // ⏳ Dernier recours pendant l'initialisation
+        else {
             console.log("⏳ FALLBACK TEMPORAIRE - Attente première sync");
-            // ⏳ Fallback UNIQUEMENT pendant l'initialisation (avant première sync)
             return {
                 totalParties: userProfile?.publicStats?.totalParties || 0,
                 totalDrinks: userProfile?.publicStats?.totalDrinks || 0, 
@@ -101,7 +148,7 @@ const ProfilePage = () => {
                 totalQuizQuestions: 0
             };
         }
-    }, [stableStats]);
+    }, [frozenStats, stableStats]);
     
     // Debug détaillé pour tracer l'oscillation d'XP
     const renderTimestamp = new Date().getTime();
