@@ -21,17 +21,27 @@ const ProfilePage = () => {
     const [hasSync, setHasSync] = useState(false);
     const [syncInProgress, setSyncInProgress] = useState(false);
     const [stableStats, setStableStats] = useState(null);
+    const [lastSyncTimestamp, setLastSyncTimestamp] = useState(0);
+    const [cachedXP, setCachedXP] = useState(null);
 
-    // Synchroniser les stats au chargement pour assurer cohérence - AVEC CONTRÔLE STABILISÉ
+    // Synchroniser les stats au chargement pour assurer cohérence - AVEC CONTRÔLE ANTI-SPAM
     useEffect(() => {
-        if (user && userProfile && db && !hasSync && !syncInProgress) {
+        const now = Date.now();
+        const minIntervalBetweenSync = 10000; // 10 secondes minimum entre les sync
+        
+        if (user && userProfile && db && !hasSync && !syncInProgress && 
+            (now - lastSyncTimestamp) > minIntervalBetweenSync) {
+            
             setHasSync(true);
             setSyncInProgress(true);
+            setLastSyncTimestamp(now);
+            
+            console.log("🔄 ProfilePage - Démarrage sync avec throttling:", now);
             
             ExperienceService.syncUserStats(db, appId, user.uid, userProfile)
                 .then((realStats) => {
                     console.log("✅ ProfilePage - Stats synchronisées:", realStats);
-                    setStableStats(realStats); // Stocker les stats stables
+                    setStableStats(realStats); // Stocker les stats stables de façon permanente
                 })  
                 .catch(err => {
                     console.error("❌ ProfilePage - Erreur sync:", err);
@@ -41,12 +51,12 @@ const ProfilePage = () => {
                     setSyncInProgress(false);
                 });
         }
-    }, [user, userProfile, db, appId, hasSync, syncInProgress]);
+    }, [user, userProfile, db, appId, hasSync, syncInProgress, lastSyncTimestamp]);
 
-    // Calcul unifié via ExperienceService - UTILISER STATS STABLES SI DISPONIBLES
+    // Calcul unifié via ExperienceService - PERSISTANCE DES STATS STABLES
     const stats = useMemo(() => {
-        if (stableStats && !syncInProgress) {
-            // Utiliser les stats stables après synchronisation
+        if (stableStats) {
+            // ✅ Une fois stableStats obtenu, TOUJOURS l'utiliser (même si sync en cours)
             return {
                 totalParties: stableStats.totalParties || 0,
                 totalDrinks: stableStats.totalDrinks || 0,
@@ -55,7 +65,7 @@ const ProfilePage = () => {
                 totalQuizQuestions: stableStats.totalQuizQuestions || 0
             };
         } else {
-            // Fallback vers publicStats pendant la synchronisation
+            // ⏳ Fallback UNIQUEMENT pendant l'initialisation (avant première sync)
             return {
                 totalParties: userProfile?.publicStats?.totalParties || 0,
                 totalDrinks: userProfile?.publicStats?.totalDrinks || 0, 
@@ -64,7 +74,7 @@ const ProfilePage = () => {
                 totalQuizQuestions: 0
             };
         }
-    }, [stableStats, syncInProgress, userProfile?.publicStats]);
+    }, [stableStats, userProfile?.publicStats]);
     
     // Debug détaillé pour tracer l'oscillation d'XP
     const renderTimestamp = new Date().getTime();
@@ -82,12 +92,18 @@ const ProfilePage = () => {
     const currentLevel = ExperienceService.calculateLevel(currentXp);
     const currentLevelName = ExperienceService.getLevelName(currentLevel);
     
-    console.log("🎯 XP CALCUL:", {
-        calculé: currentXp,
-        niveau: currentLevel,
-        statsSource: stableStats && !syncInProgress ? 'stableStats' : 'publicStats',
-        timestamp: renderTimestamp
-    });
+    // Logging conditionnel pour éviter le spam (seulement si XP change)
+    if (!cachedXP || cachedXP.xp !== currentXp || cachedXP.level !== currentLevel) {
+        setCachedXP({ xp: currentXp, level: currentLevel });
+        console.log("🎯 XP CALCUL CHANGE:", {
+            ancienXP: cachedXP?.xp || 'N/A',
+            nouveauXP: currentXp,
+            ancienNiveau: cachedXP?.level || 'N/A', 
+            nouveauNiveau: currentLevel,
+            statsSource: stableStats ? 'stableStats' : 'publicStats',
+            timestamp: renderTimestamp
+        });
+    }
     console.groupEnd();
     
     const xpForCurrentLevel = ExperienceService.getXpForLevel(currentLevel);
