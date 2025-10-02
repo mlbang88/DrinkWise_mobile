@@ -1,4 +1,4 @@
-import React, { useState, useContext, useEffect } from 'react';
+import React, { useState, useContext, useEffect, useMemo } from 'react';
 import { signOut } from 'firebase/auth';
 import { doc, updateDoc, setDoc } from 'firebase/firestore';
 import { FirebaseContext } from '../contexts/FirebaseContext.jsx';
@@ -19,39 +19,76 @@ const ProfilePage = () => {
     const [checkingUsername, setCheckingUsername] = useState(false);
     const [currentProfilePhoto, setCurrentProfilePhoto] = useState(userProfile?.profilePhoto || null);
     const [hasSync, setHasSync] = useState(false);
+    const [syncInProgress, setSyncInProgress] = useState(false);
+    const [stableStats, setStableStats] = useState(null);
 
-    // Synchroniser les stats au chargement pour assurer cohérence - AVEC CONTRÔLE
-    
+    // Synchroniser les stats au chargement pour assurer cohérence - AVEC CONTRÔLE STABILISÉ
     useEffect(() => {
-        if (user && userProfile && db && !hasSync) {
+        if (user && userProfile && db && !hasSync && !syncInProgress) {
             setHasSync(true);
+            setSyncInProgress(true);
+            
             ExperienceService.syncUserStats(db, appId, user.uid, userProfile)
-                .then(() => console.log("✅ ProfilePage - Stats synchronisées"))  
+                .then((realStats) => {
+                    console.log("✅ ProfilePage - Stats synchronisées:", realStats);
+                    setStableStats(realStats); // Stocker les stats stables
+                })  
                 .catch(err => {
                     console.error("❌ ProfilePage - Erreur sync:", err);
                     setHasSync(false); // Réinitialiser en cas d'erreur
+                })
+                .finally(() => {
+                    setSyncInProgress(false);
                 });
         }
-    }, [user, userProfile, db, appId, hasSync]);
+    }, [user, userProfile, db, appId, hasSync, syncInProgress]);
 
-    // Calcul unifié via ExperienceService - FORCER L'USAGE DES STATS PUBLIQUES
-    const stats = {
-        totalParties: userProfile?.publicStats?.totalParties || 0,
-        totalDrinks: userProfile?.publicStats?.totalDrinks || 0, 
-        totalChallenges: userProfile?.publicStats?.challengesCompleted || 0,
-        totalBadges: userProfile?.publicStats?.unlockedBadges?.length || userProfile?.unlockedBadges?.length || 0,
-        totalQuizQuestions: 0
-    };
+    // Calcul unifié via ExperienceService - UTILISER STATS STABLES SI DISPONIBLES
+    const stats = useMemo(() => {
+        if (stableStats && !syncInProgress) {
+            // Utiliser les stats stables après synchronisation
+            return {
+                totalParties: stableStats.totalParties || 0,
+                totalDrinks: stableStats.totalDrinks || 0,
+                totalChallenges: stableStats.totalChallenges || 0,
+                totalBadges: stableStats.totalBadges || 0,
+                totalQuizQuestions: stableStats.totalQuizQuestions || 0
+            };
+        } else {
+            // Fallback vers publicStats pendant la synchronisation
+            return {
+                totalParties: userProfile?.publicStats?.totalParties || 0,
+                totalDrinks: userProfile?.publicStats?.totalDrinks || 0, 
+                totalChallenges: userProfile?.publicStats?.challengesCompleted || 0,
+                totalBadges: userProfile?.publicStats?.unlockedBadges?.length || userProfile?.unlockedBadges?.length || 0,
+                totalQuizQuestions: 0
+            };
+        }
+    }, [stableStats, syncInProgress, userProfile?.publicStats]);
     
-    // Debug des stats pour identifier les différences
-    console.log("🔍 ProfilePage - Stats utilisées:", stats);
-    console.log("🔍 ProfilePage - PublicStats:", userProfile?.publicStats);
+    // Debug détaillé pour tracer l'oscillation d'XP
+    const renderTimestamp = new Date().getTime();
+    console.group(`🔍 ProfilePage RENDER - ${renderTimestamp}`);
+    console.log("📊 Stats utilisées:", stats);
+    console.log("� PublicStats brutes:", userProfile?.publicStats);
+    console.log("👤 UserProfile complet:", {
+        xp: userProfile?.xp,
+        level: userProfile?.level,
+        totalParties: userProfile?.totalParties,
+        totalDrinks: userProfile?.totalDrinks
+    });
     
     const currentXp = ExperienceService.calculateTotalXP(stats);
     const currentLevel = ExperienceService.calculateLevel(currentXp);
     const currentLevelName = ExperienceService.getLevelName(currentLevel);
     
-    console.log("🎯 ProfilePage - XP calculé:", currentXp, "Niveau:", currentLevel);
+    console.log("🎯 XP CALCUL:", {
+        calculé: currentXp,
+        niveau: currentLevel,
+        statsSource: stableStats && !syncInProgress ? 'stableStats' : 'publicStats',
+        timestamp: renderTimestamp
+    });
+    console.groupEnd();
     
     const xpForCurrentLevel = ExperienceService.getXpForLevel(currentLevel);
     const xpForNextLevel = ExperienceService.getXpForLevel(currentLevel + 1);

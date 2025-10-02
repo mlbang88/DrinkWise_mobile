@@ -30,13 +30,25 @@ export class ExperienceService {
             totalQuizQuestions = 0
         } = stats;
         
-        return (
-            totalParties * this.CONFIG.XP_PER_PARTY +
-            totalDrinks * this.CONFIG.XP_PER_DRINK +
-            totalBadges * this.CONFIG.XP_PER_BADGE + 
-            totalChallenges * this.CONFIG.XP_PER_CHALLENGE +
-            totalQuizQuestions * this.CONFIG.XP_PER_QUIZ_QUESTION
-        );
+        const xpBreakdown = {
+            parties: totalParties * this.CONFIG.XP_PER_PARTY,
+            drinks: totalDrinks * this.CONFIG.XP_PER_DRINK,
+            badges: totalBadges * this.CONFIG.XP_PER_BADGE,
+            challenges: totalChallenges * this.CONFIG.XP_PER_CHALLENGE,
+            quiz: totalQuizQuestions * this.CONFIG.XP_PER_QUIZ_QUESTION
+        };
+        
+        const totalXP = xpBreakdown.parties + xpBreakdown.drinks + xpBreakdown.badges + xpBreakdown.challenges + xpBreakdown.quiz;
+        
+        // Log détaillé pour debug oscillation
+        console.log("⚡ ExperienceService - Calcul XP:", {
+            stats,
+            breakdown: xpBreakdown,
+            total: totalXP,
+            timestamp: new Date().getTime()
+        });
+        
+        return totalXP;
     }
 
     // === NIVEAU BASÉ SUR XP ===  
