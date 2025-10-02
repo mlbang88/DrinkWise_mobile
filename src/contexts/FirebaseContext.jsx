@@ -7,7 +7,23 @@ import { generateUniqueUsername } from '../utils/usernameUtils';
 import { friendshipListenerService } from '../services/friendshipListenerService.js';
 import { ExperienceService } from '../services/experienceService';
 
-export const FirebaseContext = createContext(null);
+// Valeur par défaut pour éviter les erreurs de destructuration
+const defaultContextValue = {
+    user: null,
+    loading: true,
+    db: null,
+    auth: null,
+    functions: null,
+    appId: null,
+    setMessageBox: () => {},
+    changeBackground: () => {},
+    userProfile: null,
+    setUserProfile: () => {},
+    messageBox: { message: '', type: '' },
+    logout: () => {}
+};
+
+export const FirebaseContext = createContext(defaultContextValue);
 
 // Fonction pour vérifier et corriger le niveau utilisateur
 const verifyAndFixUserLevel = async (userProfileRef, profileData) => {
@@ -41,7 +57,7 @@ const verifyAndFixUserLevel = async (userProfileRef, profileData) => {
 // Hook personnalisé pour utiliser le contexte Firebase
 export const useFirebase = () => {
     const context = useContext(FirebaseContext);
-    if (!context) {
+    if (!context || context === defaultContextValue) {
         throw new Error('useFirebase must be used within a FirebaseProvider');
     }
     return context;
