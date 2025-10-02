@@ -13,6 +13,12 @@ import { logger } from '../utils/logger.js';
 
 const ProfilePage = () => {
     const { auth, user, userProfile, db, appId, setMessageBox } = useContext(FirebaseContext);
+    
+    // Debug pour tracer les re-montages de composant
+    useEffect(() => {
+        console.log("🏗️ ProfilePage MONTÉ/REMONTÉ - timestamp:", Date.now());
+        return () => console.log("🗑️ ProfilePage DÉMONTÉ");
+    }, []);
     const [newUsername, setNewUsername] = useState(userProfile?.username || '');
     const [loading, setLoading] = useState(false);
     const [usernameValidation, setUsernameValidation] = useState({ isValid: true, error: null });
@@ -20,7 +26,11 @@ const ProfilePage = () => {
     const [currentProfilePhoto, setCurrentProfilePhoto] = useState(userProfile?.profilePhoto || null);
     const [hasSync, setHasSync] = useState(false);
     const [syncInProgress, setSyncInProgress] = useState(false);
-    const [stableStats, setStableStats] = useState(null);
+    const [stableStats, setStableStats] = useState(() => {
+        // Initialisation avec localStorage pour persistance inter-sessions
+        const saved = localStorage.getItem(`stableStats_${user?.uid || 'anonymous'}`);
+        return saved ? JSON.parse(saved) : null;
+    });
     const [lastSyncTimestamp, setLastSyncTimestamp] = useState(0);
     const [cachedXP, setCachedXP] = useState(null);
 
@@ -40,8 +50,10 @@ const ProfilePage = () => {
             
             ExperienceService.syncUserStats(db, appId, user.uid, userProfile)
                 .then((realStats) => {
-                    console.log("✅ ProfilePage - Stats synchronisées:", realStats);
-                    setStableStats(realStats); // Stocker les stats stables de façon permanente
+                    console.log("✅ ProfilePage - Stats synchronisées et sauvegardées:", realStats);
+                    setStableStats(realStats);
+                    // Persistance cross-session
+                    localStorage.setItem(`stableStats_${user.uid}`, JSON.stringify(realStats));
                 })  
                 .catch(err => {
                     console.error("❌ ProfilePage - Erreur sync:", err);
@@ -53,10 +65,24 @@ const ProfilePage = () => {
         }
     }, [user, userProfile, db, appId, hasSync, syncInProgress, lastSyncTimestamp]);
 
-    // Calcul unifié via ExperienceService - PERSISTANCE DES STATS STABLES
+    // Effet de surveillance pour détecter la perte de stableStats
+    useEffect(() => {
+        if (hasSync && !stableStats) {
+            console.error("🚨 ALERTE - stableStats perdu après synchronisation !");
+            // Tentative de récupération depuis localStorage
+            const saved = localStorage.getItem(`stableStats_${user?.uid}`);
+            if (saved) {
+                console.log("🔄 RÉCUPÉRATION depuis localStorage");
+                setStableStats(JSON.parse(saved));
+            }
+        }
+    }, [stableStats, hasSync, user?.uid]);
+
+    // Calcul unifié via ExperienceService - PROTECTION ABSOLUE CONTRE RÉGRESSION
     const stats = useMemo(() => {
+        // ✅ Protection absolue : si on a déjà eu des stableStats, ne jamais revenir en arrière
         if (stableStats) {
-            // ✅ Une fois stableStats obtenu, TOUJOURS l'utiliser (même si sync en cours)
+            console.log("🔒 UTILISATION STATS STABLES FORCÉE - Protection anti-régression");
             return {
                 totalParties: stableStats.totalParties || 0,
                 totalDrinks: stableStats.totalDrinks || 0,
@@ -65,6 +91,7 @@ const ProfilePage = () => {
                 totalQuizQuestions: stableStats.totalQuizQuestions || 0
             };
         } else {
+            console.log("⏳ FALLBACK TEMPORAIRE - Attente première sync");
             // ⏳ Fallback UNIQUEMENT pendant l'initialisation (avant première sync)
             return {
                 totalParties: userProfile?.publicStats?.totalParties || 0,
@@ -74,7 +101,7 @@ const ProfilePage = () => {
                 totalQuizQuestions: 0
             };
         }
-    }, [stableStats, userProfile?.publicStats]);
+    }, [stableStats]);
     
     // Debug détaillé pour tracer l'oscillation d'XP
     const renderTimestamp = new Date().getTime();
