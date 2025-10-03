@@ -124,6 +124,24 @@ service cloud.firestore {
 
       allow update, delete: if request.auth != null && request.auth.uid == resource.data.createdBy;
     }
+
+    // Règles pour les lieux (venues) - contrôle territorial
+    match /artifacts/{appId}/venues/{placeId} {
+      // Lecture : autorisée pour tous les utilisateurs authentifiés
+      allow read: if request.auth != null;
+
+      // Création/mise à jour : autorisée pour tous (contrôle automatique)
+      allow write: if request.auth != null;
+    }
+
+    // Règles pour les contrôles de lieux (venueControls)
+    match /artifacts/{appId}/venueControls/{controlId} {
+      // Lecture : autorisée pour tous les utilisateurs authentifiés
+      allow read: if request.auth != null;
+
+      // Écriture : autorisée pour tous (système de points automatique)
+      allow write: if request.auth != null;
+    }
     
     // Refuser tout autre accès
     match /{document=**} {

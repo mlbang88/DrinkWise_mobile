@@ -4,12 +4,14 @@ import { httpsCallable } from "firebase/functions";
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { FirebaseContext } from '../contexts/FirebaseContext.jsx';
 import { drinkOptions, partyCategories } from '../utils/data.jsx';
-import { Upload, X, Trash2, PlusCircle, Play, Square, Clock, Trophy, Users, User, Video } from 'lucide-react';
+import { Upload, X, Trash2, PlusCircle, Play, Square, Clock, Trophy, Users, User, Video, MapPin } from 'lucide-react';
 import useBattleRoyale from '../hooks/useBattleRoyale.js';
 import QuizManagerSimple from './QuizManagerSimple';
 import DrinkAnalyzer from './DrinkAnalyzer';
 import UserAvatar from './UserAvatar';
 import BattlePointsNotification from './BattlePointsNotification';
+import VenueSearchModal from './VenueSearchModal';
+import venueService from '../services/venueService';
 
 const CompetitivePartyModal = ({ onClose, onPartySaved, draftData = null }) => {
     const { db, storage, user, appId, userProfile, setMessageBox, functions } = useContext(FirebaseContext);
@@ -52,6 +54,8 @@ const CompetitivePartyModal = ({ onClose, onPartySaved, draftData = null }) => {
     const [drinks, setDrinks] = useState(initialData.drinks);
     const [stats, setStats] = useState(initialData.stats);
     const [location, setLocation] = useState(initialData.location);
+    const [venue, setVenue] = useState(draftData?.venue || null);
+    const [showVenueSearch, setShowVenueSearch] = useState(false);
     const [category] = useState(initialData.category);
     const [companions, setCompanions] = useState(initialData.companions);
     const [lastPartyData, setLastPartyData] = useState(null);
@@ -410,6 +414,14 @@ const CompetitivePartyModal = ({ onClose, onPartySaved, draftData = null }) => {
             drinks, 
             ...stats, 
             location, 
+            venue: venue ? {
+                placeId: venue.placeId,
+                name: venue.name,
+                address: venue.address,
+                coordinates: venue.coordinates,
+                rating: venue.rating,
+                types: venue.types
+            } : null,
             category, 
             companions,
             timestamp: Timestamp.now(), 
@@ -442,6 +454,38 @@ const CompetitivePartyModal = ({ onClose, onPartySaved, draftData = null }) => {
                     await processPartyForTournaments(partyData, selectedBattleMode, additionalData);
                 } catch (battleError) {
                     console.error("Erreur calcul points Battle Royale:", battleError);
+                }
+            }
+
+            // Mettre à jour le contrôle territorial si un lieu est sélectionné
+            if (venue) {
+                try {
+                    const territoryResult = await venueService.updateVenueControl(db, appId, {
+                        venue,
+                        userId: user.uid,
+                        username: userProfile?.username || "Anonyme",
+                        partyData,
+                        battleMode: selectedBattleMode
+                    });
+
+                    if (territoryResult.success) {
+                        console.log(`🗺️ Contrôle territorial: +${territoryResult.pointsEarned} points (${territoryResult.level.name})`);
+                        
+                        // Afficher notification si takeover ou nouveau contrôle
+                        if (territoryResult.isTakeover) {
+                            setMessageBox({ 
+                                message: `⚔️ Territoire conquis! +${territoryResult.pointsEarned} points`, 
+                                type: "success" 
+                            });
+                        } else if (territoryResult.isNewControl) {
+                            setMessageBox({ 
+                                message: `👑 Nouveau territoire! +${territoryResult.pointsEarned} points`, 
+                                type: "success" 
+                            });
+                        }
+                    }
+                } catch (territoryError) {
+                    console.error("Erreur mise à jour contrôle territorial:", territoryError);
                 }
             }
             
@@ -1286,22 +1330,29 @@ const CompetitivePartyModal = ({ onClose, onPartySaved, draftData = null }) => {
                         gap: '12px'
                     }}>
                         <div>
-                            <input 
-                                type="text" 
-                                value={location} 
-                                onChange={(e) => setLocation(e.target.value)} 
-                                placeholder="📍 Lieu"
+                            <button
+                                onClick={() => setShowVenueSearch(true)}
                                 style={{
                                     width: '100%',
                                     padding: '14px',
-                                    background: 'rgba(255, 255, 255, 0.08)',
-                                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                                    background: venue ? 'rgba(124, 58, 237, 0.2)' : 'rgba(255, 255, 255, 0.08)',
+                                    border: `1px solid ${venue ? 'rgba(124, 58, 237, 0.5)' : 'rgba(255, 255, 255, 0.2)'}`,
                                     borderRadius: '12px',
                                     color: 'white',
                                     fontSize: '14px',
-                                    outline: 'none'
+                                    outline: 'none',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    transition: 'all 0.2s'
                                 }}
-                            />
+                            >
+                                <MapPin size={16} className={venue ? 'text-violet-400' : 'text-gray-400'} />
+                                <span style={{ flex: 1, textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    {venue ? venue.name : location || '📍 Rechercher un lieu'}
+                                </span>
+                            </button>
                         </div>
 
                     </div>
@@ -1426,6 +1477,17 @@ const CompetitivePartyModal = ({ onClose, onPartySaved, draftData = null }) => {
                     onClose={() => setNotificationData(null)}
                 />
             )}
+
+            {/* Venue Search Modal */}
+            <VenueSearchModal
+                isOpen={showVenueSearch}
+                onClose={() => setShowVenueSearch(false)}
+                onVenueSelect={(selectedVenue) => {
+                    setVenue(selectedVenue);
+                    setLocation(selectedVenue.name);
+                }}
+                initialValue={location}
+            />
         </div>
     );
 };
