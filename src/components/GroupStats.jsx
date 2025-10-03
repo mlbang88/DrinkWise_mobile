@@ -63,28 +63,21 @@ export default function GroupStats({ groupId }) {
     const calculateMemberLevel = (stats) => {
         if (!stats) return { level: 0, levelName: "Novice de la Fête", currentXp: 0 };
         
-        const parties = stats.totalParties || 0;
-        const drinks = stats.totalDrinks || 0;
-        const defis = stats.challengesCompleted || 0;
-        const badges = stats.unlockedBadges?.length || 0;
-        
-        const totalXp =
-            parties * (gameplayConfig.xpParSoiree || 50) +
-            drinks * (gameplayConfig.xpParVerre || 5) +
-            defis * (gameplayConfig.xpParDefi || 25) +
-            badges * (gameplayConfig.xpParBadge || 100);
+        // Utiliser ExperienceService pour un calcul unifié de l'XP
+        const totalXp = ExperienceService.calculateTotalXP({
+            totalParties: stats.totalParties || 0,
+            totalDrinks: stats.totalDrinks || 0,
+            totalBadges: stats.unlockedBadges?.length || 0,
+            totalChallenges: stats.challengesCompleted || 0,
+            totalQuizQuestions: stats.totalQuizQuestions || 0
+        });
 
-        let currentLevel = 0;
-        for (let i = gameplayConfig.levels.length - 1; i >= 0; i--) {
-            if (totalXp >= gameplayConfig.levels[i].xp) {
-                currentLevel = i;
-                break;
-            }
-        }
+        const currentLevel = ExperienceService.calculateLevel(totalXp);
+        const levelName = ExperienceService.getLevelName(currentLevel);
 
         return {
             level: currentLevel,
-            levelName: gameplayConfig.levels[currentLevel].name,
+            levelName: levelName,
             currentXp: totalXp
         };
     };

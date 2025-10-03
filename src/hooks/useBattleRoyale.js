@@ -9,6 +9,7 @@ export const useBattleRoyale = () => {
     const [activeTournaments, setActiveTournaments] = useState([]);
     const [userTournaments, setUserTournaments] = useState([]);
     const [battleService] = useState(() => new BattleRoyaleService(db, appId));
+    const [notificationData, setNotificationData] = useState(null);
 
     // Écouter les tournois actifs
     useEffect(() => {
@@ -21,23 +22,39 @@ export const useBattleRoyale = () => {
             where('endTime', '>', new Date())
         );
 
-        const unsubscribe = onSnapshot(activeQuery, (snapshot) => {
-            const tournaments = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            }));
-            
-            setActiveTournaments(tournaments);
-            
-            // Filtrer les tournois où l'utilisateur participe
-            const userTourneys = tournaments.filter(t => 
-                t.participants && t.participants.includes(user.uid)
-            );
-            setUserTournaments(userTourneys);
-        });
+        const unsubscribe = onSnapshot(
+            activeQuery,
+            (snapshot) => {
+                const tournaments = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                }));
+                
+                setActiveTournaments(tournaments);
+                
+                // Filtrer les tournois où l'utilisateur participe
+                const userTourneys = tournaments.filter(t => 
+                    t.participants && t.participants.includes(user.uid)
+                );
+                setUserTournaments(userTourneys);
+            },
+            (error) => {
+                console.error('❌ Firestore Battle Royale listener error:', error);
+
+                if (error?.code === 'permission-denied') {
+                    setMessageBox({
+                        message: '⚠️ Accès aux tournois refusé. Contacte le support ou réessaie plus tard.',
+                        type: 'error'
+                    });
+                }
+
+                setActiveTournaments([]);
+                setUserTournaments([]);
+            }
+        );
 
         return unsubscribe;
-    }, [user, db, appId]);
+    }, [user, db, appId, setMessageBox]);
 
     // Calculer et attribuer automatiquement les points d'une soirée
     const processPartyForTournaments = async (partyData, selectedMode = 'balanced', additionalData = {}) => {
@@ -76,15 +93,20 @@ export const useBattleRoyale = () => {
                     mode: selectedMode
                 });
 
-                // Notification à l'utilisateur
-                setMessageBox({
-                    message: `🏆 +${modePoints.total} points dans ${tournament.name} (${selectedMode})!`,
-                    type: 'success'
-                });
+                // Pas de messageBox simple, on préparera la notification visuelle
+                // setMessageBox({
+                //     message: `🏆 +${modePoints.total} points dans ${tournament.name} (${selectedMode})!`,
+                //     type: 'success'
+                // });
 
             } catch (error) {
                 console.error('Erreur traitement tournoi:', error);
             }
+        }
+
+        // Si des points ont été gagnés, préparer les données de notification
+        if (results.length > 0) {
+            setNotificationData(results);
         }
 
         return results;
@@ -133,7 +155,9 @@ export const useBattleRoyale = () => {
         joinTournament,
         getTournamentLeaderboard,
         createFlashChallenge,
-        battleService
+        battleService,
+        notificationData,
+        setNotificationData
     };
 };
 

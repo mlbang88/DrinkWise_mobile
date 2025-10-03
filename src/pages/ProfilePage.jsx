@@ -14,177 +14,35 @@ import { logger } from '../utils/logger.js';
 const ProfilePage = () => {
     const { auth, user, userProfile, db, appId, setMessageBox } = useContext(FirebaseContext);
     
-    // États du composant (déclarés AVANT les useEffect)
+    // États du composant
     const [newUsername, setNewUsername] = useState(userProfile?.username || '');
     const [loading, setLoading] = useState(false);
     const [usernameValidation, setUsernameValidation] = useState({ isValid: true, error: null });
     const [checkingUsername, setCheckingUsername] = useState(false);
     const [currentProfilePhoto, setCurrentProfilePhoto] = useState(userProfile?.profilePhoto || null);
-    const [hasSync, setHasSync] = useState(false);
-    const [syncInProgress, setSyncInProgress] = useState(false);
-    const [stableStats, setStableStats] = useState(null);
-    const [lastSyncTimestamp, setLastSyncTimestamp] = useState(0);
-    const [cachedXP, setCachedXP] = useState(null);
-    const [frozenStats, setFrozenStats] = useState(null);
 
-    // Debug pour tracer les re-montages de composant
-    useEffect(() => {
-        console.log("🏗️ ProfilePage MONTÉ/REMONTÉ - timestamp:", Date.now());
-        return () => console.log("🗑️ ProfilePage DÉMONTÉ");
-    }, []);
 
-    // Initialisation depuis localStorage une fois user disponible
-    useEffect(() => {
-        if (user?.uid && !frozenStats) {
-            const savedFrozen = localStorage.getItem(`frozenStats_${user.uid}`);
-            const savedStable = localStorage.getItem(`stableStats_${user.uid}`);
-            
-            if (savedFrozen) {
-                console.log("❄️ RÉCUPÉRATION STATS FREEZÉES:", savedFrozen);
-                setFrozenStats(JSON.parse(savedFrozen));
-            }
-            if (savedStable) {
-                console.log("💾 RÉCUPÉRATION stableStats:", savedStable);
-                setStableStats(JSON.parse(savedStable));
-            }
-        }
-    }, [user?.uid, frozenStats]);
 
-    // Synchroniser les stats au chargement pour assurer cohérence - AVEC CONTRÔLE ANTI-SPAM
-    useEffect(() => {
-        const now = Date.now();
-        const minIntervalBetweenSync = 10000; // 10 secondes minimum entre les sync
-        
-        if (user && userProfile && db && !hasSync && !syncInProgress && 
-            (now - lastSyncTimestamp) > minIntervalBetweenSync) {
-            
-            setHasSync(true);
-            setSyncInProgress(true);
-            setLastSyncTimestamp(now);
-            
-            console.log("🔄 ProfilePage - Démarrage sync avec throttling:", now);
-            
-            ExperienceService.syncUserStats(db, appId, user.uid, userProfile)
-                .then((realStats) => {
-                    console.log("✅ ProfilePage - Stats synchronisées et FREEZÉES:", realStats);
-                    const frozenStatsObject = {
-                        totalParties: realStats.totalParties || 0,
-                        totalDrinks: realStats.totalDrinks || 0,
-                        totalChallenges: realStats.totalChallenges || 0,
-                        totalBadges: realStats.totalBadges || 0,
-                        totalQuizQuestions: realStats.totalQuizQuestions || 0,
-                        frozenAt: Date.now()
-                    };
-                    
-                    setStableStats(realStats);
-                    setFrozenStats(frozenStatsObject);
-                    // Persistance cross-session des stats freezées
-                    localStorage.setItem(`frozenStats_${user.uid}`, JSON.stringify(frozenStatsObject));
-                    localStorage.setItem(`stableStats_${user.uid}`, JSON.stringify(realStats));
-                })  
-                .catch(err => {
-                    console.error("❌ ProfilePage - Erreur sync:", err);
-                    setHasSync(false); // Réinitialiser en cas d'erreur
-                })
-                .finally(() => {
-                    setSyncInProgress(false);
-                });
-        }
-    }, [user, userProfile, db, appId, hasSync, syncInProgress, lastSyncTimestamp]);
-
-    // Effet de surveillance pour détecter la perte de stableStats
-    useEffect(() => {
-        if (hasSync && !stableStats) {
-            console.error("🚨 ALERTE - stableStats perdu après synchronisation !");
-            // Tentative de récupération depuis localStorage
-            const saved = localStorage.getItem(`stableStats_${user?.uid}`);
-            if (saved) {
-                console.log("🔄 RÉCUPÉRATION depuis localStorage");
-                setStableStats(JSON.parse(saved));
-            }
-        }
-    }, [stableStats, hasSync, user?.uid]);
-
-    // Fonction de debug pour dégeler les stats si nécessaire
-    const unfreezeStats = () => {
-        if (user?.uid) {
-            localStorage.removeItem(`frozenStats_${user.uid}`);
-            setFrozenStats(null);
-            setHasSync(false);
-            console.log("🔓 STATS DÉGELÉES - Prochaine sync créera de nouvelles stats freezées");
-        }
-    };
-
-    // Calcul unifié via ExperienceService - STATS COMPLÈTEMENT FREEZÉES
+    // Calcul des stats depuis publicStats (source unique de vérité)
     const stats = useMemo(() => {
-        // ❄️ PRIORITÉ ABSOLUE : Stats freezées (immutables)
-        if (frozenStats) {
-            console.log("❄️ UTILISATION STATS FREEZÉES - Immutables depuis:", new Date(frozenStats.frozenAt));
-            return {
-                totalParties: frozenStats.totalParties,
-                totalDrinks: frozenStats.totalDrinks,
-                totalChallenges: frozenStats.totalChallenges,
-                totalBadges: frozenStats.totalBadges,
-                totalQuizQuestions: frozenStats.totalQuizQuestions
-            };
-        }
-        // 🔒 Fallback vers stableStats
-        else if (stableStats) {
-            console.log("🔒 UTILISATION STATS STABLES - Attente freezing");
-            return {
-                totalParties: stableStats.totalParties || 0,
-                totalDrinks: stableStats.totalDrinks || 0,
-                totalChallenges: stableStats.totalChallenges || 0,
-                totalBadges: stableStats.totalBadges || 0,
-                totalQuizQuestions: stableStats.totalQuizQuestions || 0
-            };
-        } 
-        // ⏳ Dernier recours pendant l'initialisation
-        else {
-            console.log("⏳ FALLBACK TEMPORAIRE - Attente première sync");
-            return {
-                totalParties: userProfile?.publicStats?.totalParties || 0,
-                totalDrinks: userProfile?.publicStats?.totalDrinks || 0, 
-                totalChallenges: userProfile?.publicStats?.challengesCompleted || 0,
-                totalBadges: userProfile?.publicStats?.unlockedBadges?.length || userProfile?.unlockedBadges?.length || 0,
-                totalQuizQuestions: 0
-            };
-        }
-    }, [frozenStats, stableStats]);
+        const publicStats = userProfile?.publicStats || {};
+        return {
+            totalParties: publicStats.totalParties || 0,
+            totalDrinks: publicStats.totalDrinks || 0,
+            totalChallenges: publicStats.challengesCompleted || 0,
+            totalBadges: publicStats.unlockedBadges?.length || 0,
+            totalQuizQuestions: publicStats.totalQuizQuestions || 0
+        };
+    }, [userProfile?.publicStats]);
+
+    // Calcul XP et niveau
+    const currentXp = ExperienceService?.calculateTotalXP ? ExperienceService.calculateTotalXP(stats) : 0;
+    const currentLevel = ExperienceService?.calculateLevel ? ExperienceService.calculateLevel(currentXp) : 1;
+    const currentLevelName = ExperienceService?.getLevelName ? ExperienceService.getLevelName(currentLevel) : "Novice";
     
-    // Debug détaillé pour tracer l'oscillation d'XP
-    const renderTimestamp = new Date().getTime();
-    console.group(`🔍 ProfilePage RENDER - ${renderTimestamp}`);
-    console.log("📊 Stats utilisées:", stats);
-    console.log("� PublicStats brutes:", userProfile?.publicStats);
-    console.log("👤 UserProfile complet:", {
-        xp: userProfile?.xp,
-        level: userProfile?.level,
-        totalParties: userProfile?.totalParties,
-        totalDrinks: userProfile?.totalDrinks
-    });
-    
-    const currentXp = ExperienceService.calculateTotalXP(stats);
-    const currentLevel = ExperienceService.calculateLevel(currentXp);
-    const currentLevelName = ExperienceService.getLevelName(currentLevel);
-    
-    // Logging conditionnel pour éviter le spam (seulement si XP change)
-    if (!cachedXP || cachedXP.xp !== currentXp || cachedXP.level !== currentLevel) {
-        setCachedXP({ xp: currentXp, level: currentLevel });
-        console.log("🎯 XP CALCUL CHANGE:", {
-            ancienXP: cachedXP?.xp || 'N/A',
-            nouveauXP: currentXp,
-            ancienNiveau: cachedXP?.level || 'N/A', 
-            nouveauNiveau: currentLevel,
-            statsSource: stableStats ? 'stableStats' : 'publicStats',
-            timestamp: renderTimestamp
-        });
-    }
-    console.groupEnd();
-    
-    const xpForCurrentLevel = ExperienceService.getXpForLevel(currentLevel);
-    const xpForNextLevel = ExperienceService.getXpForLevel(currentLevel + 1);
-    const progress = ((currentXp - xpForCurrentLevel) / (xpForNextLevel - xpForCurrentLevel)) * 100;
+    const xpForCurrentLevel = ExperienceService?.getXpForLevel ? ExperienceService.getXpForLevel(currentLevel) : 0;
+    const xpForNextLevel = ExperienceService?.getXpForLevel ? ExperienceService.getXpForLevel(currentLevel + 1) : 100;
+    const progress = xpForNextLevel > xpForCurrentLevel ? ((currentXp - xpForCurrentLevel) / (xpForNextLevel - xpForCurrentLevel)) * 100 : 0;
 
     // Validation en temps réel du username
     const handleUsernameChange = async (value) => {

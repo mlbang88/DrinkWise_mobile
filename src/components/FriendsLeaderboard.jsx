@@ -34,7 +34,15 @@ const FriendsLeaderboard = ({ selectedCategory = 'level', title = "🏆 Classeme
             setLoading(true);
             // Synchroniser les stats de l'utilisateur actuel avant de charger le leaderboard - AVEC PROTECTION
             if (!hasLoaded) {
-                await SocialComparisonService.syncCurrentUserStats(db, appId, user.uid);
+                try {
+                    if (SocialComparisonService && typeof SocialComparisonService.syncCurrentUserStats === 'function') {
+                        await SocialComparisonService.syncCurrentUserStats(db, appId, user.uid);
+                    } else {
+                        console.warn('⚠️ SocialComparisonService.syncCurrentUserStats non disponible');
+                    }
+                } catch (syncError) {
+                    console.warn('⚠️ Erreur sync stats, continuons sans:', syncError);
+                }
                 setHasLoaded(true);
             }
             

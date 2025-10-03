@@ -1,4 +1,4 @@
-import React, { useState, useContext, useEffect } from 'react';
+import React, { useState, useContext, useEffect, useRef } from 'react';
 import { doc, getDoc } from 'firebase/firestore';
 import { FirebaseContext } from '../contexts/FirebaseContext.jsx';
 import { Trophy, Edit3, Clock, Zap, X } from 'lucide-react';
@@ -9,6 +9,7 @@ import useBattleRoyale from '../hooks/useBattleRoyale.js';
 const PartyModeSelector = ({ onClose, onPartySaved }) => {
     const { db, user, appId } = useContext(FirebaseContext);
     const { userTournaments } = useBattleRoyale();
+    const modalRef = useRef(null);
     const [selectedMode, setSelectedMode] = useState(null);
     const [draftData, setDraftData] = useState(null);
     const [hasDraft, setHasDraft] = useState(false);
@@ -42,7 +43,14 @@ const PartyModeSelector = ({ onClose, onPartySaved }) => {
         checkForDraft();
     }, [user, db, appId]);
 
-    // Si un mode est sélectionné, afficher le modal correspondant
+    // Forcer le scroll en haut à l'ouverture
+    useEffect(() => {
+        if (modalRef.current) {
+            modalRef.current.scrollTop = 0;
+        }
+    }, []);
+
+    // Si un mode est sélectionné, afficher le modal correspondant sans wrapper
     if (selectedMode === 'basic') {
         return (
             <BasicPartyModal 
@@ -72,6 +80,7 @@ const PartyModeSelector = ({ onClose, onPartySaved }) => {
         );
     }
 
+    // Modal de sélection du mode
     return (
         <div style={{
             position: 'fixed',
@@ -84,17 +93,18 @@ const PartyModeSelector = ({ onClose, onPartySaved }) => {
             alignItems: 'flex-start',
             justifyContent: 'center',
             zIndex: 1000,
-            padding: '20px',
-            paddingTop: '60px',
-            overflowY: 'auto'
+            padding: '5px'
         }}>
-            <div style={{
+            <div 
+                ref={modalRef}
+                style={{
                 backgroundColor: '#1a202c',
                 borderRadius: '24px',
                 padding: '32px',
                 maxWidth: '480px',
                 width: '100%',
-                minHeight: '85vh',
+                maxHeight: 'calc(100vh - 10px)',
+                overflowY: 'auto',
                 boxShadow: '0 25px 50px rgba(0, 0, 0, 0.5)'
             }}>
                 {/* Header */}

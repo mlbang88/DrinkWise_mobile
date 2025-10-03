@@ -1,6 +1,7 @@
 // src/services/experienceService.js
 import { gameplayConfig, calculateDrinkVolume, badgeList } from '../utils/data';
 import { collection, doc, updateDoc, setDoc, getDoc, getDocs } from 'firebase/firestore';
+import logger from '../utils/logger';
 
 export class ExperienceService {
     
@@ -16,12 +17,78 @@ export class ExperienceService {
             // Multiplicateurs pour incitations
             BATTLE_ROYALE_MULTIPLIER: 1.5,
             GROUP_ACTIVITY_MULTIPLIER: 1.2,
-            WEEKEND_MULTIPLIER: 1.1
+            WEEKEND_MULTIPLIER: 1.1,
+            
+            // Multiplicateurs par style de jeu (battleMode)
+            BATTLE_MODE_MULTIPLIERS: {
+                'moderation': 1.3,    // 🧠 Bonus pour approche responsable
+                'explorer': 1.25,      // ✨ Bonus pour découverte/variété
+                'social': 1.2,         // ❤️ Bonus pour organisation sociale
+                'balanced': 1.15,      // 🎯 Bonus léger pour équilibre
+                'party': 1.1           // ⚡ Bonus minimal (base déjà élevée)
+            }
         };
     }
 
+    // === CALCUL XP PAR SOIRÉE (avec battleMode) ===
+    static calculatePartyXP(partyData) {
+        const { 
+            drinks = [], 
+            battleMode = 'balanced',
+            companions = {},
+            location = '',
+            duration = 0
+        } = partyData;
+        
+        // XP de base
+        let xp = this.CONFIG.XP_PER_PARTY;
+        
+        // XP des boissons
+        xp += drinks.length * this.CONFIG.XP_PER_DRINK;
+        
+        // Multiplicateur selon le style de jeu
+        const modeMultiplier = this.CONFIG.BATTLE_MODE_MULTIPLIERS[battleMode] || 1.0;
+        
+        // Bonus contextuels selon le mode
+        if (battleMode === 'moderation' && drinks.length <= 3) {
+            xp += 20; // Bonus modération réelle
+        }
+        if (battleMode === 'explorer' && location) {
+            xp += 15; // Bonus nouveau lieu
+        }
+        if (battleMode === 'social' && companions?.selectedNames?.length > 0) {
+            xp += companions.selectedNames.length * 5; // Bonus compagnons
+        }
+        if (battleMode === 'party' && drinks.length >= 6) {
+            xp += 25; // Bonus endurance
+        }
+        if (battleMode === 'balanced') {
+            // Bonus équilibre si plusieurs aspects présents
+            const aspects = [
+                drinks.length > 0,
+                location !== '',
+                companions?.selectedNames?.length > 0,
+                duration > 0
+            ].filter(Boolean).length;
+            xp += aspects * 5;
+        }
+        
+        // Appliquer le multiplicateur du mode
+        xp = Math.floor(xp * modeMultiplier);
+        
+        logger.debug("⚡ XP Soirée calculé:", {
+            mode: battleMode,
+            baseXP: this.CONFIG.XP_PER_PARTY,
+            drinksXP: drinks.length * this.CONFIG.XP_PER_DRINK,
+            modeMultiplier,
+            totalXP: xp
+        });
+        
+        return xp;
+    }
+
     // === CALCUL XP UNIFIÉ ===
-    static calculateTotalXP(stats) {
+    static calculateTotalXP(stats, multipliers = {}) {
         const { 
             totalParties = 0, 
             totalDrinks = 0, 
@@ -30,6 +97,7 @@ export class ExperienceService {
             totalQuizQuestions = 0
         } = stats;
         
+        // Calcul de base
         const xpBreakdown = {
             parties: totalParties * this.CONFIG.XP_PER_PARTY,
             drinks: totalDrinks * this.CONFIG.XP_PER_DRINK,
@@ -38,12 +106,42 @@ export class ExperienceService {
             quiz: totalQuizQuestions * this.CONFIG.XP_PER_QUIZ_QUESTION
         };
         
-        const totalXP = xpBreakdown.parties + xpBreakdown.drinks + xpBreakdown.badges + xpBreakdown.challenges + xpBreakdown.quiz;
+        let totalXP = xpBreakdown.parties + xpBreakdown.drinks + xpBreakdown.badges + xpBreakdown.challenges + xpBreakdown.quiz;
         
-        // Log détaillé pour debug oscillation
-        console.log("⚡ ExperienceService - Calcul XP:", {
+        // Appliquer les multiplicateurs si présents
+        let finalMultiplier = 1.0;
+        const appliedMultipliers = [];
+        
+        if (multipliers.isBattleRoyale) {
+            finalMultiplier *= this.CONFIG.BATTLE_ROYALE_MULTIPLIER;
+            appliedMultipliers.push(`Battle Royale x${this.CONFIG.BATTLE_ROYALE_MULTIPLIER}`);
+        }
+        
+        if (multipliers.hasCompanions) {
+            finalMultiplier *= this.CONFIG.GROUP_ACTIVITY_MULTIPLIER;
+            appliedMultipliers.push(`Groupe x${this.CONFIG.GROUP_ACTIVITY_MULTIPLIER}`);
+        }
+        
+        if (multipliers.isWeekend) {
+            finalMultiplier *= this.CONFIG.WEEKEND_MULTIPLIER;
+            appliedMultipliers.push(`Weekend x${this.CONFIG.WEEKEND_MULTIPLIER}`);
+        }
+        
+        if (finalMultiplier > 1.0) {
+            totalXP = Math.floor(totalXP * finalMultiplier);
+            logger.debug("⚡ Multiplicateurs XP appliqués:", {
+                base: Math.floor(totalXP / finalMultiplier),
+                multiplier: finalMultiplier,
+                bonus: appliedMultipliers,
+                total: totalXP
+            });
+        }
+        
+        // Log détaillé pour debug oscillation (seulement en dev)
+        logger.debug("⚡ ExperienceService - Calcul XP:", {
             stats,
             breakdown: xpBreakdown,
+            multipliers: appliedMultipliers.length > 0 ? appliedMultipliers : 'aucun',
             total: totalXP,
             timestamp: new Date().getTime()
         });
@@ -53,10 +151,24 @@ export class ExperienceService {
 
     // === NIVEAU BASÉ SUR XP ===  
     static calculateLevel(xp) {
-        if (xp <= 0) return 1;
-        // Formule progressive: niveau 1=0xp, 2=100xp, 3=250xp, 4=450xp, etc.
-        const { baseXp, scalingFactor } = gameplayConfig.levelFormula;
-        const level = Math.floor((-baseXp + Math.sqrt(baseXp * baseXp + scalingFactor * xp)) / (baseXp * 2)) + 1;
+        if (xp <= 0 || xp === undefined || xp === null) return 1;
+        
+        // Vérification de sécurité pour gameplayConfig
+        if (!gameplayConfig || !gameplayConfig.levelFormula) {
+            logger.warn('⚠️ gameplayConfig.levelFormula manquant, utilisation valeurs par défaut');
+            return Math.max(1, Math.floor(Math.sqrt(xp / 50)) + 1);
+        }
+        
+        // Formule simplifiée: niveau = floor(sqrt(xp / divisor)) + 1
+        // Plus intuitive et facile à comprendre
+        const { divisor } = gameplayConfig.levelFormula;
+        
+        if (!divisor) {
+            logger.warn('⚠️ Paramètre divisor manquant, utilisation fallback');
+            return Math.max(1, Math.floor(Math.sqrt(xp / 50)) + 1);
+        }
+        
+        const level = Math.floor(Math.sqrt(xp / divisor)) + 1;
         return Math.max(1, level);
     }
 
@@ -76,7 +188,7 @@ export class ExperienceService {
             
             return realStats;
         } catch (error) {
-            console.error('Erreur sync stats:', error);
+            logger.error('Erreur sync stats:', error);
             throw error;
         }
     }
@@ -176,35 +288,55 @@ export class ExperienceService {
         stats.level = this.calculateLevel(stats.totalXP);
         stats.levelName = this.getLevelName(stats.level);
         
-        // Calcul XP pour niveau suivant
-        const nextLevelXp = this.getXpForLevel(stats.level + 1);
-        const currentLevelXp = this.getXpForLevel(stats.level);
-        stats.xpToNextLevel = nextLevelXp - stats.totalXP;
-        stats.progressToNextLevel = ((stats.totalXP - currentLevelXp) / (nextLevelXp - currentLevelXp)) * 100;
+        // Calcul XP pour niveau suivant (avec fallback sécurisé)
+        const nextLevelXp = this.getXpForLevel(stats.level + 1) || 0;
+        const currentLevelXp = this.getXpForLevel(stats.level) || 0;
+        stats.xpToNextLevel = Math.max(0, nextLevelXp - stats.totalXP);
+        stats.progressToNextLevel = nextLevelXp > currentLevelXp 
+            ? Math.round(((stats.totalXP - currentLevelXp) / (nextLevelXp - currentLevelXp)) * 100)
+            : 0;
         
         return stats;
     }
 
     // === NOMS DE NIVEAUX DYNAMIQUES ===
     static getLevelName(level) {
-        const names = [
-            "Novice", "Apprenti", "Habitué", "Connaisseur", "Expert",
-            "Vétéran", "Maître", "Champion", "Légende", "Dieu de la Fête"
+        // Système de tiers pour éviter "Déité Niveau 52"
+        const tiers = [
+            { max: 10, prefix: 'Bronze', ranks: ['Novice', 'Apprenti', 'Initié', 'Pratiquant', 'Confirmé', 'Expert', 'Maître', 'Vétéran', 'Élite', 'Champion'] },
+            { max: 20, prefix: 'Argent', ranks: ['Novice', 'Apprenti', 'Initié', 'Pratiquant', 'Confirmé', 'Expert', 'Maître', 'Vétéran', 'Élite', 'Champion'] },
+            { max: 30, prefix: 'Or', ranks: ['Novice', 'Apprenti', 'Initié', 'Pratiquant', 'Confirmé', 'Expert', 'Maître', 'Vétéran', 'Élite', 'Champion'] },
+            { max: 40, prefix: 'Platine', ranks: ['Novice', 'Apprenti', 'Initié', 'Pratiquant', 'Confirmé', 'Expert', 'Maître', 'Vétéran', 'Élite', 'Champion'] },
+            { max: 50, prefix: 'Diamant', ranks: ['Novice', 'Apprenti', 'Initié', 'Pratiquant', 'Confirmé', 'Expert', 'Maître', 'Vétéran', 'Élite', 'Champion'] },
+            { max: Infinity, prefix: 'Légende', ranks: ['Ascendant', 'Transcendant', 'Divin', 'Immortel', 'Éternel', 'Cosmique', 'Omniscient', 'Absolu', 'Infini', 'Déité'] }
         ];
         
-        if (level <= 10) return names[Math.min(level - 1, 9)];
-        if (level <= 25) return `${names[9]} Niveau ${level}`;
-        if (level <= 50) return `Titan Niveau ${level}`;
-        return `Déité Niveau ${level}`;
+        // Trouver le tier approprié
+        const tier = tiers.find(t => level <= t.max);
+        if (!tier) return `Niveau ${level}`;
+        
+        // Calculer le rang dans le tier
+        const previousTierMax = tiers[tiers.indexOf(tier) - 1]?.max || 0;
+        const tierLevel = level - previousTierMax;
+        const rankIndex = Math.min(tierLevel - 1, tier.ranks.length - 1);
+        const rank = tier.ranks[rankIndex];
+        
+        // Format: "Bronze Novice" (niveaux 1-10), "Argent Expert" (niveaux 11-20), etc.
+        return `${tier.prefix} ${rank}`;
     }
 
     // === XP REQUIS POUR UN NIVEAU ===
     static getXpForLevel(level) {
         if (level <= 1) return 0;
-        const { baseXp, scalingFactor } = gameplayConfig.levelFormula;
-        // Formule inverse de calculateLevel: xp = ((level-1) * baseXp * 2)^2 / 4 * scalingFactor / baseXp^2
-        // Simplifiée: xp = (level-1)^2 * scalingFactor / 4
-        const xp = Math.pow(level - 1, 2) * scalingFactor / 4;
+        
+        const divisor = gameplayConfig?.levelFormula?.divisor || 50;
+        
+        // Formule inverse: xp = (level - 1)^2 * divisor
+        // Niveau 1 = 0 XP
+        // Niveau 2 = 1^2 * 50 = 50 XP
+        // Niveau 3 = 2^2 * 50 = 200 XP
+        // Niveau 4 = 3^2 * 50 = 450 XP
+        const xp = Math.pow(level - 1, 2) * divisor;
         return Math.floor(xp);
     }
 

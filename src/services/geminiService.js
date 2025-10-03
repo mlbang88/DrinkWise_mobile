@@ -1,5 +1,6 @@
 // src/services/geminiService.js
 import { httpsCallable } from 'firebase/functions';
+import { logger } from '../utils/logger.js';
 
 export class GeminiService {
     constructor(functions = null) {
@@ -9,16 +10,16 @@ export class GeminiService {
         
         // Vérification de configuration au démarrage
         if (!this.analyzeImageSecure) {
-            console.warn('⚠️ GeminiService: Firebase Functions non configuré. Le système IA ne fonctionnera pas.');
+            logger.warn('GEMINI', 'Firebase Functions non configuré. Le système IA ne fonctionnera pas.');
         } else {
-            console.log('✅ GeminiService: Configuré avec Firebase Functions sécurisé');
+            logger.info('GEMINI', 'Configuré avec Firebase Functions sécurisé');
         }
     }
 
     async analyzeImage(imageFile) {
         try {
             if (!this.analyzeImageSecure) {
-                console.warn('🔑 Firebase Functions non configuré. Veuillez configurer le service Firebase.');
+                logger.warn('GEMINI', 'Firebase Functions non configuré. Veuillez configurer le service Firebase.');
                 alert('Service d\'analyse non configuré !\n\nLe service Firebase Functions est requis pour l\'analyse d\'images.');
                 throw new Error('Firebase Functions non configuré');
             }
@@ -26,7 +27,7 @@ export class GeminiService {
             // Convertir l'image en base64
             const base64Image = await this.convertToBase64(imageFile);
             
-            console.log('🔍 Envoi de l\'image à Firebase Functions pour analyse...');
+            logger.debug('GEMINI', 'Envoi de l\'image à Firebase Functions pour analyse...');
             
             // Appel sécurisé via Firebase Functions
             const result = await this.analyzeImageSecure({
@@ -35,15 +36,15 @@ export class GeminiService {
             });
 
             if (result?.data?.success && result?.data?.drinkInfo) {
-                console.log('🍹 Analyse réussie:', result.data.drinkInfo);
+                logger.info('GEMINI', 'Analyse réussie', result.data.drinkInfo);
                 return result.data.drinkInfo;
             } else {
-                console.warn('⚠️ Réponse invalide du service:', result?.data);
+                logger.warn('GEMINI', 'Réponse invalide du service', result?.data);
                 throw new Error('Réponse invalide du service d\'analyse');
             }
             
         } catch (error) {
-            console.error('❌ Erreur analyse Gemini via Functions:', error);
+            logger.error('GEMINI', 'Erreur analyse Gemini via Functions', error);
             
             // Messages d'erreur plus spécifiques
             if (error.code === 'functions/unauthenticated') {

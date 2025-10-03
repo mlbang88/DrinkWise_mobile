@@ -1,9 +1,9 @@
 // src/components/BattleRoyale.jsx
 import React, { useState, useEffect, useContext } from 'react';
 import { FirebaseContext } from '../contexts/FirebaseContext';
-import { collection, doc, addDoc, onSnapshot, updateDoc, query, where, orderBy } from 'firebase/firestore';
+import { collection, doc, addDoc, onSnapshot, updateDoc, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
 import useBattleRoyale from '../hooks/useBattleRoyale';
-import { Trophy, Users, Target, Sparkles, Crown, Flame, Heart, Brain, Zap } from 'lucide-react';
+import { Trophy, Users, Target, Sparkles, Crown, Flame, Heart, Brain, Zap, Medal, Award } from 'lucide-react';
 
 const GAME_MODES = {
     MODERATION_MASTER: {
@@ -130,9 +130,49 @@ const BattleRoyale = () => {
     const [leaderboard, setLeaderboard] = useState([]);
     const [showCreateTournament, setShowCreateTournament] = useState(false);
     const [userStats, setUserStats] = useState({});
+    const [activeTab, setActiveTab] = useState('active'); // 'active', 'mine', 'create', 'leaderboard'
+    const [loadingLeaderboard, setLoadingLeaderboard] = useState(false);
     
     // Utiliser le hook Battle Royale
     const { activeTournaments, userTournaments, joinTournament } = useBattleRoyale();
+
+    // Charger le classement global quand on ouvre l'onglet
+    useEffect(() => {
+        if (activeTab === 'leaderboard' && leaderboard.length === 0) {
+            loadGlobalLeaderboard();
+        }
+    }, [activeTab]);
+
+    const loadGlobalLeaderboard = async () => {
+        if (!db || !appId) return;
+        
+        setLoadingLeaderboard(true);
+        try {
+            const publicStatsRef = collection(db, `artifacts/${appId}/public_user_stats`);
+            const leaderboardQuery = query(
+                publicStatsRef,
+                orderBy('tournamentStats.totalPoints', 'desc'),
+                limit(50)
+            );
+            
+            const snapshot = await getDocs(leaderboardQuery);
+            const topPlayers = snapshot.docs.map((doc, index) => ({
+                userId: doc.id,
+                rank: index + 1,
+                ...doc.data()
+            }));
+            
+            setLeaderboard(topPlayers);
+        } catch (error) {
+            console.error('Erreur chargement leaderboard:', error);
+            setMessageBox({ 
+                message: 'Erreur lors du chargement du classement', 
+                type: 'error' 
+            });
+        } finally {
+            setLoadingLeaderboard(false);
+        }
+    };
 
     // Interface de création de tournoi
     const CreateTournamentModal = () => {
@@ -419,11 +459,631 @@ const BattleRoyale = () => {
                     </p>
                 </div>
 
-                {/* Sélection de mode */}
-                <ModeSelector />
+                {/* Système d'onglets */}
+                <div style={{ 
+                    display: 'flex', 
+                    justifyContent: 'center', 
+                    gap: '10px', 
+                    marginBottom: '30px',
+                    flexWrap: 'wrap',
+                    padding: '0 10px'
+                }}>
+                    {[
+                        { id: 'active', label: 'Tournois Actifs', icon: '🏆' },
+                        { id: 'mine', label: 'Mes Tournois', icon: '👤' },
+                        { id: 'create', label: 'Créer', icon: '➕' },
+                        { id: 'leaderboard', label: 'Classement', icon: '📊' }
+                    ].map(tab => (
+                        <button
+                            key={tab.id}
+                            onClick={() => setActiveTab(tab.id)}
+                            style={{
+                                padding: '12px 20px',
+                                borderRadius: '12px',
+                                border: activeTab === tab.id ? '2px solid #667eea' : '1px solid #333',
+                                backgroundColor: activeTab === tab.id 
+                                    ? 'rgba(102, 126, 234, 0.2)' 
+                                    : '#1a1a1a',
+                                color: activeTab === tab.id ? '#667eea' : '#ccc',
+                                fontSize: '14px',
+                                fontWeight: activeTab === tab.id ? 'bold' : 'normal',
+                                cursor: 'pointer',
+                                transition: 'all 0.3s ease',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px'
+                            }}
+                        >
+                            <span>{tab.icon}</span>
+                            <span>{tab.label}</span>
+                        </button>
+                    ))}
+                </div>
 
-                {/* Actions principales */}
-                <div style={{ display: 'flex', gap: '20px', justifyContent: 'center', marginBottom: '40px' }}>
+                {/* Contenu selon l'onglet actif */}
+                {activeTab === 'active' && (
+                    <>
+                        {/* Tournois disponibles */}
+                        {activeTournaments.length > 0 ? (
+                            <div style={{ marginBottom: '40px' }}>
+                                <h3 style={{ 
+                                    color: '#fff', 
+                                    textAlign: 'center', 
+                                    marginBottom: '25px',
+                                    fontSize: '20px'
+                                }}>
+                                    🏆 Tournois Disponibles
+                                </h3>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
+                                    {activeTournaments.map(tournament => {
+                                        const isParticipating = tournament.participants?.includes(user.uid);
+                                        const isCreator = tournament.createdBy === user.uid;
+                                        const participants = tournament.participants?.length || 0;
+                                        
+                                        return (
+                                            <div
+                                                key={tournament.id}
+                                                style={{
+                                                    background: isParticipating 
+                                                        ? 'linear-gradient(135deg, rgba(102, 126, 234, 0.2), rgba(118, 75, 162, 0.2))'
+                                                        : 'linear-gradient(135deg, #1a1a1a, #2d2d2d)',
+                                                    border: isParticipating ? '2px solid #667eea' : '1px solid #333',
+                                                    borderRadius: '15px',
+                                                    padding: '20px',
+                                                    position: 'relative'
+                                                }}
+                                            >
+                                                {isCreator && (
+                                                    <div style={{
+                                                        position: 'absolute',
+                                                        top: '10px',
+                                                        right: '10px',
+                                                        backgroundColor: '#FFD700',
+                                                        color: '#000',
+                                                        padding: '4px 8px',
+                                                        borderRadius: '12px',
+                                                        fontSize: '10px',
+                                                        fontWeight: 'bold'
+                                                    }}>
+                                                        ORGANISATEUR
+                                                    </div>
+                                                )}
+                                                
+                                                <h4 style={{ color: '#fff', margin: '0 0 10px 0', fontSize: '18px' }}>
+                                                    {tournament.name}
+                                                </h4>
+                                                
+                                                <div style={{ color: '#ccc', fontSize: '14px', marginBottom: '15px' }}>
+                                                    <div>👤 {participants}/{tournament.maxParticipants} participants</div>
+                                                    <div>⏰ {getTimeRemaining(tournament.endTime)}</div>
+                                                    <div>🎮 {tournament.modes?.length || 0} mode{(tournament.modes?.length || 0) > 1 ? 's' : ''}</div>
+                                                </div>
+                                                
+                                                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '15px' }}>
+                                                    {tournament.modes?.map(mode => {
+                                                        const modeData = Object.values(GAME_MODES).find(m => m.id === mode);
+                                                        if (!modeData) return null;
+                                                        const Icon = modeData.icon;
+                                                        return (
+                                                            <div key={mode} style={{
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                gap: '4px',
+                                                                padding: '4px 8px',
+                                                                backgroundColor: `${modeData.color}20`,
+                                                                border: `1px solid ${modeData.color}`,
+                                                                borderRadius: '8px',
+                                                                fontSize: '10px',
+                                                                color: modeData.color
+                                                            }}>
+                                                                <Icon size={12} />
+                                                                {modeData.name}
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                                
+                                                {!isParticipating && !isCreator && participants < tournament.maxParticipants && (
+                                                    <button
+                                                        onClick={() => joinTournament(tournament.id)}
+                                                        style={{
+                                                            width: '100%',
+                                                            padding: '10px',
+                                                            borderRadius: '8px',
+                                                            border: 'none',
+                                                            background: 'linear-gradient(135deg, #667eea, #764ba2)',
+                                                            color: '#fff',
+                                                            fontSize: '14px',
+                                                            fontWeight: 'bold',
+                                                            cursor: 'pointer'
+                                                        }}
+                                                    >
+                                                        🚀 Rejoindre
+                                                    </button>
+                                                )}
+                                                
+                                                {isParticipating && (
+                                                    <div style={{
+                                                        width: '100%',
+                                                        padding: '10px',
+                                                        borderRadius: '8px',
+                                                        backgroundColor: 'rgba(16, 185, 129, 0.2)',
+                                                        border: '1px solid #10B981',
+                                                        color: '#10B981',
+                                                        fontSize: '14px',
+                                                        fontWeight: 'bold',
+                                                        textAlign: 'center'
+                                                    }}>
+                                                        ✅ Inscrit
+                                                    </div>
+                                                )}
+                                                
+                                                {participants >= tournament.maxParticipants && !isParticipating && (
+                                                    <div style={{
+                                                        width: '100%',
+                                                        padding: '10px',
+                                                        borderRadius: '8px',
+                                                        backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                                                        border: '1px solid #EF4444',
+                                                        color: '#EF4444',
+                                                        fontSize: '14px',
+                                                        fontWeight: 'bold',
+                                                        textAlign: 'center'
+                                                    }}>
+                                                        🚫 Complet
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        ) : (
+                            <div style={{
+                                backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                                border: '2px dashed #667eea',
+                                borderRadius: '15px',
+                                padding: '40px 20px',
+                                textAlign: 'center',
+                                marginBottom: '40px'
+                            }}>
+                                <Trophy size={48} color="#667eea" style={{ marginBottom: '15px' }} />
+                                <h3 style={{ color: '#667eea', margin: '0 0 15px 0' }}>
+                                    Aucun tournoi disponible
+                                </h3>
+                                <p style={{ color: '#ccc', marginBottom: '20px' }}>
+                                    Sois le premier à créer un tournoi Battle Royale !<br />
+                                    Défie tes amis et montre ton style de soirée 🚀
+                                </p>
+                                <button
+                                    onClick={() => setActiveTab('create')}
+                                    style={{
+                                        padding: '12px 25px',
+                                        borderRadius: '10px',
+                                        border: 'none',
+                                        background: 'linear-gradient(135deg, #667eea, #764ba2)',
+                                        color: '#fff',
+                                        fontSize: '14px',
+                                        fontWeight: 'bold',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    🏆 Créer le Premier Tournoi
+                                </button>
+                            </div>
+                        )}
+                    </>
+                )}
+
+                {activeTab === 'mine' && (
+                    <>
+                        {/* Mes tournois */}
+                        {userTournaments.length > 0 ? (
+                            <div style={{ marginBottom: '40px' }}>
+                                <h3 style={{ 
+                                    color: '#fff', 
+                                    textAlign: 'center', 
+                                    marginBottom: '25px',
+                                    fontSize: '20px'
+                                }}>
+                                    👤 Mes Tournois ({userTournaments.length})
+                                </h3>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
+                                    {userTournaments.map(tournament => {
+                                        const isCreator = tournament.createdBy === user.uid;
+                                        const participants = tournament.participants?.length || 0;
+                                        const myScore = tournament.scores?.[user.uid] || 0;
+                                        
+                                        return (
+                                            <div
+                                                key={tournament.id}
+                                                style={{
+                                                    background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.2), rgba(118, 75, 162, 0.2))',
+                                                    border: '2px solid #667eea',
+                                                    borderRadius: '15px',
+                                                    padding: '20px',
+                                                    position: 'relative'
+                                                }}
+                                            >
+                                                {isCreator && (
+                                                    <div style={{
+                                                        position: 'absolute',
+                                                        top: '10px',
+                                                        right: '10px',
+                                                        backgroundColor: '#FFD700',
+                                                        color: '#000',
+                                                        padding: '4px 8px',
+                                                        borderRadius: '12px',
+                                                        fontSize: '10px',
+                                                        fontWeight: 'bold'
+                                                    }}>
+                                                        ORGANISATEUR
+                                                    </div>
+                                                )}
+                                                
+                                                <h4 style={{ color: '#fff', margin: '0 0 10px 0', fontSize: '18px' }}>
+                                                    {tournament.name}
+                                                </h4>
+                                                
+                                                <div style={{ 
+                                                    color: '#fff', 
+                                                    fontSize: '24px', 
+                                                    fontWeight: 'bold',
+                                                    marginBottom: '10px',
+                                                    textAlign: 'center',
+                                                    padding: '10px',
+                                                    backgroundColor: 'rgba(102, 126, 234, 0.3)',
+                                                    borderRadius: '10px'
+                                                }}>
+                                                    🏆 {myScore} points
+                                                </div>
+                                                
+                                                <div style={{ color: '#ccc', fontSize: '14px', marginBottom: '15px' }}>
+                                                    <div>👤 {participants}/{tournament.maxParticipants} participants</div>
+                                                    <div>⏰ {getTimeRemaining(tournament.endTime)}</div>
+                                                    <div>🎮 {tournament.modes?.length || 0} mode{(tournament.modes?.length || 0) > 1 ? 's' : ''}</div>
+                                                </div>
+                                                
+                                                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                                    {tournament.modes?.map(mode => {
+                                                        const modeData = Object.values(GAME_MODES).find(m => m.id === mode);
+                                                        if (!modeData) return null;
+                                                        const Icon = modeData.icon;
+                                                        return (
+                                                            <div key={mode} style={{
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                gap: '4px',
+                                                                padding: '4px 8px',
+                                                                backgroundColor: `${modeData.color}20`,
+                                                                border: `1px solid ${modeData.color}`,
+                                                                borderRadius: '8px',
+                                                                fontSize: '10px',
+                                                                color: modeData.color
+                                                            }}>
+                                                                <Icon size={12} />
+                                                                {modeData.name}
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        ) : (
+                            <div style={{
+                                backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                                border: '2px dashed #667eea',
+                                borderRadius: '15px',
+                                padding: '40px 20px',
+                                textAlign: 'center'
+                            }}>
+                                <Trophy size={48} color="#667eea" style={{ marginBottom: '15px' }} />
+                                <h3 style={{ color: '#667eea', margin: '0 0 15px 0' }}>
+                                    Aucun tournoi rejoint
+                                </h3>
+                                <p style={{ color: '#ccc', marginBottom: '20px' }}>
+                                    Rejoins un tournoi actif pour commencer à accumuler des points !
+                                </p>
+                                <button
+                                    onClick={() => setActiveTab('active')}
+                                    style={{
+                                        padding: '12px 25px',
+                                        borderRadius: '10px',
+                                        border: 'none',
+                                        background: 'linear-gradient(135deg, #667eea, #764ba2)',
+                                        color: '#fff',
+                                        fontSize: '14px',
+                                        fontWeight: 'bold',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    🏆 Voir les Tournois
+                                </button>
+                            </div>
+                        )}
+                    </>
+                )}
+
+                {activeTab === 'create' && (
+                    <>
+                        {/* Sélection de mode */}
+                        <ModeSelector />
+                        
+                        {/* Bouton de création */}
+                        <div style={{ textAlign: 'center', marginBottom: '40px' }}>
+                            <button
+                                onClick={() => setShowCreateTournament(true)}
+                                style={{
+                                    padding: '15px 30px',
+                                    borderRadius: '12px',
+                                    border: 'none',
+                                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                                    color: '#fff',
+                                    fontSize: '16px',
+                                    fontWeight: 'bold',
+                                    cursor: 'pointer',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '10px'
+                                }}
+                            >
+                                <Crown size={20} />
+                                Créer un Tournoi
+                            </button>
+                        </div>
+                    </>
+                )}
+
+                {activeTab === 'leaderboard' && (
+                    <div>
+                        <h3 style={{ 
+                            color: '#fff', 
+                            textAlign: 'center', 
+                            marginBottom: '25px',
+                            fontSize: '20px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '10px'
+                        }}>
+                            <Trophy size={24} color="#FFD700" />
+                            Classement Global
+                        </h3>
+
+                        {loadingLeaderboard ? (
+                            <div style={{
+                                textAlign: 'center',
+                                padding: '40px',
+                                color: '#ccc'
+                            }}>
+                                ⏳ Chargement du classement...
+                            </div>
+                        ) : leaderboard.length === 0 ? (
+                            <div style={{
+                                backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                                border: '2px dashed #667eea',
+                                borderRadius: '15px',
+                                padding: '40px 20px',
+                                textAlign: 'center'
+                            }}>
+                                <Trophy size={48} color="#667eea" style={{ marginBottom: '15px' }} />
+                                <h4 style={{ color: '#667eea', margin: '0 0 10px 0' }}>
+                                    Aucun classement disponible
+                                </h4>
+                                <p style={{ color: '#ccc', fontSize: '14px' }}>
+                                    Sois le premier à participer aux tournois !
+                                </p>
+                            </div>
+                        ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                                {leaderboard.map((player, index) => {
+                                    const isCurrentUser = player.userId === user.uid;
+                                    const tournamentStats = player.tournamentStats || {};
+                                    const totalPoints = tournamentStats.totalPoints || 0;
+                                    const winRate = tournamentStats.winRate || 0;
+                                    const favoriteMode = tournamentStats.favoriteMode || 'balanced';
+
+                                    // Configuration des couleurs par mode
+                                    const modeConfig = {
+                                        moderation: { color: '#10B981', icon: Brain },
+                                        explorer: { color: '#8B5CF6', icon: Sparkles },
+                                        social: { color: '#EF4444', icon: Heart },
+                                        balanced: { color: '#F59E0B', icon: Target },
+                                        party: { color: '#FF6B35', icon: Flame }
+                                    };
+
+                                    const config = modeConfig[favoriteMode] || modeConfig.balanced;
+                                    const ModeIcon = config.icon;
+
+                                    // Style spécial pour le podium
+                                    let podiumStyle = {};
+                                    let rankIcon = null;
+                                    
+                                    if (index === 0) {
+                                        podiumStyle = {
+                                            background: 'linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(255, 215, 0, 0.1))',
+                                            border: '2px solid #FFD700',
+                                            boxShadow: '0 0 20px rgba(255, 215, 0, 0.3)'
+                                        };
+                                        rankIcon = <Crown size={24} color="#FFD700" />;
+                                    } else if (index === 1) {
+                                        podiumStyle = {
+                                            background: 'linear-gradient(135deg, rgba(192, 192, 192, 0.2), rgba(192, 192, 192, 0.1))',
+                                            border: '2px solid #C0C0C0'
+                                        };
+                                        rankIcon = <Medal size={24} color="#C0C0C0" />;
+                                    } else if (index === 2) {
+                                        podiumStyle = {
+                                            background: 'linear-gradient(135deg, rgba(205, 127, 50, 0.2), rgba(205, 127, 50, 0.1))',
+                                            border: '2px solid #CD7F32'
+                                        };
+                                        rankIcon = <Medal size={24} color="#CD7F32" />;
+                                    } else {
+                                        podiumStyle = {
+                                            background: isCurrentUser 
+                                                ? 'linear-gradient(135deg, rgba(102, 126, 234, 0.2), rgba(118, 75, 162, 0.1))'
+                                                : 'linear-gradient(135deg, #1a1a1a, #2d2d2d)',
+                                            border: isCurrentUser ? '2px solid #667eea' : '1px solid #333'
+                                        };
+                                    }
+
+                                    return (
+                                        <div
+                                            key={player.userId}
+                                            style={{
+                                                ...podiumStyle,
+                                                borderRadius: '15px',
+                                                padding: '20px',
+                                                position: 'relative',
+                                                transition: 'transform 0.2s ease',
+                                                cursor: 'pointer'
+                                            }}
+                                            onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
+                                            onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                                        >
+                                            {/* Rang */}
+                                            <div style={{
+                                                position: 'absolute',
+                                                top: '15px',
+                                                left: '15px',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '8px'
+                                            }}>
+                                                {rankIcon || (
+                                                    <div style={{
+                                                        width: '32px',
+                                                        height: '32px',
+                                                        borderRadius: '50%',
+                                                        background: 'rgba(255, 255, 255, 0.1)',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        fontSize: '14px',
+                                                        fontWeight: 'bold',
+                                                        color: '#fff'
+                                                    }}>
+                                                        {index + 1}
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Badge "C'est toi !" */}
+                                            {isCurrentUser && (
+                                                <div style={{
+                                                    position: 'absolute',
+                                                    top: '15px',
+                                                    right: '15px',
+                                                    backgroundColor: '#667eea',
+                                                    color: '#fff',
+                                                    padding: '4px 12px',
+                                                    borderRadius: '12px',
+                                                    fontSize: '11px',
+                                                    fontWeight: 'bold'
+                                                }}>
+                                                    C'EST TOI !
+                                                </div>
+                                            )}
+
+                                            {/* Username */}
+                                            <div style={{
+                                                marginLeft: '45px',
+                                                marginBottom: '15px'
+                                            }}>
+                                                <h4 style={{
+                                                    color: '#fff',
+                                                    margin: '0 0 5px 0',
+                                                    fontSize: '18px',
+                                                    fontWeight: 'bold'
+                                                }}>
+                                                    {player.username || 'Utilisateur'}
+                                                </h4>
+                                                <div style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '5px',
+                                                    color: config.color,
+                                                    fontSize: '12px'
+                                                }}>
+                                                    <ModeIcon size={14} />
+                                                    <span>{favoriteMode.charAt(0).toUpperCase() + favoriteMode.slice(1)}</span>
+                                                </div>
+                                            </div>
+
+                                            {/* Stats */}
+                                            <div style={{
+                                                display: 'grid',
+                                                gridTemplateColumns: '1fr 1fr 1fr',
+                                                gap: '15px',
+                                                marginTop: '10px'
+                                            }}>
+                                                <div style={{ textAlign: 'center' }}>
+                                                    <div style={{
+                                                        fontSize: '20px',
+                                                        fontWeight: 'bold',
+                                                        color: '#FFD700',
+                                                        marginBottom: '4px'
+                                                    }}>
+                                                        {totalPoints}
+                                                    </div>
+                                                    <div style={{
+                                                        fontSize: '11px',
+                                                        color: '#888'
+                                                    }}>
+                                                        Points
+                                                    </div>
+                                                </div>
+
+                                                <div style={{ textAlign: 'center' }}>
+                                                    <div style={{
+                                                        fontSize: '20px',
+                                                        fontWeight: 'bold',
+                                                        color: '#10B981',
+                                                        marginBottom: '4px'
+                                                    }}>
+                                                        {tournamentStats.tournamentsWon || 0}
+                                                    </div>
+                                                    <div style={{
+                                                        fontSize: '11px',
+                                                        color: '#888'
+                                                    }}>
+                                                        Victoires
+                                                    </div>
+                                                </div>
+
+                                                <div style={{ textAlign: 'center' }}>
+                                                    <div style={{
+                                                        fontSize: '20px',
+                                                        fontWeight: 'bold',
+                                                        color: '#8B5CF6',
+                                                        marginBottom: '4px'
+                                                    }}>
+                                                        {winRate}%
+                                                    </div>
+                                                    <div style={{
+                                                        fontSize: '11px',
+                                                        color: '#888'
+                                                    }}>
+                                                        Win Rate
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* Sélection de mode - maintenant conditionnel pour l'ancien layout */}
+                {/* <ModeSelector /> */}
+
+                {/* Actions principales - supprimé car intégré dans les onglets */}
+                {/* <div style={{ display: 'flex', gap: '20px', justifyContent: 'center', marginBottom: '40px' }}>
                     <button
                         onClick={() => setShowCreateTournament(true)}
                         style={{
@@ -460,199 +1120,8 @@ const BattleRoyale = () => {
                             {userTournaments.length} tournoi{userTournaments.length !== 1 ? 's' : ''}
                         </div>
                     </div>
-                </div>
+                </div> */}
 
-                {/* Tournois disponibles */}
-                {activeTournaments.length > 0 && (
-                    <div style={{ marginBottom: '40px' }}>
-                        <h3 style={{ 
-                            color: '#fff', 
-                            textAlign: 'center', 
-                            marginBottom: '25px',
-                            fontSize: '20px'
-                        }}>
-                            🏆 Tournois Disponibles
-                        </h3>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
-                            {activeTournaments.map(tournament => {
-                                const isParticipating = tournament.participants?.includes(user.uid);
-                                const isCreator = tournament.createdBy === user.uid;
-                                const participants = tournament.participants?.length || 0;
-                                
-                                return (
-                                    <div
-                                        key={tournament.id}
-                                        style={{
-                                            background: isParticipating 
-                                                ? 'linear-gradient(135deg, rgba(102, 126, 234, 0.2), rgba(118, 75, 162, 0.2))'
-                                                : 'linear-gradient(135deg, #1a1a1a, #2d2d2d)',
-                                            border: isParticipating ? '2px solid #667eea' : '1px solid #333',
-                                            borderRadius: '15px',
-                                            padding: '20px',
-                                            position: 'relative'
-                                        }}
-                                    >
-                                        {isCreator && (
-                                            <div style={{
-                                                position: 'absolute',
-                                                top: '10px',
-                                                right: '10px',
-                                                backgroundColor: '#FFD700',
-                                                color: '#000',
-                                                padding: '4px 8px',
-                                                borderRadius: '12px',
-                                                fontSize: '10px',
-                                                fontWeight: 'bold'
-                                            }}>
-                                                ORGANISATEUR
-                                            </div>
-                                        )}
-                                        
-                                        <h4 style={{ color: '#fff', margin: '0 0 10px 0', fontSize: '18px' }}>
-                                            {tournament.name}
-                                        </h4>
-                                        
-                                        <div style={{ color: '#ccc', fontSize: '14px', marginBottom: '15px' }}>
-                                            <div>👤 {participants}/{tournament.maxParticipants} participants</div>
-                                            <div>⏰ {getTimeRemaining(tournament.endTime)}</div>
-                                            <div>🎮 {tournament.modes?.length || 0} mode{(tournament.modes?.length || 0) > 1 ? 's' : ''}</div>
-                                        </div>
-                                        
-                                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '15px' }}>
-                                            {tournament.modes?.map(mode => {
-                                                const modeData = Object.values(GAME_MODES).find(m => m.id === mode);
-                                                if (!modeData) return null;
-                                                const Icon = modeData.icon;
-                                                return (
-                                                    <div key={mode} style={{
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        gap: '4px',
-                                                        padding: '4px 8px',
-                                                        backgroundColor: `${modeData.color}20`,
-                                                        border: `1px solid ${modeData.color}`,
-                                                        borderRadius: '8px',
-                                                        fontSize: '10px',
-                                                        color: modeData.color
-                                                    }}>
-                                                        <Icon size={12} />
-                                                        {modeData.name}
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                        
-                                        {!isParticipating && !isCreator && participants < tournament.maxParticipants && (
-                                            <button
-                                                onClick={() => joinTournament(tournament.id)}
-                                                style={{
-                                                    width: '100%',
-                                                    padding: '10px',
-                                                    borderRadius: '8px',
-                                                    border: 'none',
-                                                    background: 'linear-gradient(135deg, #667eea, #764ba2)',
-                                                    color: '#fff',
-                                                    fontSize: '14px',
-                                                    fontWeight: 'bold',
-                                                    cursor: 'pointer'
-                                                }}
-                                            >
-                                                🚀 Rejoindre
-                                            </button>
-                                        )}
-                                        
-                                        {isParticipating && (
-                                            <div style={{
-                                                width: '100%',
-                                                padding: '10px',
-                                                borderRadius: '8px',
-                                                backgroundColor: 'rgba(16, 185, 129, 0.2)',
-                                                border: '1px solid #10B981',
-                                                color: '#10B981',
-                                                fontSize: '14px',
-                                                fontWeight: 'bold',
-                                                textAlign: 'center'
-                                            }}>
-                                                ✅ Inscrit
-                                            </div>
-                                        )}
-                                        
-                                        {participants >= tournament.maxParticipants && !isParticipating && (
-                                            <div style={{
-                                                width: '100%',
-                                                padding: '10px',
-                                                borderRadius: '8px',
-                                                backgroundColor: 'rgba(239, 68, 68, 0.2)',
-                                                border: '1px solid #EF4444',
-                                                color: '#EF4444',
-                                                fontSize: '14px',
-                                                fontWeight: 'bold',
-                                                textAlign: 'center'
-                                            }}>
-                                                🚫 Complet
-                                            </div>
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-                )}
-
-                {/* Message quand pas de tournois */}
-                {activeTournaments.length === 0 && (
-                    <div style={{
-                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
-                        border: '2px dashed #667eea',
-                        borderRadius: '15px',
-                        padding: '40px 20px',
-                        textAlign: 'center',
-                        marginBottom: '40px'
-                    }}>
-                        <Trophy size={48} color="#667eea" style={{ marginBottom: '15px' }} />
-                        <h3 style={{ color: '#667eea', margin: '0 0 15px 0' }}>
-                            Aucun tournoi disponible
-                        </h3>
-                        <p style={{ color: '#ccc', marginBottom: '20px' }}>
-                            Sois le premier à créer un tournoi Battle Royale !<br />
-                            Défie tes amis et montre ton style de soirée 🚀
-                        </p>
-                        <button
-                            onClick={() => setShowCreateTournament(true)}
-                            style={{
-                                padding: '12px 25px',
-                                borderRadius: '10px',
-                                border: 'none',
-                                background: 'linear-gradient(135deg, #667eea, #764ba2)',
-                                color: '#fff',
-                                fontSize: '14px',
-                                fontWeight: 'bold',
-                                cursor: 'pointer'
-                            }}
-                        >
-                            🏆 Créer le Premier Tournoi
-                        </button>
-                    </div>
-                )}
-
-                {/* Message d'encouragement neutre */}
-                <div style={{
-                    backgroundColor: '#1a1a1a',
-                    borderRadius: '15px',
-                    padding: '25px',
-                    border: '1px solid #333',
-                    textAlign: 'center'
-                }}>
-                    <h3 style={{ color: '#fff', marginBottom: '15px' }}>
-                        🌟 DrinkWise - Ton expérience, tes règles
-                    </h3>
-                    <p style={{ color: '#ccc', lineHeight: '1.6' }}>
-                        Que tu préfères la modération, l'exploration ou l'organisation sociale, 
-                        DrinkWise t'accompagne sans jugement. Chaque style a sa valeur, 
-                        chaque choix est respectable. L'important, c'est d'être conscient 
-                        et de vivre tes expériences pleinement ! 🚀
-                    </p>
-                </div>
             </div>
 
             {/* Modal de création de tournoi */}

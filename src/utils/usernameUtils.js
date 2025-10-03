@@ -1,5 +1,6 @@
 // src/utils/usernameUtils.js
 import { collection, query, where, getDocs } from 'firebase/firestore';
+import { logger } from './logger.js';
 
 /**
  * Vérifie si un nom d'utilisateur est déjà pris
@@ -31,7 +32,7 @@ export const isUsernameAvailable = async (db, appId, username, excludeUserId = n
         
         return true; // Username disponible
     } catch (error) {
-        console.error("❌ Erreur vérification username:", error);
+        logger.error('USERNAME', 'Erreur vérification username', error);
         // En cas d'erreur, considérer comme non disponible par sécurité
         return false;
     }

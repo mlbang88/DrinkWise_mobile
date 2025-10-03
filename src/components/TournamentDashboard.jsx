@@ -2,50 +2,64 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { FirebaseContext } from '../contexts/FirebaseContext';
 import { collection, query, where, onSnapshot, doc, updateDoc, arrayUnion } from 'firebase/firestore';
-import { Trophy, Users, Clock, Target, Crown, Medal, Star, TrendingUp } from 'lucide-react';
-import BattleRoyaleService from '../services/battleRoyaleService';
+import { Trophy, Users, Clock, Crown, Medal, Star, TrendingUp } from 'lucide-react';
 
 const TournamentDashboard = ({ tournamentId, onClose }) => {
-    const { db, user, appId, userProfile } = useContext(FirebaseContext);
+    const { db, user, appId, userProfile, setMessageBox } = useContext(FirebaseContext);
     const [tournament, setTournament] = useState(null);
     const [leaderboard, setLeaderboard] = useState([]);
     const [userRank, setUserRank] = useState(null);
     const [timeRemaining, setTimeRemaining] = useState('');
     const [activeTab, setActiveTab] = useState('leaderboard');
 
-    const battleService = new BattleRoyaleService(db, appId);
-
     useEffect(() => {
         if (!tournamentId) return;
 
         const tournamentRef = doc(db, `artifacts/${appId}/tournaments`, tournamentId);
-        const unsubscribe = onSnapshot(tournamentRef, (doc) => {
-            if (doc.exists()) {
-                const data = doc.data();
-                setTournament(data);
-                
-                // Calculer le classement
-                const scores = data.scores || {};
-                const sorted = Object.entries(scores)
-                    .map(([userId, scoreData]) => ({
-                        userId,
-                        username: scoreData.username || 'Utilisateur',
-                        totalPoints: scoreData.totalPoints || 0,
-                        modePoints: scoreData.modePoints || {},
-                        lastUpdate: scoreData.lastUpdate
-                    }))
-                    .sort((a, b) => b.totalPoints - a.totalPoints);
-                
-                setLeaderboard(sorted);
-                
-                // Trouver la position de l'utilisateur
-                const userPosition = sorted.findIndex(item => item.userId === user.uid);
-                setUserRank(userPosition !== -1 ? userPosition + 1 : null);
+        const unsubscribe = onSnapshot(
+            tournamentRef,
+            (doc) => {
+                if (doc.exists()) {
+                    const data = doc.data();
+                    setTournament(data);
+                    
+                    // Calculer le classement
+                    const scores = data.scores || {};
+                    const sorted = Object.entries(scores)
+                        .map(([userId, scoreData]) => ({
+                            userId,
+                            username: scoreData.username || 'Utilisateur',
+                            totalPoints: scoreData.totalPoints || 0,
+                            modePoints: scoreData.modePoints || {},
+                            lastUpdate: scoreData.lastUpdate
+                        }))
+                        .sort((a, b) => b.totalPoints - a.totalPoints);
+                    
+                    setLeaderboard(sorted);
+                    
+                    // Trouver la position de l'utilisateur
+                    const userPosition = sorted.findIndex(item => item.userId === user.uid);
+                    setUserRank(userPosition !== -1 ? userPosition + 1 : null);
+                }
+            },
+            (error) => {
+                console.error('❌ Firestore Tournament listener error:', error);
+
+                if (error?.code === 'permission-denied') {
+                    setMessageBox({
+                        message: '⚠️ Accès au tournoi refusé. Vérifie tes droits ou contacte le support.',
+                        type: 'error'
+                    });
+                }
+
+                setTournament(null);
+                setLeaderboard([]);
+                setUserRank(null);
             }
-        });
+        );
 
         return unsubscribe;
-    }, [tournamentId, db, appId, user.uid]);
+    }, [tournamentId, db, appId, user.uid, setMessageBox]);
 
     // Calculer le temps restant
     useEffect(() => {

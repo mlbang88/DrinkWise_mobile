@@ -2,33 +2,34 @@
 // À ajouter temporairement dans HomePage.jsx pour correction immédiate
 
 import { doc, updateDoc, getDoc } from 'firebase/firestore';
-import { levelUtils } from '../utils/levelUtils';
+import { calculateLevel } from '../utils/levelUtils';
+import { logger } from './logger.js';
 
 export const fixUserLevelManually = async (db, user, appId, setMessageBox) => {
     try {
-        console.log("🔧 Correction manuelle du niveau...");
+        logger.info('LEVEL', 'Correction manuelle du niveau...');
         
         const userProfileRef = doc(db, `artifacts/${appId}/users/${user.uid}/profile`, 'data');
         const userSnap = await getDoc(userProfileRef);
         
         if (!userSnap.exists()) {
-            console.error("❌ Profil utilisateur non trouvé");
+            logger.error('LEVEL', 'Profil utilisateur non trouvé');
             return;
         }
         
         const userData = userSnap.data();
         const currentXp = userData.xp || 0;
         const currentLevel = userData.level || 1;
-        const correctLevel = levelUtils.calculateLevel(currentXp);
+        const correctLevel = calculateLevel(currentXp);
         
-        console.log("📊 État actuel:", {
+        logger.info('LEVEL', 'État actuel', {
             xp: currentXp,
             levelInDB: currentLevel,
             correctLevel: correctLevel
         });
         
         if (currentLevel !== correctLevel) {
-            console.log(`🔄 Correction: ${currentLevel} → ${correctLevel}`);
+            logger.info('LEVEL', `Correction: ${currentLevel} → ${correctLevel}`);
             
             await updateDoc(userProfileRef, {
                 level: correctLevel
@@ -39,20 +40,21 @@ export const fixUserLevelManually = async (db, user, appId, setMessageBox) => {
                 type: 'success'
             });
             
-            console.log("✅ Niveau corrigé avec succès !");
+            logger.info('LEVEL', 'Niveau corrigé avec succès !');
         } else {
             setMessageBox?.({
                 message: "Niveau déjà correct",
                 type: 'info'
             });
-            console.log("✅ Niveau déjà correct");
+            logger.info('LEVEL', 'Niveau déjà correct');
         }
         
     } catch (error) {
-        console.error("❌ Erreur lors de la correction:", error);
+        logger.error('LEVEL', 'Erreur lors de la correction', error);
         setMessageBox?.({
             message: "Erreur lors de la correction du niveau",
             type: 'error'
         });
     }
 };
+

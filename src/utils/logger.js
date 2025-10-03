@@ -19,7 +19,9 @@ const LogColors = {
 
 class Logger {
   constructor() {
-    this.level = process.env.NODE_ENV === 'development' ? LogLevel.DEBUG : LogLevel.WARN;
+    // En production, ne logger que les erreurs
+    const isDev = import.meta.env.DEV || import.meta.env.MODE === 'development';
+    this.level = isDev ? LogLevel.DEBUG : LogLevel.ERROR;
     this.enableStorage = true;
     this.maxStoredLogs = 1000;
     this.sessionId = this.generateSessionId();
@@ -73,8 +75,9 @@ class Logger {
     const levelName = logData.level;
     const color = LogColors[levelName] || '#000000';
 
-    // Console avec style
-    if (typeof console !== 'undefined') {
+    // Console avec style (uniquement en développement)
+    const isDev = import.meta.env.DEV || import.meta.env.MODE === 'development';
+    if (isDev && typeof console !== 'undefined') {
       const prefix = `%c[${logData.timestamp.split('T')[1].split('.')[0]}] ${levelName} ${context}`;
       const style = `color: ${color}; font-weight: bold;`;
       
@@ -89,7 +92,8 @@ class Logger {
     this.storeLog(logData);
 
     // Envoi des erreurs critiques (production uniquement)
-    if (level === LogLevel.ERROR && process.env.NODE_ENV === 'production') {
+    const isProduction = !isDev;
+    if (level === LogLevel.ERROR && isProduction) {
       this.reportError(logData);
     }
   }
@@ -153,15 +157,17 @@ class Logger {
     }
   }
 
-  // Helper pour les performanceс
+  // Helper pour les performances
   time(label) {
-    if (typeof console !== 'undefined' && console.time) {
+    const isDev = import.meta.env.DEV || import.meta.env.MODE === 'development';
+    if (isDev && typeof console !== 'undefined' && console.time) {
       console.time(`⏱️ ${label}`);
     }
   }
 
   timeEnd(label) {
-    if (typeof console !== 'undefined' && console.timeEnd) {
+    const isDev = import.meta.env.DEV || import.meta.env.MODE === 'development';
+    if (isDev && typeof console !== 'undefined' && console.timeEnd) {
       console.timeEnd(`⏱️ ${label}`);
     }
   }

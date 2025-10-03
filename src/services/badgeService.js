@@ -1,6 +1,43 @@
 import { collection, getDocs, updateDoc, doc, getDoc, setDoc } from 'firebase/firestore';
-import { badgeList, calculateDrinkVolume } from '../utils/data';
+import { badgeList } from '../utils/data';
 import { ExperienceService } from './experienceService';
+
+const normalizeValue = (value) => {
+    if (!value && value !== 0) return value;
+
+    if (Array.isArray(value)) {
+        return value.map((item) => normalizeValue(item)).sort((a, b) => {
+            const first = typeof a === 'object' ? JSON.stringify(a) : a;
+            const second = typeof b === 'object' ? JSON.stringify(b) : b;
+            if (first < second) return -1;
+            if (first > second) return 1;
+            return 0;
+        });
+    }
+
+    if (value && typeof value.toDate === 'function') {
+        return value.toDate().toISOString();
+    }
+
+    if (value instanceof Date) {
+        return value.toISOString();
+    }
+
+    if (value && typeof value === 'object') {
+        const entries = Object.keys(value)
+            .sort()
+            .map((key) => [key, normalizeValue(value[key])]);
+        return Object.fromEntries(entries);
+    }
+
+    return value;
+};
+
+const isDeepEqual = (a, b) => {
+    const normalizedA = normalizeValue(a);
+    const normalizedB = normalizeValue(b);
+    return JSON.stringify(normalizedA) === JSON.stringify(normalizedB);
+};
 
 export const badgeService = {
     // DEPRECATED: Utiliser ExperienceService.calculateRealStats à la place
@@ -27,28 +64,117 @@ export const badgeService = {
             const allParties = partiesSnapshot.docs.map(doc => doc.data());
             const cumulativeStats = ExperienceService.calculateRealStats(allParties, userProfile);
 
-            const publicStats = {
-                totalDrinks: cumulativeStats.totalDrinks,
-                totalParties: cumulativeStats.totalParties,
-                totalFights: cumulativeStats.totalFights,
-                totalVomi: cumulativeStats.totalVomi,
-                totalVolume: cumulativeStats.totalVolume,
-                totalRecal: cumulativeStats.totalRecal,
-                challengesCompleted: Object.keys(userProfile.completedChallenges || {}).length,
+            // Calculer stats de tournois
+            const tournamentsRef = collection(db, `artifacts/${appId}/tournaments`);
+            const tournamentsSnapshot = await getDocs(tournamentsRef);
+            const allTournaments = tournamentsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            
+            // Filtrer les tournois auxquels l'utilisateur participe
+            const userTournaments = allTournaments.filter(t => 
+                t.participants?.includes(user.uid)
+            );
+            
+            // Calculer stats de tournois
+            let totalTournamentPoints = 0;
+            let tournamentsWon = 0;
+            const modeUsage = { moderation: 0, explorer: 0, social: 0, balanced: 0, party: 0 };
+            
+            userTournaments.forEach(tournament => {
+                const userScore = tournament.scores?.[user.uid] || 0;
+                totalTournamentPoints += userScore;
+                
+                // Compter les victoires (si le tournoi est terminé)
+                if (tournament.status === 'completed') {
+                    const scores = tournament.scores || {};
+                    const sortedScores = Object.entries(scores).sort((a, b) => b[1] - a[1]);
+                    if (sortedScores.length > 0 && sortedScores[0][0] === user.uid) {
+                        tournamentsWon++;
+                    }
+                }
+            });
+            
+            // Calculer mode favori depuis les soirées
+            allParties.forEach(party => {
+                const mode = party.battleMode || 'balanced';
+                if (modeUsage[mode] !== undefined) {
+                    modeUsage[mode]++;
+                }
+            });
+            
+            const favoriteMode = Object.entries(modeUsage)
+                .sort((a, b) => b[1] - a[1])[0]?.[0] || 'balanced';
+
+            const newPublicStats = {
+                totalDrinks: cumulativeStats.totalDrinks || 0,
+                totalParties: cumulativeStats.totalParties || 0,
+                totalFights: cumulativeStats.totalFights || 0,
+                totalVomi: cumulativeStats.totalVomi || 0,
+                totalVolume: cumulativeStats.totalVolume || 0,
+                totalRecal: cumulativeStats.totalRecal || 0,
+                totalXP: cumulativeStats.totalXP || 0,
+                level: cumulativeStats.level || 1,
+                levelName: cumulativeStats.levelName || 'Bronze Novice',
+                xpToNextLevel: cumulativeStats.xpToNextLevel || 0,
+                progressToNextLevel: Math.round(cumulativeStats.progressToNextLevel || 0),
+                mostConsumedDrink: cumulativeStats.mostConsumedDrink || {},
                 unlockedBadges: userProfile.unlockedBadges || [],
+                challengesCompleted: Object.keys(userProfile.completedChallenges || {}).length,
+                totalQuizQuestions: cumulativeStats.totalQuizQuestions || 0,
                 username: userProfile.username || 'Utilisateur',
                 username_lowercase: (userProfile.username || 'Utilisateur').toLowerCase(),
-                isPublic: true // Forcer public pour le développement
+                isPublic: true,
+                // Stats de tournois Battle Royale
+                tournamentStats: {
+                    totalPoints: totalTournamentPoints,
+                    tournamentsParticipated: userTournaments.length,
+                    tournamentsWon: tournamentsWon,
+                    favoriteMode: favoriteMode,
+                    winRate: userTournaments.length > 0 ? Math.round((tournamentsWon / userTournaments.length) * 100) : 0
+                }
             };
 
-            // Mettre à jour le profil privé
-            await updateDoc(userProfileRef, { publicStats });
+            const existingPublicStats = userProfile.publicStats || {};
 
-            // Mettre à jour les stats publiques pour les amis
-            const publicStatsRef = doc(db, `artifacts/${appId}/public_user_stats`, user.uid);
-            await setDoc(publicStatsRef, publicStats, { merge: true });
-            
-            console.log("📊 Stats publiques mises à jour:", cumulativeStats);
+            const { updatedAt: _existingUpdatedAt, ...existingComparable } = existingPublicStats;
+            const publicStatsChanged = !isDeepEqual(existingComparable, newPublicStats);
+
+            const profileUpdates = {};
+
+            // publicStats est la source unique de vérité
+            // userProfile.xp et userProfile.level sont dépréciés et ne doivent plus être synchronisés
+
+            if ((userProfile.levelName || '') !== cumulativeStats.levelName) {
+                profileUpdates.levelName = cumulativeStats.levelName;
+            }
+
+            const summaryFields = ['totalParties', 'totalDrinks', 'totalFights', 'totalVomi', 'totalVolume', 'totalRecal'];
+            summaryFields.forEach((field) => {
+                if ((userProfile[field] || 0) !== cumulativeStats[field]) {
+                    profileUpdates[field] = cumulativeStats[field];
+                }
+            });
+
+            if (publicStatsChanged) {
+                profileUpdates.publicStats = {
+                    ...newPublicStats,
+                    updatedAt: new Date()
+                };
+            }
+
+            if (Object.keys(profileUpdates).length > 0) {
+                await updateDoc(userProfileRef, profileUpdates);
+            }
+
+            if (publicStatsChanged) {
+                const publicStatsRef = doc(db, `artifacts/${appId}/public_user_stats`, user.uid);
+                await setDoc(publicStatsRef, {
+                    ...newPublicStats,
+                    updatedAt: new Date()
+                }, { merge: true });
+
+                console.log("📊 Stats publiques mises à jour:", cumulativeStats);
+            }
+
             return cumulativeStats;
         } catch (error) {
             console.error("❌ Erreur lors de la mise à jour des stats publiques:", error);

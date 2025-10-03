@@ -10,7 +10,8 @@ const logger = require("firebase-functions/logger");
 const cors = require('cors');
 const admin = require('firebase-admin');
 const functions = require('firebase-functions');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+const { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } = require('@google/generative-ai');
+const crypto = require('crypto');
 
 // Initialiser Admin SDK
 if (!admin.apps.length) {
@@ -18,6 +19,67 @@ if (!admin.apps.length) {
 }
 
 const db = admin.firestore();
+
+const EXPECTED_GEMINI_KEY_HASH = '579b2b37ca9f8f76f43f2d432bd3dd63da9c2d87121cc7be0065e40294912708';
+let hasLoggedGeminiKey = false;
+let hasWarnedGeminiKeyMismatch = false;
+
+function resolveGeminiApiKey() {
+  const envKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || functions.config()?.gemini?.api_key;
+
+  if (!envKey) {
+    throw new Error('Configuration API manquante');
+  }
+
+  const keyHash = crypto.createHash('sha256').update(envKey).digest('hex');
+
+  if (!hasLoggedGeminiKey) {
+    logger.info(`🔐 Empreinte GEMINI_API_KEY: ${keyHash}`);
+    hasLoggedGeminiKey = true;
+  }
+
+  if (EXPECTED_GEMINI_KEY_HASH && keyHash !== EXPECTED_GEMINI_KEY_HASH && !hasWarnedGeminiKeyMismatch) {
+    logger.warn('⚠️ Clé Gemini inattendue détectée. Vérifiez la configuration déployée.');
+    hasWarnedGeminiKeyMismatch = true;
+  }
+
+  return envKey;
+}
+
+function extractTextFromGeminiResponse(response) {
+  let directText = '';
+
+  try {
+    if (response && typeof response.text === 'function') {
+      directText = (response.text() || '').trim();
+    }
+  } catch (textError) {
+    logger.warn('⚠️ Impossible de lire response.text() depuis Gemini:', textError);
+  }
+
+  if (directText) {
+    return directText;
+  }
+
+  const candidates = Array.isArray(response?.candidates) ? response.candidates : [];
+  const partsText = candidates
+    .flatMap((candidate) => Array.isArray(candidate?.content?.parts) ? candidate.content.parts : [])
+    .filter((part) => typeof part?.text === 'string')
+    .map((part) => part.text)
+    .join(' ')
+    .trim();
+
+  if (partsText) {
+    return partsText;
+  }
+
+  const finishReasons = candidates
+    .map((candidate) => candidate?.finishReason)
+    .filter(Boolean);
+  const blockReason = response?.promptFeedback?.blockReason || 'none';
+
+  throw new Error(`Réponse Gemini vide (finishReasons: ${finishReasons.join(', ') || 'none'}, blockReason: ${blockReason})`);
+}
 
 // Configuration CORS pour permettre les requêtes depuis localhost et production
 const corsOptions = {
@@ -95,41 +157,86 @@ exports.generateSummary = onCall({
   }
 });
 
+// Fonction générique pour appeler Gemini API avec un prompt personnalisé
+exports.callGeminiAPI = onCall({
+  region: 'us-central1',
+  cors: corsOptions,
+  secrets: ['GEMINI_API_KEY']
+}, async (request) => {
+  try {
+    const { prompt } = request.data;
+    
+    // Vérifier l'authentification
+    if (!request.auth) {
+      throw new Error('Utilisateur non authentifié');
+    }
 
+    // Vérifier les données requises
+    if (!prompt) {
+      throw new Error('Prompt manquant');
+    }
+
+    // Appeler l'API Gemini
+    const result = await callGeminiForText(prompt);
+    
+    if (!result.success) {
+      throw new Error('Erreur lors de la génération du texte');
+    }
+
+    logger.info(`✅ Texte généré pour l'utilisateur ${request.auth.uid}`);
+    
+    return { 
+      success: true, 
+      text: result.text,
+      message: "Texte généré avec succès" 
+    };
+    
+  } catch (error) {
+    logger.error('❌ Erreur callGeminiAPI:', error);
+    throw new Error(`Erreur génération texte: ${error.message}`);
+  }
+});
 
 // Fonction helper pour appeler Gemini avec du texte uniquement (SDK officiel)
 async function callGeminiForText(prompt) {
   try {
-    const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-    
-    if (!GEMINI_API_KEY) {
-      throw new Error('Configuration API manquante');
-    }
+    const GEMINI_API_KEY = resolveGeminiApiKey();
 
     logger.info('🤖 Appel Gemini pour génération de texte');
-    
+
     // Initialiser le SDK Google Generative AI
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ 
+    const model = genAI.getGenerativeModel({
       model: "gemini-2.5-flash",
       generationConfig: {
         temperature: 0.7,
         topK: 20,
         topP: 0.8,
         maxOutputTokens: 300
-      }
+      },
+      safetySettings: [
+        { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
+        { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
+        { category: HarmCategory.HARM_CATEGORY_SEXUAL, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
+        { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH }
+      ]
     });
-    
+
     // Générer le contenu avec le SDK
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text().trim();
-    
+    const result = await model.generateContent([{ text: prompt }]);
+    const response = result?.response;
+
+    if (!response) {
+      throw new Error('Réponse vide de Gemini (response manquant)');
+    }
+
+    const text = extractTextFromGeminiResponse(response);
+
     logger.info('✅ Génération de texte réussie');
-    
+
     return {
       success: true,
-      text: text
+      text
     };
     
   } catch (error) {
@@ -320,11 +427,7 @@ exports.analyzeImageSecure = onCall({
     logger.info(`📷 Type MIME utilisé: ${normalizedMimeType}`);
     
     // Clé API stockée de manière sécurisée côté serveur
-    const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-    
-    if (!GEMINI_API_KEY) {
-      throw new Error('Configuration API manquante');
-    }
+    const GEMINI_API_KEY = resolveGeminiApiKey();
     
     logger.info('🤖 Analyse d\'image sécurisée pour utilisateur:', request.auth.uid);
     
@@ -425,10 +528,7 @@ exports.listGeminiModels = onCall({
       throw new Error('Utilisateur non authentifié');
     }
     
-    const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-    if (!GEMINI_API_KEY) {
-      throw new Error('Configuration API manquante');
-    }
+    const GEMINI_API_KEY = resolveGeminiApiKey();
     
     logger.info('🔍 Listage des modèles Gemini disponibles...');
     

@@ -1,5 +1,6 @@
-import React, { useState, useContext, useEffect } from 'react';
+import React, { useState, useContext, useEffect, useCallback, useRef } from 'react';
 import { Timestamp, addDoc, collection, doc, updateDoc, getDocs, query, where } from 'firebase/firestore';
+import { httpsCallable } from "firebase/functions";
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { FirebaseContext } from '../contexts/FirebaseContext.jsx';
 import { drinkOptions, partyCategories } from '../utils/data.jsx';
@@ -8,9 +9,11 @@ import useBattleRoyale from '../hooks/useBattleRoyale.js';
 import QuizManagerSimple from './QuizManagerSimple';
 import DrinkAnalyzer from './DrinkAnalyzer';
 import UserAvatar from './UserAvatar';
+import BattlePointsNotification from './BattlePointsNotification';
 
 const CompetitivePartyModal = ({ onClose, onPartySaved, draftData = null }) => {
-    const { db, storage, user, appId, userProfile, setMessageBox } = useContext(FirebaseContext);
+    const { db, storage, user, appId, userProfile, setMessageBox, functions } = useContext(FirebaseContext);
+    const modalRef = useRef(null);
     
     // Initialisation avec brouillon si disponible
     const initializeFromDraft = () => {
@@ -45,11 +48,11 @@ const CompetitivePartyModal = ({ onClose, onPartySaved, draftData = null }) => {
     };
 
     const initialData = initializeFromDraft();
-    const [date, setDate] = useState(initialData.date);
+    const [date] = useState(initialData.date);
     const [drinks, setDrinks] = useState(initialData.drinks);
     const [stats, setStats] = useState(initialData.stats);
     const [location, setLocation] = useState(initialData.location);
-    const [category, setCategory] = useState(initialData.category);
+    const [category] = useState(initialData.category);
     const [companions, setCompanions] = useState(initialData.companions);
     const [lastPartyData, setLastPartyData] = useState(null);
     const [lastPartyId, setLastPartyId] = useState(null);
@@ -60,6 +63,7 @@ const CompetitivePartyModal = ({ onClose, onPartySaved, draftData = null }) => {
     // États pour les médias et compagnons
     const [videoFiles, setVideoFiles] = useState([]);
     const [uploadingVideos, setUploadingVideos] = useState(false);
+    const [loadingSummary, setLoadingSummary] = useState(false);
     const [friendsList, setFriendsList] = useState([]);
     const [groupsList, setGroupsList] = useState([]);
     const [loadingCompanions, setLoadingCompanions] = useState(false);
@@ -71,13 +75,151 @@ const CompetitivePartyModal = ({ onClose, onPartySaved, draftData = null }) => {
     const [realTimeMode, setRealTimeMode] = useState(draftData?.realTimeMode || false);
     
     // Battle Royale integration
-    const { userTournaments, processPartyForTournaments } = useBattleRoyale();
+    const { userTournaments, processPartyForTournaments, notificationData, setNotificationData } = useBattleRoyale();
     const [selectedBattleMode, setSelectedBattleMode] = useState(draftData?.battleMode || 'balanced');
 
-    const handleQuizComplete = (resultTitle) => {
+    // Forcer le scroll en haut à l'ouverture
+    useEffect(() => {
+        if (modalRef.current) {
+            modalRef.current.scrollTop = 0;
+        }
+    }, []);
+
+    const buildFallbackSummary = useCallback((details) => {
+        const safeDetails = details || {};
+        const drinksList = Array.isArray(safeDetails.drinks) ? safeDetails.drinks : [];
+        const totalDrinks = drinksList.reduce((sum, drink) => sum + (Number(drink?.quantity) || 0), 0);
+        const highlightDrink = drinksList.find((drink) => drink?.type)?.type || (drinksList.length > 0 ? 'quelques breuvages surprises' : 'bonne humeur');
+        const locationLabel = safeDetails.location && safeDetails.location.trim() ? safeDetails.location.trim() : 'un spot secret';
+        const companionsNames = Array.isArray(safeDetails.companions?.selectedNames) ? safeDetails.companions.selectedNames : [];
+        const companionsText = companionsNames.length > 0
+            ? `avec ${companionsNames.length} pote${companionsNames.length > 1 ? 's' : ''}`
+            : 'en mode solo';
+        const stats = safeDetails.stats || {};
+        const highlights = [];
+
+        if (totalDrinks > 0) {
+            highlights.push(`${totalDrinks} verre${totalDrinks > 1 ? 's' : ''}`);
+        }
+
+        const newNumbers = Number(stats.newNumbersGot || 0);
+        if (newNumbers > 0) {
+            highlights.push(`${newNumbers} nouveau${newNumbers > 1 ? 'x' : ''} contact${newNumbers > 1 ? 's' : ''}`);
+        }
+
+        const fights = Number(stats.timeFightsStarted || 0);
+        if (fights > 0) {
+            highlights.push(`${fights} embrouille${fights > 1 ? 's' : ''}`);
+        }
+
+        const vibe = highlights.length > 0 ? highlights.join(', ') : 'une ambiance chill';
+
+        return `Soirée à ${locationLabel} ${companionsText}, ${vibe} et ${highlightDrink} en vedette. À raconter autour d'un prochain verre !`;
+    }, []);
+
+    // Fonction pour générer le résumé de soirée
+    const generatePartySummary = useCallback(async (partyDetails, docId) => {
+        if (!functions) {
+            console.warn('⚠️ Fonctions Firebase indisponibles, résumé non généré');
+            return;
+        }
+
+        if (!partyDetails || !docId) {
+            console.warn('⚠️ Données insuffisantes pour générer le résumé', { partyDetails, docId });
+            return;
+        }
+
+        setLoadingSummary(true);
+
+        try {
+            const safeDetails = {
+                ...partyDetails,
+                drinks: Array.isArray(partyDetails.drinks) ? partyDetails.drinks : [],
+                stats: partyDetails.stats || {},
+                companions: partyDetails.companions || {}
+            };
+
+            const prompt = `Génère un résumé de soirée amusant et mémorable (max 3 phrases) basé sur: ${JSON.stringify(safeDetails)}. Sois créatif et humoristique.`;
+            const callGeminiAPI = httpsCallable(functions, 'callGeminiAPI');
+
+            console.log("🤖 Génération du résumé de soirée...", { docId });
+            const result = await callGeminiAPI({ prompt, partyId: docId });
+
+            const aiSummary = (result?.data?.text || result?.data?.summary || '').trim();
+            const partyRef = doc(db, `artifacts/${appId}/users/${user.uid}/parties`, docId);
+
+            if (aiSummary) {
+                await updateDoc(partyRef, {
+                    summary: aiSummary,
+                    summarySource: 'gemini',
+                    summaryGeneratedAt: new Date()
+                });
+                console.log("✅ Résumé IA généré et sauvegardé:", aiSummary);
+            } else {
+                const fallbackSummary = buildFallbackSummary(safeDetails);
+                await updateDoc(partyRef, {
+                    summary: fallbackSummary,
+                    summarySource: 'fallback-empty-response',
+                    summaryGeneratedAt: new Date()
+                });
+                console.warn('⚠️ Résultat inattendu de callGeminiAPI, fallback appliqué', result);
+                setMessageBox({
+                    message: "⚠️ Résumé IA indisponible, un résumé simplifié a été créé.",
+                    type: 'warning'
+                });
+            }
+        } catch (error) {
+            console.error("❌ Erreur génération résumé via Cloud Function:", error);
+
+            try {
+                const fallbackSummary = buildFallbackSummary(partyDetails);
+                const partyRef = doc(db, `artifacts/${appId}/users/${user.uid}/parties`, docId);
+                await updateDoc(partyRef, {
+                    summary: fallbackSummary,
+                    summarySource: 'fallback-error',
+                    summaryGeneratedAt: new Date()
+                });
+                console.log("🛟 Résumé fallback sauvegardé après erreur IA:", fallbackSummary);
+                setMessageBox({
+                    message: "🛟 L'IA était occupée, on a généré un résumé manuel.",
+                    type: 'info'
+                });
+            } catch (fallbackError) {
+                console.error('❌ Impossible de sauvegarder le résumé fallback:', fallbackError);
+                setMessageBox({
+                    message: "❌ Résumé indisponible pour cette soirée.",
+                    type: 'error'
+                });
+            }
+        } finally {
+            setLoadingSummary(false);
+        }
+    }, [appId, buildFallbackSummary, db, functions, setMessageBox, user]);
+
+    const handleQuizComplete = (partyData) => {
+        console.log("🎯 Quiz complété avec données:", partyData);
         setShowQuiz(false);
-        if (onPartySaved) onPartySaved();
+        
+        const fallbackPartyId = partyData?.partyId || lastPartyId;
+        const fallbackPartyData = partyData || lastPartyData;
+
+        // Générer le résumé de la soirée si nous avons l'ID
+        if (fallbackPartyData && fallbackPartyId) {
+            console.log("🤖 Déclenchement génération résumé pour soirée:", fallbackPartyId);
+            generatePartySummary(fallbackPartyData, fallbackPartyId);
+        } else {
+            console.warn("⚠️ Pas d'ID de soirée pour générer le résumé", { fallbackPartyId, fallbackPartyData });
+        }
+        
+        // Déclencher les événements de sauvegarde et rafraîchissement
+        if (onPartySaved) onPartySaved(partyData);
         window.dispatchEvent(new CustomEvent('refreshFeed'));
+        
+        // S'assurer que les données avec détection IA sont bien préservées
+        if ((fallbackPartyData && fallbackPartyData.drinks)) {
+            console.log("✅ Données de boissons préservées:", fallbackPartyData.drinks);
+        }
+        
         onClose();
     };
 
@@ -244,6 +386,7 @@ const CompetitivePartyModal = ({ onClose, onPartySaved, draftData = null }) => {
             await updateDoc(draftRef, draftData);
             setMessageBox({ message: "Brouillon sauvegardé !", type: "success" });
         } catch (error) {
+            console.error("Erreur mise à jour brouillon:", error);
             // Si le document n'existe pas, le créer
             try {
                 await addDoc(collection(db, `artifacts/${appId}/users/${user.uid}/draft`), draftData);
@@ -277,7 +420,8 @@ const CompetitivePartyModal = ({ onClose, onPartySaved, draftData = null }) => {
             endTime: partyEndTime || null,
             duration: partyDuration || null,
             realTimeTracking: realTimeMode,
-            mode: 'competitive' // Marqueur pour identifier le mode
+            mode: 'competitive', // Marqueur pour identifier le mode
+            battleMode: selectedBattleMode // Style de jeu pour calcul XP et tournois
         };
         
         try {
@@ -456,17 +600,17 @@ const CompetitivePartyModal = ({ onClose, onPartySaved, draftData = null }) => {
             alignItems: 'flex-start',
             justifyContent: 'center',
             zIndex: 1000,
-            padding: '10px',
-            paddingTop: '30px',
-            overflowY: 'auto'
+            padding: '5px'
         }}>
-            <div style={{
+            <div 
+                ref={modalRef}
+                style={{
                 backgroundColor: '#1a202c',
                 borderRadius: '20px',
                 padding: '20px',
                 maxWidth: '420px',
                 width: '100%',
-                maxHeight: '98vh',
+                maxHeight: '83vh',
                 overflowY: 'auto',
                 boxShadow: '0 25px 50px rgba(0, 0, 0, 0.5)'
             }}>
@@ -745,40 +889,70 @@ const CompetitivePartyModal = ({ onClose, onPartySaved, draftData = null }) => {
                         </div>
                     </div>
 
-                    {/* Battle Royale - si l'utilisateur participe à des tournois */}
-                    {userTournaments.length > 0 && (
+                    {/* Style de Jeu - toujours visible, affecte XP et tournois */}
+                    <div style={{
+                        padding: '16px',
+                        background: userTournaments.length > 0 
+                            ? 'linear-gradient(135deg, rgba(139, 69, 255, 0.15), rgba(255, 107, 53, 0.15))'
+                            : 'linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(139, 92, 246, 0.15))',
+                        border: userTournaments.length > 0 
+                            ? '1px solid rgba(139, 69, 255, 0.3)'
+                            : '1px solid rgba(99, 102, 241, 0.3)',
+                        borderRadius: '12px'
+                    }}>
                         <div style={{
-                            padding: '16px',
-                            background: 'linear-gradient(135deg, rgba(139, 69, 255, 0.15), rgba(255, 107, 53, 0.15))',
-                            border: '1px solid rgba(139, 69, 255, 0.3)',
-                            borderRadius: '12px'
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            marginBottom: '12px'
                         }}>
-                            <div style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px',
-                                marginBottom: '12px'
-                            }}>
-                                <Trophy size={18} style={{ color: '#FF6B35' }} />
-                                <span style={{ color: 'white', fontSize: '14px', fontWeight: '600' }}>
-                                    Mode Battle Royale
+                            <Trophy size={18} style={{ color: userTournaments.length > 0 ? '#FF6B35' : '#8B5CF6' }} />
+                            <span style={{ color: 'white', fontSize: '14px', fontWeight: '600' }}>
+                                {userTournaments.length > 0 ? 'Mode Battle Royale' : 'Style de Jeu'}
+                            </span>
+                            {userTournaments.length > 0 && (
+                                <span style={{ 
+                                    color: '#FF6B35', 
+                                    fontSize: '11px', 
+                                    padding: '2px 6px',
+                                    background: 'rgba(255, 107, 53, 0.2)',
+                                    borderRadius: '4px',
+                                    fontWeight: '700'
+                                }}>
+                                    {userTournaments.length} tournoi{userTournaments.length > 1 ? 's' : ''}
                                 </span>
-                            </div>
+                            )}
+                        </div>
                             
-                            <select 
-                                value={selectedBattleMode} 
-                                onChange={(e) => setSelectedBattleMode(e.target.value)}
-                                style={{
-                                    width: '100%',
-                                    padding: '12px',
-                                    background: 'rgba(255, 107, 53, 0.1)',
-                                    border: '1px solid rgba(255, 107, 53, 0.3)',
-                                    borderRadius: '8px',
-                                    color: 'white',
-                                    fontSize: '14px',
-                                    outline: 'none'
-                                }}
-                            >
+                        {!userTournaments.length && (
+                            <div style={{
+                                fontSize: '12px',
+                                color: '#ccc',
+                                marginBottom: '10px',
+                                lineHeight: '1.4'
+                            }}>
+                                💡 Ton style influence l'XP gagné. Rejoins des tournois pour gagner des points bonus !
+                            </div>
+                        )}
+                        
+                        <select 
+                            value={selectedBattleMode} 
+                            onChange={(e) => setSelectedBattleMode(e.target.value)}
+                            style={{
+                                width: '100%',
+                                padding: '12px',
+                                background: userTournaments.length > 0 
+                                    ? 'rgba(255, 107, 53, 0.1)'
+                                    : 'rgba(139, 92, 246, 0.1)',
+                                border: userTournaments.length > 0 
+                                    ? '1px solid rgba(255, 107, 53, 0.3)'
+                                    : '1px solid rgba(139, 92, 246, 0.3)',
+                                borderRadius: '8px',
+                                color: 'white',
+                                fontSize: '14px',
+                                outline: 'none'
+                            }}
+                        >
                                 <option value="balanced" style={{ backgroundColor: '#2d3748', color: '#F59E0B' }}>
                                     🎯 Balanced Player
                                 </option>
@@ -821,8 +995,7 @@ const CompetitivePartyModal = ({ onClose, onPartySaved, draftData = null }) => {
                                     </span>
                                 </div>
                             )}
-                        </div>
-                    )}
+                    </div>
 
                     {/* Statistiques compactes */}
                     <div style={{
@@ -1055,8 +1228,52 @@ const CompetitivePartyModal = ({ onClose, onPartySaved, draftData = null }) => {
                                 </label>
                             )}
                             {videoFiles.length > 0 && (
-                                <div style={{ fontSize: '10px', color: 'rgba(255, 255, 255, 0.6)', textAlign: 'center', marginTop: '4px' }}>
-                                    {videoFiles.length} vidéo{videoFiles.length > 1 ? 's' : ''}
+                                <div style={{
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '6px',
+                                    marginTop: '8px'
+                                }}>
+                                    {videoFiles.map((file, index) => (
+                                        <div
+                                            key={`${file.name}-${index}`}
+                                            style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'space-between',
+                                                padding: '8px',
+                                                background: 'rgba(0, 0, 0, 0.3)',
+                                                borderRadius: '8px',
+                                                color: 'rgba(255, 255, 255, 0.8)',
+                                                fontSize: '11px'
+                                            }}
+                                        >
+                                            <span style={{
+                                                overflow: 'hidden',
+                                                textOverflow: 'ellipsis',
+                                                whiteSpace: 'nowrap',
+                                                marginRight: '8px',
+                                                flex: 1
+                                            }}>
+                                                🎬 {file.name}
+                                            </span>
+                                            <button
+                                                type="button"
+                                                onClick={() => removeVideo(index)}
+                                                style={{
+                                                    padding: '4px 8px',
+                                                    background: 'rgba(220, 38, 38, 0.85)',
+                                                    border: 'none',
+                                                    borderRadius: '6px',
+                                                    color: 'white',
+                                                    fontSize: '11px',
+                                                    cursor: 'pointer'
+                                                }}
+                                            >
+                                                Retirer
+                                            </button>
+                                        </div>
+                                    ))}
                                 </div>
                             )}
                         </div>
@@ -1090,6 +1307,61 @@ const CompetitivePartyModal = ({ onClose, onPartySaved, draftData = null }) => {
                     </div>
 
                     {/* Photos rapides */}
+                    {photoFiles.length > 0 && (
+                        <div
+                            style={{
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(auto-fit, minmax(72px, 1fr))',
+                                gap: '10px',
+                                marginBottom: '12px'
+                            }}
+                        >
+                            {photoFiles.map((file, index) => (
+                                <div
+                                    key={`${file.name}-${index}`}
+                                    style={{
+                                        position: 'relative',
+                                        aspectRatio: '1',
+                                        borderRadius: '10px',
+                                        overflow: 'hidden',
+                                        background: 'rgba(255, 255, 255, 0.06)'
+                                    }}
+                                >
+                                    <img
+                                        src={URL.createObjectURL(file)}
+                                        alt={`Photo ${index + 1}`}
+                                        style={{
+                                            width: '100%',
+                                            height: '100%',
+                                            objectFit: 'cover'
+                                        }}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => removePhoto(index)}
+                                        style={{
+                                            position: 'absolute',
+                                            top: '4px',
+                                            right: '4px',
+                                            width: '22px',
+                                            height: '22px',
+                                            borderRadius: '50%',
+                                            background: 'rgba(220, 38, 38, 0.9)',
+                                            border: 'none',
+                                            color: 'white',
+                                            fontSize: '12px',
+                                            fontWeight: 700,
+                                            cursor: 'pointer',
+                                            lineHeight: 1
+                                        }}
+                                    >
+                                        ×
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
                     {photoFiles.length < 5 && (
                         <label style={{
                             display: 'flex',
@@ -1120,24 +1392,40 @@ const CompetitivePartyModal = ({ onClose, onPartySaved, draftData = null }) => {
                     {/* Submit Button */}
                     <button 
                         type="submit"
-                        disabled={uploadingPhotos}
+                        disabled={uploadingPhotos || uploadingVideos || loadingSummary}
                         style={{
                             width: '100%',
                             padding: '20px',
-                            background: uploadingPhotos ? '#6b7280' : 'linear-gradient(135deg, #8b45ff, #3b82f6)',
+                            background: (uploadingPhotos || uploadingVideos || loadingSummary)
+                                ? '#6b7280'
+                                : 'linear-gradient(135deg, #8b45ff, #3b82f6)',
                             border: 'none',
                             borderRadius: '16px',
                             color: 'white',
                             fontSize: '18px',
                             fontWeight: '700',
-                            cursor: uploadingPhotos ? 'not-allowed' : 'pointer',
+                            cursor: (uploadingPhotos || uploadingVideos || loadingSummary) ? 'not-allowed' : 'pointer',
                             marginTop: '8px'
                         }}
                     >
-                        {uploadingPhotos ? '⏳ Upload...' : '🎉 TERMINER & QUIZ'}
+                        {uploadingPhotos
+                            ? '⏳ Upload photos...'
+                            : uploadingVideos
+                                ? '⏳ Upload vidéos...'
+                                : loadingSummary
+                                    ? '🤖 Génération résumé...'
+                                    : '🎉 TERMINER & QUIZ'}
                     </button>
                 </form>
             </div>
+
+            {/* Notification Battle Points */}
+            {notificationData && (
+                <BattlePointsNotification
+                    results={notificationData}
+                    onClose={() => setNotificationData(null)}
+                />
+            )}
         </div>
     );
 };

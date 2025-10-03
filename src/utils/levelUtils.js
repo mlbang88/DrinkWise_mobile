@@ -1,34 +1,10 @@
-// Utilitaires pour le système XP et niveaux - DEPRECATED
-// Utiliser ExperienceService à la place
-import { gameplayConfig } from '../utils/data';
+// Utilitaires pour le système XP et niveaux
+// La plupart des fonctions ont été migrées vers ExperienceService
 import { ExperienceService } from '../services/experienceService';
+import { gameplayConfig } from './data';
+import { logger } from './logger.js';
 
 export const levelUtils = {
-    // DEPRECATED: Utiliser ExperienceService.calculateLevel
-    calculateLevel: (xp) => {
-        console.warn('⚠️ DEPRECATED: levelUtils.calculateLevel - Utiliser ExperienceService.calculateLevel');
-        return ExperienceService.calculateLevel(xp);
-    },
-
-    // DEPRECATED: Utiliser ExperienceService.getLevelName et getXpForLevel
-    getLevelInfo: (xp) => {
-        console.warn('⚠️ DEPRECATED: levelUtils.getLevelInfo - Utiliser ExperienceService');
-        const level = ExperienceService.calculateLevel(xp);
-        const levelName = ExperienceService.getLevelName(level);
-        const currentLevelXp = ExperienceService.getXpForLevel(level);
-        const nextLevelXp = ExperienceService.getXpForLevel(level + 1);
-        
-        return {
-            level,
-            name: levelName,
-            currentXp: xp,
-            levelXp: currentLevelXp,
-            nextLevelXp,
-            xpToNext: nextLevelXp - xp,
-            isMaxLevel: false // Plus de niveau max avec progression infinie
-        };
-    },
-
     // Calculer l'XP total gagné pour une action
     calculateTotalXp: (action, data = {}) => {
         let totalXp = 0;
@@ -55,41 +31,50 @@ export const levelUtils = {
         }
         
         return totalXp;
-    },
+    }
+};
 
-    // DEPRECATED: Logique à intégrer dans ExperienceService
-    detectAllLevelUps: (oldXp, newXp) => {
-        console.warn('⚠️ DEPRECATED: levelUtils.detectAllLevelUps - Utiliser ExperienceService');
-        const oldLevel = ExperienceService.calculateLevel(oldXp);
-        const newLevel = ExperienceService.calculateLevel(newXp);
-        
-        if (newLevel <= oldLevel) {
-            return [];
+// Pour la rétrocompatibilité, on expose les fonctions principales d'ExperienceService
+export const calculateLevel = (xp) => ExperienceService.calculateLevel(xp);
+export const getLevelInfo = (xp) => {
+    const level = ExperienceService.calculateLevel(xp);
+    const levelName = ExperienceService.getLevelName(level);
+    const currentLevelXp = ExperienceService.getXpForLevel(level);
+    const nextLevelXp = ExperienceService.getXpForLevel(level + 1);
+    
+    return {
+        level,
+        name: levelName,
+        currentXp: xp,
+        levelXp: currentLevelXp,
+        nextLevelXp,
+        xpToNext: nextLevelXp - xp,
+        isMaxLevel: false
+    };
+};
+
+export const detectLevelUp = (oldXp, newXp) => {
+    try {
+        if (oldXp === undefined || oldXp === null || newXp === undefined || newXp === null) {
+            logger.error('LEVEL', 'XP invalides dans detectLevelUp', { oldXp, newXp });
+            return { leveledUp: false, oldLevel: 1, newLevel: 1, levelsGained: 0 };
         }
         
-        const levelUps = [];
-        for (let level = oldLevel + 1; level <= newLevel; level++) {
-            levelUps.push({
-                level,
-                levelInfo: { level, name: ExperienceService.getLevelName(level) },
-                name: ExperienceService.getLevelName(level)
-            });
+        const safeOldXp = Number(oldXp);
+        const safeNewXp = Number(newXp);
+        
+        if (isNaN(safeOldXp) || isNaN(safeNewXp) || safeOldXp < 0 || safeNewXp < 0) {
+            logger.error('LEVEL', 'XP non numériques ou négatifs', { oldXp, newXp });
+            return { leveledUp: false, oldLevel: 1, newLevel: 1, levelsGained: 0 };
         }
         
-        return levelUps;
-    },
-
-    // DEPRECATED: Utiliser ExperienceService
-    detectLevelUp: (oldXp, newXp) => {
-        console.warn('⚠️ DEPRECATED: levelUtils.detectLevelUp - Utiliser ExperienceService');
-        const oldLevel = ExperienceService.calculateLevel(oldXp);
-        const newLevel = ExperienceService.calculateLevel(newXp);
-        
-        console.log("🎯 detectLevelUp:", { oldXp, newXp, oldLevel, newLevel });
+        const oldLevel = ExperienceService.calculateLevel(safeOldXp);
+        const newLevel = ExperienceService.calculateLevel(safeNewXp);
         
         if (newLevel > oldLevel) {
             const levelsGained = newLevel - oldLevel;
-            console.log(`✅ LEVEL UP DÉTECTÉ ! Niveaux gagnés: ${levelsGained} (${oldLevel} → ${newLevel})`);
+            logger.info('LEVEL', `Level up détecté ! ${levelsGained} niveau(x) gagné(s) (${oldLevel} → ${newLevel})`);
+            
             return {
                 leveledUp: true,
                 oldLevel,
@@ -97,12 +82,16 @@ export const levelUtils = {
                 levelsGained,
                 newLevelInfo: { 
                     level: newLevel, 
-                    name: ExperienceService.getLevelName(newLevel) 
+                    name: ExperienceService.getLevelName(newLevel)
                 }
             };
         }
         
-        console.log("❌ Pas de level up");
-        return { leveledUp: false };
+        return { leveledUp: false, oldLevel, newLevel, levelsGained: 0 };
+        
+    } catch (error) {
+        logger.error('LEVEL', 'Exception dans detectLevelUp', error);
+        return { leveledUp: false, oldLevel: 1, newLevel: 1, levelsGained: 0 };
     }
 };
+

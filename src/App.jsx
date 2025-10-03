@@ -22,7 +22,7 @@ import Phase2CDemo from './components/Phase2CDemo';
 import BattleRoyale from './components/BattleRoyale';
 
 // Import icons for the nav bar
-import { Home, BarChart, Users, Award, User as UserIcon, Shield, Rss, Target, Sparkles } from 'lucide-react';
+import { Home, BarChart, Users, Award, User as UserIcon, Trophy, Rss, Target, Sparkles } from 'lucide-react';
 
 // Import error handling and logging
 import ErrorBoundary from './components/ErrorBoundary';
@@ -77,7 +77,7 @@ const AppContent = () => {
     const navItems = [
         { id: 'home', icon: Home, label: 'Accueil' },
         { id: 'feed', icon: Rss, label: 'Fil' },
-        { id: 'battle', icon: Shield, label: 'Battle' },
+        { id: 'battle', icon: Trophy, label: 'Tournois' },
         { id: 'stats', icon: BarChart, label: 'Stats' },
         { id: 'badges', icon: Award, label: 'Badges' },
         { id: 'challenges', icon: Target, label: 'Défis' },

@@ -109,11 +109,16 @@ export const gameplayConfig = {
     groupActivityMultiplier: 1.2,
     weekendMultiplier: 1.1,
     
-    // Progression par formule au lieu de paliers fixes
+    // Formule simplifiée: niveau = floor(sqrt(xp / 50)) + 1
+    // Niveau 1 = 0 XP
+    // Niveau 2 = 50 XP
+    // Niveau 3 = 200 XP (+150)
+    // Niveau 4 = 450 XP (+250)
+    // Niveau 5 = 800 XP (+350)
+    // Progression naturelle et intuitive
     levelFormula: {
-        // Niveau = floor((-100 + sqrt(10000 + 800 * xp)) / 200) + 1
-        baseXp: 100,
-        scalingFactor: 800
+        type: 'polynomial',
+        divisor: 50  // XP nécessaire pour passer du niveau 1 au niveau 2
     },
     
     // Noms de niveaux dynamiques

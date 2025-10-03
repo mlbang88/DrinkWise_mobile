@@ -27,6 +27,9 @@
 - **Cloud Functions** : Implémentation complète des fonctions backend manquantes
 - **Hooks d'optimisation** : Nouveaux hooks pour la gestion de cache et debouncing
 - **Architecture améliorée** : Meilleure séparation des responsabilités
+- **Maintenance lint manuelle** : Nettoyage de `CompetitivePartyModal.jsx` (suppression des setters inutilisés, aperçu/removal des médias et blocage du bouton durant les uploads)
+- **Maintenance lint manuelle** : Simplification de `BasicPartyModal.jsx` en retirant les gestionnaires redondants au profit de la logique existante
+- **Maintenance lint manuelle** : Allègement de `AddPartyModal.jsx` (animations modales, paramètre de quiz inutilisé, condition Battle Royale) sans recours à `eslint --fix`
 
 ---
 

@@ -7,6 +7,12 @@ export class SocialComparisonService {
     // === SYNCHRONISATION STATS UTILISATEUR ACTUEL ===
     static async syncCurrentUserStats(db, appId, userId) {
         try {
+            // Vérifier que ExperienceService est disponible
+            if (!ExperienceService || typeof ExperienceService.syncUserStats !== 'function') {
+                console.warn('⚠️ ExperienceService.syncUserStats non disponible');
+                return;
+            }
+
             // Récupérer le profil utilisateur
             const profileRef = doc(db, `artifacts/${appId}/users/${userId}/profile`, 'data');
             const profileDoc = await getDoc(profileRef);

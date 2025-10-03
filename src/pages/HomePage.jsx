@@ -98,28 +98,29 @@ const HomePage = () => {
         return <div className="flex justify-center mt-10"><LoadingIcon /></div>;
     }
 
-    // Calcul du niveau si absent
+    // Calcul du niveau depuis publicStats (source unique de vérité)
     let userLevel = undefined;
     let userLevelName = '';
-    // Priorité : publicStats.level > userProfile.level > calcul local
+    
     if (userProfile?.publicStats?.level !== undefined) {
         userLevel = userProfile.publicStats.level;
         userLevelName = userProfile.publicStats.levelName || '';
-    } else if (userProfile?.level !== undefined) {
-        userLevel = userProfile.level;
-        userLevelName = userProfile.levelName || '';
-    } else if (userProfile?.xp !== undefined && gameplayConfig) {
-        const levels = gameplayConfig.levels;
-        const currentXp = userProfile.xp;
-        let foundLevel = 0;
-        for (let i = levels.length - 1; i >= 0; i--) {
-            if (currentXp >= levels[i].xp) {
-                foundLevel = i;
-                break;
-            }
-        }
-        userLevel = foundLevel;
-        userLevelName = levels[foundLevel]?.name || '';
+    } else if (userProfile?.publicStats) {
+        // Recalculer depuis publicStats si level manque
+        const stats = {
+            totalParties: userProfile.publicStats.totalParties || 0,
+            totalDrinks: userProfile.publicStats.totalDrinks || 0,
+            totalChallenges: userProfile.publicStats.challengesCompleted || 0,
+            totalBadges: userProfile.publicStats.unlockedBadges?.length || 0,
+            totalQuizQuestions: userProfile.publicStats.totalQuizQuestions || 0
+        };
+        const currentXp = ExperienceService.calculateTotalXP(stats);
+        userLevel = ExperienceService.calculateLevel(currentXp);
+        userLevelName = ExperienceService.getLevelName(userLevel);
+    } else {
+        // Fallback absolu (ne devrait jamais arriver)
+        userLevel = 1;
+        userLevelName = 'Bronze Novice';
     }
 
     // Interface normale uniquement

@@ -10,7 +10,7 @@ import { PlusCircle, Trash2, XCircle, Users, User } from 'lucide-react';
 import { storage } from '../firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { logger } from '../utils/logger.js';
-import { useModalAnimation, useStaggeredAnimation } from '../hooks/useAnimation.js';
+import { useModalAnimation } from '../hooks/useAnimation.js';
 import useBattleRoyale from '../hooks/useBattleRoyale.js';
 import BattleModeGuide from './BattleModeGuide.jsx';
 
@@ -88,9 +88,9 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
     const [showModeGuide, setShowModeGuide] = useState(null);
     
     // Animation hook
-    const { isVisible, isAnimating, animationStyles } = useModalAnimation(isModalOpen, onClose, 350);
+    const { isVisible, animationStyles } = useModalAnimation(isModalOpen, onClose, 350);
     // Désactiver temporairement les animations staggered qui masquent le contenu
-    const getItemStyle = (index) => ({ opacity: 1, transform: 'none' });
+    const getItemStyle = () => ({ opacity: 1, transform: 'none' });
     
     // Fonction de fermeture animée
     const handleClose = useCallback(() => {
@@ -190,7 +190,7 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
     };
 
     // Fonction pour gérer la fin du quiz et afficher le récapitulatif
-    const handleQuizComplete = (resultTitle) => {
+    const handleQuizComplete = () => {
         console.log("✅ Quiz terminé, notification parent");
         setShowQuiz(false);
         
@@ -514,25 +514,112 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
         }
     };
 
+    const buildFallbackSummary = useCallback((details) => {
+        const safeDetails = details || {};
+        const drinksList = Array.isArray(safeDetails.drinks) ? safeDetails.drinks : [];
+        const totalDrinks = drinksList.reduce((sum, drink) => sum + (Number(drink?.quantity) || 0), 0);
+        const highlightDrink = drinksList.find((drink) => drink?.type)?.type || (drinksList.length > 0 ? 'quelques cocktails surprises' : 'une ambiance chill');
+        const locationLabel = safeDetails.location && safeDetails.location.trim() ? safeDetails.location.trim() : 'un spot secret';
+        const companionsNames = Array.isArray(safeDetails.companions?.selectedNames) ? safeDetails.companions.selectedNames : [];
+        const companionsText = companionsNames.length > 0
+            ? `avec ${companionsNames.length} pote${companionsNames.length > 1 ? 's' : ''}`
+            : 'en mode solo';
+        const stats = safeDetails.stats || {};
+        const highlights = [];
+
+        if (totalDrinks > 0) {
+            highlights.push(`${totalDrinks} verre${totalDrinks > 1 ? 's' : ''}`);
+        }
+
+        const newNumbers = Number(stats.newNumbersGot || stats.girlsTalkedTo || 0);
+        if (newNumbers > 0) {
+            highlights.push(`${newNumbers} nouveau${newNumbers > 1 ? 'x' : ''} contact${newNumbers > 1 ? 's' : ''}`);
+        }
+
+        const fights = Number(stats.timeFightsStarted || stats.fights || 0);
+        if (fights > 0) {
+            highlights.push(`${fights} embrouille${fights > 1 ? 's' : ''}`);
+        }
+
+        const vibe = highlights.length > 0 ? highlights.join(', ') : 'des vibes mémorables';
+
+        return `Soirée à ${locationLabel} ${companionsText}, ${vibe} et ${highlightDrink} en star. À revivre très vite !`;
+    }, []);
+
     const generatePartySummary = useCallback(async (partyDetails, docId) => {
+        if (!functions) {
+            console.warn('⚠️ Fonctions Firebase indisponibles, résumé non généré');
+            return;
+        }
+
+        if (!partyDetails || !docId) {
+            console.warn('⚠️ Données insuffisantes pour générer le résumé', { partyDetails, docId });
+            return;
+        }
+
         setLoadingSummary(true);
         const callGeminiAPI = httpsCallable(functions, 'callGeminiAPI');
-        const prompt = `Génère un résumé de soirée amusant et mémorable (max 3 phrases) basé sur: ${JSON.stringify(partyDetails)}. Sois créatif et humoristique.`;
+        const safeDetails = {
+            ...partyDetails,
+            drinks: Array.isArray(partyDetails.drinks) ? partyDetails.drinks : [],
+            stats: partyDetails.stats || {},
+            companions: partyDetails.companions || {}
+        };
+        const prompt = `Génère un résumé de soirée amusant et mémorable (max 3 phrases) basé sur: ${JSON.stringify(safeDetails)}. Sois créatif et humoristique.`;
+
         try {
             console.log("🤖 Génération du résumé de soirée...");
-            const result = await callGeminiAPI({ prompt });
-            if (result.data.text) {
-                const summary = result.data.text;
-                const partyRef = doc(db, `artifacts/${appId}/users/${user.uid}/parties`, docId);
-                await updateDoc(partyRef, { summary });
-                console.log("✅ Résumé généré et sauvegardé:", summary);
+            const result = await callGeminiAPI({ prompt, partyId: docId });
+            const aiSummary = (result?.data?.text || result?.data?.summary || '').trim();
+            const partyRef = doc(db, `artifacts/${appId}/users/${user.uid}/parties`, docId);
+
+            if (aiSummary) {
+                await updateDoc(partyRef, {
+                    summary: aiSummary,
+                    summarySource: 'gemini',
+                    summaryGeneratedAt: new Date()
+                });
+                console.log("✅ Résumé généré et sauvegardé:", aiSummary);
+            } else {
+                const fallbackSummary = buildFallbackSummary(safeDetails);
+                await updateDoc(partyRef, {
+                    summary: fallbackSummary,
+                    summarySource: 'fallback-empty-response',
+                    summaryGeneratedAt: new Date()
+                });
+                console.warn('⚠️ Résultat inattendu de callGeminiAPI, fallback utilisé', result);
+                setMessageBox({
+                    message: "⚠️ Résumé IA indisponible, on a généré une version manuelle.",
+                    type: 'warning'
+                });
             }
-        } catch (error) { 
-            console.error("❌ Erreur génération résumé via Cloud Function:", error); 
+        } catch (error) {
+            console.error("❌ Erreur génération résumé via Cloud Function:", error);
+
+            try {
+                const fallbackSummary = buildFallbackSummary(partyDetails);
+                const partyRef = doc(db, `artifacts/${appId}/users/${user.uid}/parties`, docId);
+                await updateDoc(partyRef, {
+                    summary: fallbackSummary,
+                    summarySource: 'fallback-error',
+                    summaryGeneratedAt: new Date()
+                });
+                console.log("🛟 Résumé fallback sauvegardé après erreur IA:", fallbackSummary);
+                setMessageBox({
+                    message: "🛟 Résumé généré manuellement suite à une erreur IA.",
+                    type: 'info'
+                });
+            } catch (fallbackError) {
+                console.error('❌ Impossible de sauvegarder le résumé fallback:', fallbackError);
+                setMessageBox({
+                    message: "❌ Résumé indisponible pour cette soirée.",
+                    type: 'error'
+                });
+            }
         } finally {
             setLoadingSummary(false);
         }
-    }, [db, user, appId, functions]);
+    }, [appId, buildFallbackSummary, db, functions, setMessageBox, user]);
 
     // If quiz is activated, unmount form and display quiz modal
     if (showQuiz && lastPartyData && lastPartyId) {
@@ -703,7 +790,7 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
                 }}>
                     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                         {/* Date */}
-                        <div style={getItemStyle(0)}>
+                        <div style={getItemStyle()}>
                             <label style={{
                                 display: 'block',
                                 color: 'white',
@@ -744,7 +831,7 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
                         </div>
 
                         {/* Gestion temporelle de la soirée */}
-                        <div style={getItemStyle(1)}>
+                        <div style={getItemStyle()}>
                             <label style={{
                                 display: 'block',
                                 color: 'white',
@@ -884,7 +971,7 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
                         </div>
 
                         {/* Analyseur de boisson IA */}
-                        <div style={getItemStyle(2)}>
+                        <div style={getItemStyle()}>
                             <DrinkAnalyzer 
                             onDrinkDetected={handleDrinkDetected}
                             setMessageBox={setMessageBox}
@@ -892,7 +979,7 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
                         </div>
 
                         {/* Boissons */}
-                        <div style={getItemStyle(3)}>
+                        <div style={getItemStyle()}>
                             <label style={{
                                 display: 'block',
                                 color: 'white',
@@ -1519,8 +1606,7 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
                         </div>
 
                         {/* Mode Battle Royale (affiché seulement si participant à des tournois) */}
-                        {/* Debug: toujours afficher pour les tests */}
-                        {(userTournaments.length > 0 || true) && (
+                        {userTournaments.length > 0 && (
                             <div style={{
                                 background: 'linear-gradient(135deg, rgba(255, 107, 53, 0.1), rgba(139, 69, 255, 0.1))',
                                 border: '1px solid rgba(255, 107, 53, 0.3)',

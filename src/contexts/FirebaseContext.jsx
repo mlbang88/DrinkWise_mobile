@@ -6,6 +6,7 @@ import { doc, setDoc, onSnapshot, updateDoc } from 'firebase/firestore';
 import { generateUniqueUsername } from '../utils/usernameUtils';
 import { friendshipListenerService } from '../services/friendshipListenerService.js';
 import { ExperienceService } from '../services/experienceService';
+import { logger } from '../utils/logger.js';
 
 // Valeur par défaut pour éviter les erreurs de destructuration
 const defaultContextValue = {
@@ -34,7 +35,7 @@ const verifyAndFixUserLevel = async (userProfileRef, profileData) => {
         
         // Vérifier si le niveau numérique correspond à l'XP
         if (typeof currentLevel === 'number' && currentLevel !== correctLevel) {
-            console.log(`🔧 Correction du niveau: ${currentLevel} → ${correctLevel} (XP: ${currentXp})`);
+            logger.info('FIREBASE', `Correction du niveau: ${currentLevel} → ${correctLevel} (XP: ${currentXp})`);
             
             await updateDoc(userProfileRef, {
                 level: correctLevel
@@ -49,7 +50,7 @@ const verifyAndFixUserLevel = async (userProfileRef, profileData) => {
         
         return profileData;
     } catch (error) {
-        console.error("❌ Erreur lors de la vérification du niveau:", error);
+        logger.error('FIREBASE', 'Erreur lors de la vérification du niveau', error);
         return profileData;
     }
 };
@@ -97,7 +98,7 @@ export const FirebaseProvider = ({ children }) => {
                     const isValid = (Date.now() - timestamp) < (24 * 60 * 60 * 1000);
                     
                     if (isValid && mode === 'emergency') {
-                        console.log('🚨 Mode d\'urgence détecté - Utilisateur connecté');
+                        logger.warn('AUTH', 'Mode d\'urgence détecté - Utilisateur connecté');
                         
                         // Créer un profil d'urgence
                         const emergencyProfile = {
@@ -118,14 +119,14 @@ export const FirebaseProvider = ({ children }) => {
                         setLoading(false);
                         
                         showMessage('🚨 Mode d\'urgence actif - Connexion temporaire', 'info');
-                        console.log('🚨 Mode d\'urgence: Service d\'écoute des amitiés désactivé');
+                        logger.warn('AUTH', 'Mode d\'urgence: Service d\'écoute des amitiés désactivé');
                         return true; // Mode d'urgence activé
                     } else {
                         // Nettoyer les données expirées
                         sessionStorage.removeItem('emergencyAuth');
                     }
                 } catch (error) {
-                    console.error('Erreur mode d\'urgence:', error);
+                    logger.error('AUTH', 'Erreur mode d\'urgence', error);
                     sessionStorage.removeItem('emergencyAuth');
                 }
             }
@@ -143,7 +144,7 @@ export const FirebaseProvider = ({ children }) => {
                 try {
                     unsubProfile();
                 } catch (error) {
-                    console.warn('⚠️ Erreur lors du nettoyage du listener profil:', error);
+                    logger.warn('FIREBASE', 'Erreur lors du nettoyage du listener profil', error);
                 }
                 unsubProfile = null;
             }
@@ -190,9 +191,9 @@ export const FirebaseProvider = ({ children }) => {
                             });
                             
                             setUserProfile(newProfile);
-                            console.log("✅ Nouveau profil créé avec username unique:", uniqueUsername);
+                            logger.info('FIREBASE', 'Nouveau profil créé avec username unique', uniqueUsername);
                         } catch (error) {
-                            console.error("❌ Erreur lors de la création du profil:", error);
+                            logger.error('FIREBASE', 'Erreur lors de la création du profil', error);
                         }
                     } else {
                         const profileData = profileSnap.data();
@@ -204,7 +205,7 @@ export const FirebaseProvider = ({ children }) => {
                             
                             const repairedUsername = await generateUniqueUsername(db, appId, baseUsername, firebaseUser.uid);
                             
-                            console.log("🔧 Réparation du username manquant avec username unique:", repairedUsername);
+                            logger.info('FIREBASE', 'Réparation du username manquant avec username unique', repairedUsername);
                             
                             try {
                                 await setDoc(userProfileRef, {
@@ -227,7 +228,7 @@ export const FirebaseProvider = ({ children }) => {
                                     username_lowercase: repairedUsername.toLowerCase()
                                 });
                             } catch (error) {
-                                console.error("❌ Erreur réparation username:", error);
+                                logger.error('FIREBASE', 'Erreur réparation username', error);
                                 // Vérifier et corriger le niveau même en cas d'erreur username
                                 const correctedProfile = await verifyAndFixUserLevel(userProfileRef, profileData);
                                 setUserProfile(correctedProfile);
@@ -242,13 +243,13 @@ export const FirebaseProvider = ({ children }) => {
                     // Démarrer le service d'écoute des amitiés avec synchronisation automatique
                     // TEMPORAIREMENT DÉSACTIVÉ pour diagnostiquer l'erreur Firestore INTERNAL ASSERTION FAILED
                     try {
-                        console.log("🔧 Service d'écoute des amitiés temporairement désactivé pour diagnostic");
+                        logger.debug('FIREBASE', 'Service d\'écoute des amitiés temporairement désactivé pour diagnostic');
                         // friendshipListenerService.startListening(db, appId, firebaseUser.uid, setMessageBox, functions);
                     } catch (error) {
-                        console.error("❌ Erreur démarrage service d'écoute:", error);
+                        logger.error('FIREBASE', 'Erreur démarrage service d\'écoute', error);
                     }
                 }, (error) => {
-                    console.error("❌ Erreur Firestore onSnapshot:", error);
+                    logger.error('FIREBASE', 'Erreur Firestore onSnapshot', error);
                     // En cas d'erreur de permissions, continuer sans bloquer l'app
                     setLoading(false);
                 });
@@ -262,16 +263,26 @@ export const FirebaseProvider = ({ children }) => {
         });
 
         return () => {
-            unsubscribe();
+            if (unsubscribe) {
+                try {
+                    unsubscribe();
+                } catch (error) {
+                    logger.warn('FIREBASE', 'Erreur cleanup auth listener', error);
+                }
+            }
             if (unsubProfile) {
-                unsubProfile();
+                try {
+                    unsubProfile();
+                } catch (error) {
+                    logger.warn('FIREBASE', 'Erreur cleanup profile listener', error);
+                }
             }
         };
     }, []);
 
     const changeBackground = () => {
         // Fonction pour changer le background si nécessaire
-        console.log("Change background called");
+        logger.debug('UI', 'Change background called');
     };
 
     const logout = async () => {
@@ -298,7 +309,7 @@ export const FirebaseProvider = ({ children }) => {
             setUserProfile(null);
             setMessageBox('Déconnexion réussie !');
         } catch (error) {
-            console.error('Erreur de déconnexion:', error);
+            logger.error('AUTH', 'Erreur de déconnexion', error);
             setMessageBox('Erreur lors de la déconnexion');
         }
     };

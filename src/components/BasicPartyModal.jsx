@@ -1,5 +1,6 @@
-import React, { useState, useContext, useCallback, useEffect } from 'react';
+import React, { useState, useContext, useCallback, useEffect, useRef } from 'react';
 import { Timestamp, addDoc, collection, doc, updateDoc, getDocs, query, where } from 'firebase/firestore';
+import { httpsCallable } from "firebase/functions";
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { FirebaseContext } from '../contexts/FirebaseContext.jsx';
 import { drinkOptions, partyCategories } from '../utils/data.jsx';
@@ -9,7 +10,8 @@ import UserAvatar from './UserAvatar';
 import { logger } from '../utils/logger.js';
 
 const BasicPartyModal = ({ onClose, onPartySaved }) => {
-    const { db, storage, user, appId, userProfile, setMessageBox } = useContext(FirebaseContext);
+    const { db, storage, user, appId, userProfile, setMessageBox, functions } = useContext(FirebaseContext);
+    const modalRef = useRef(null);
     
     // États de base
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
@@ -29,6 +31,14 @@ const BasicPartyModal = ({ onClose, onPartySaved }) => {
     const [videoFiles, setVideoFiles] = useState([]);
     const [uploadingPhotos, setUploadingPhotos] = useState(false);
     const [uploadingVideos, setUploadingVideos] = useState(false);
+    const [loadingSummary, setLoadingSummary] = useState(false);
+
+    // Forcer le scroll en haut à l'ouverture
+    useEffect(() => {
+        if (modalRef.current) {
+            modalRef.current.scrollTop = 0;
+        }
+    }, []);
 
     // États pour la gestion des amis et groupes
     const [friendsList, setFriendsList] = useState([]);
@@ -194,39 +204,133 @@ const BasicPartyModal = ({ onClose, onPartySaved }) => {
         loadCompanionsData();
     }, [user, db, userProfile, appId]);
 
-    // Fonction pour gérer le changement de type de compagnon
-    const handleCompanionTypeChange = (type) => {
-        setCompanions({ type, selectedIds: [], selectedNames: [] });
-    };
+    const buildFallbackSummary = useCallback((details) => {
+        const safeDetails = details || {};
+        const drinksList = Array.isArray(safeDetails.drinks) ? safeDetails.drinks : [];
+        const totalDrinks = drinksList.reduce((sum, drink) => sum + (Number(drink?.quantity) || 0), 0);
+        const highlightDrink = drinksList.find((drink) => drink?.type)?.type || (drinksList.length > 0 ? 'quelques breuvages surprises' : 'une ambiance cozy');
+        const locationLabel = safeDetails.location && safeDetails.location.trim() ? safeDetails.location.trim() : 'un spot secret';
+        const companionsNames = Array.isArray(safeDetails.companions?.selectedNames) ? safeDetails.companions.selectedNames : [];
+        const companionsText = companionsNames.length > 0
+            ? `avec ${companionsNames.length} pote${companionsNames.length > 1 ? 's' : ''}`
+            : 'en mode solo';
+        const stats = safeDetails.stats || {};
+        const highlights = [];
 
-    // Fonction pour gérer la sélection/désélection d'amis
-    const handleFriendToggle = (friendId, friendName) => {
-        setCompanions(prev => {
-            const isSelected = prev.selectedIds.includes(friendId);
-            if (isSelected) {
-                return {
-                    ...prev,
-                    selectedIds: prev.selectedIds.filter(id => id !== friendId),
-                    selectedNames: prev.selectedNames.filter(name => name !== friendName)
-                };
+        if (totalDrinks > 0) {
+            highlights.push(`${totalDrinks} verre${totalDrinks > 1 ? 's' : ''}`);
+        }
+
+        const newNumbers = Number(stats.newNumbersGot || 0);
+        if (newNumbers > 0) {
+            highlights.push(`${newNumbers} nouveau${newNumbers > 1 ? 'x' : ''} contact${newNumbers > 1 ? 's' : ''}`);
+        }
+
+        const fights = Number(stats.timeFightsStarted || 0);
+        if (fights > 0) {
+            highlights.push(`${fights} embrouille${fights > 1 ? 's' : ''}`);
+        }
+
+        const vibe = highlights.length > 0 ? highlights.join(', ') : 'des ondes positives';
+
+        return `Soirée à ${locationLabel} ${companionsText}, ${vibe} et ${highlightDrink} en tête d'affiche. À noter dans le carnet de fêtes !`;
+    }, []);
+
+    // Fonction pour générer le résumé de soirée
+    const generatePartySummary = useCallback(async (partyDetails, docId) => {
+        if (!functions) {
+            logger.warn('PARTY', 'Fonctions Firebase indisponibles, résumé non généré');
+            return;
+        }
+
+        if (!partyDetails || !docId) {
+            logger.warn('PARTY', 'Données insuffisantes pour générer le résumé', { partyDetails, docId });
+            return;
+        }
+
+        setLoadingSummary(true);
+        const callGeminiAPI = httpsCallable(functions, 'callGeminiAPI');
+        const safeDetails = {
+            ...partyDetails,
+            drinks: Array.isArray(partyDetails.drinks) ? partyDetails.drinks : [],
+            stats: partyDetails.stats || {},
+            companions: partyDetails.companions || {}
+        };
+        
+        // Prompt amélioré avec instructions précises
+        const prompt = `Tu es un rédacteur humoristique spécialisé dans les souvenirs de soirée. Génère un résumé amusant et mémorable en EXACTEMENT 3 phrases courtes.
+
+Données de la soirée:
+- Lieu: ${safeDetails.location || 'non spécifié'}
+- Catégorie: ${safeDetails.category || 'soirée classique'}
+- Nombre de boissons: ${safeDetails.drinks?.length || 0}
+- Types de boissons: ${safeDetails.drinks?.map(d => d.type).join(', ') || 'aucune'}
+- Compagnons: ${safeDetails.companions?.type === 'friends' ? safeDetails.companions.selectedNames?.join(', ') || 'seul(e)' : safeDetails.companions?.type || 'seul(e)'}
+- Stats: ${JSON.stringify(safeDetails.stats)}
+
+Format OBLIGATOIRE (3 phrases séparées par des points):
+1. Phrase d'introduction (contexte: lieu, type de soirée, ambiance)
+2. Highlight principal (moment fort, anecdote, statistique marquante)
+3. Conclusion humoristique (chute, réflexion amusante)
+
+Ton: Léger, amusant, mémorable, sans vulgarité.
+Longueur: Maximum 280 caractères au total.
+
+RÉPONDS UNIQUEMENT AVEC LES 3 PHRASES, SANS PRÉAMBULE NI EXPLICATION.`;
+
+        try {
+            logger.info('PARTY', 'Génération du résumé de soirée...');
+            const result = await callGeminiAPI({ prompt, partyId: docId });
+            const aiSummary = (result?.data?.text || result?.data?.summary || '').trim();
+            const partyRef = doc(db, `artifacts/${appId}/users/${user.uid}/parties`, docId);
+
+            if (aiSummary) {
+                await updateDoc(partyRef, {
+                    summary: aiSummary,
+                    summarySource: 'gemini',
+                    summaryGeneratedAt: new Date()
+                });
+                logger.info('PARTY', 'Résumé généré et sauvegardé', aiSummary);
             } else {
-                return {
-                    ...prev,
-                    selectedIds: [...prev.selectedIds, friendId],
-                    selectedNames: [...prev.selectedNames, friendName]
-                };
+                const fallbackSummary = buildFallbackSummary(safeDetails);
+                await updateDoc(partyRef, {
+                    summary: fallbackSummary,
+                    summarySource: 'fallback-empty-response',
+                    summaryGeneratedAt: new Date()
+                });
+                logger.warn('PARTY', 'Résultat inattendu de callGeminiAPI, fallback utilisé', result);
+                setMessageBox({
+                    message: "⚠️ Résumé IA indisponible, on a rédigé un retour manuel.",
+                    type: 'warning'
+                });
             }
-        });
-    };
+        } catch (error) {
+            logger.error('PARTY', 'Erreur génération résumé via Cloud Function', error);
 
-    // Fonction pour gérer la sélection de groupe
-    const handleGroupSelect = (groupId, groupName) => {
-        setCompanions({
-            type: 'group',
-            selectedIds: [groupId],
-            selectedNames: [groupName]
-        });
-    };
+            try {
+                const fallbackSummary = buildFallbackSummary(partyDetails);
+                const partyRef = doc(db, `artifacts/${appId}/users/${user.uid}/parties`, docId);
+                await updateDoc(partyRef, {
+                    summary: fallbackSummary,
+                    summarySource: 'fallback-error',
+                    summaryGeneratedAt: new Date()
+                });
+                logger.info('PARTY', 'Résumé fallback sauvegardé après erreur IA', fallbackSummary);
+                setMessageBox({
+                    message: "🛟 Résumé généré manuellement suite à une erreur IA.",
+                    type: 'info'
+                });
+            } catch (fallbackError) {
+                logger.error('PARTY', 'Impossible de sauvegarder le résumé fallback', fallbackError);
+                setMessageBox({
+                    message: "❌ Résumé indisponible pour cette soirée.",
+                    type: 'error'
+                });
+            }
+        } finally {
+            setLoadingSummary(false);
+        }
+    }, [appId, buildFallbackSummary, db, functions, setMessageBox, user]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -305,6 +409,9 @@ const BasicPartyModal = ({ onClose, onPartySaved }) => {
 
             setMessageBox({ message: "Soirée enregistrée avec succès !", type: "success" });
             
+            // Générer le résumé de la soirée EN ARRIÈRE-PLAN aussi
+            generatePartySummary(partyData, docRef.id);
+            
             // Déclencher rafraîchissement du feed
             window.dispatchEvent(new CustomEvent('refreshFeed'));
             
@@ -329,17 +436,17 @@ const BasicPartyModal = ({ onClose, onPartySaved }) => {
             alignItems: 'flex-start',
             justifyContent: 'center',
             zIndex: 1000,
-            padding: '20px',
-            paddingTop: '40px',
-            overflowY: 'auto'
+            padding: '5px'
         }}>
-            <div style={{
+            <div 
+                ref={modalRef}
+                style={{
                 backgroundColor: '#1a202c',
                 borderRadius: '20px',
                 padding: '24px',
                 maxWidth: '500px',
                 width: '100%',
-                maxHeight: '98vh',
+                maxHeight: '83vh',
                 overflowY: 'auto',
                 boxShadow: '0 25px 50px rgba(0, 0, 0, 0.5)'
             }}>
@@ -1246,21 +1353,21 @@ const BasicPartyModal = ({ onClose, onPartySaved }) => {
                     {/* Submit Button */}
                     <button 
                         type="submit"
-                        disabled={uploadingPhotos}
+                        disabled={uploadingPhotos || uploadingVideos || loadingSummary}
                         style={{
                             width: '100%',
                             padding: '16px',
-                            background: uploadingPhotos ? '#6b7280' : 'linear-gradient(135deg, #8b45ff, #3b82f6)',
+                            background: (uploadingPhotos || uploadingVideos || loadingSummary) ? '#6b7280' : 'linear-gradient(135deg, #8b45ff, #3b82f6)',
                             border: 'none',
                             borderRadius: '12px',
                             color: 'white',
                             fontSize: '16px',
                             fontWeight: '700',
-                            cursor: uploadingPhotos ? 'not-allowed' : 'pointer',
+                            cursor: (uploadingPhotos || uploadingVideos || loadingSummary) ? 'not-allowed' : 'pointer',
                             marginTop: '8px'
                         }}
                     >
-                        {uploadingPhotos ? '⏳ Upload en cours...' : '💾 Enregistrer la soirée'}
+                        {uploadingPhotos ? '⏳ Upload photos...' : uploadingVideos ? '⏳ Upload vidéos...' : loadingSummary ? '🤖 Génération résumé...' : '💾 Enregistrer la soirée'}
                     </button>
                 </form>
             </div>
