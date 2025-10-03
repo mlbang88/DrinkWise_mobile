@@ -259,7 +259,7 @@ export const updateVenueControl = async (db, appId, params) => {
         const userControlRef = doc(userControlsRef, venue.placeId);
         await setDoc(userControlRef, controlUpdate, { merge: true });
 
-        logger.success('✅ Contrôle territorial mis à jour', {
+        logger.info('✅ Contrôle territorial mis à jour', {
             venue: venue.name,
             points: pointsResult.totalPoints,
             total: newTotalPoints,
@@ -319,7 +319,7 @@ export const getVenueLeaderboard = async (db, appId, placeId, limitCount = 10) =
             };
         });
 
-        logger.success('✅ Leaderboard chargé', { count: leaderboard.length });
+        logger.info('✅ Leaderboard chargé', { count: leaderboard.length });
         return leaderboard;
 
     } catch (error) {
@@ -361,7 +361,7 @@ export const getUserControlledVenues = async (db, appId, userId) => {
             };
         });
 
-        logger.success('✅ Lieux chargés', { count: venues.length });
+        logger.info('✅ Lieux chargés', { count: venues.length });
         return venues;
 
     } catch (error) {

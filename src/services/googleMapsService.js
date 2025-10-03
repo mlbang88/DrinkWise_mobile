@@ -86,7 +86,7 @@ export const searchPlaces = async (query, options = {}) => {
       timestamp: Date.now(),
     });
 
-    logger.success('✅ Résultats trouvés', { count: filteredResults.length });
+    logger.info('Google Maps', `✅ Résultats trouvés: ${filteredResults.length}`);
     
     return filteredResults;
 
@@ -159,7 +159,7 @@ export const getPlaceDetails = async (placeId) => {
       timestamp: Date.now(),
     });
 
-    logger.success('✅ Détails récupérés', { name: venueDetails.name });
+    logger.info('Google Maps', `✅ Détails récupérés: ${venueDetails.name}`);
     
     return venueDetails;
 
@@ -204,7 +204,7 @@ export const geocodeAddress = async (address) => {
       lng: location.lng,
     };
 
-    logger.success('✅ Adresse géocodée', coordinates);
+    logger.info('Google Maps', `✅ Adresse géocodée: ${coordinates.lat}, ${coordinates.lng}`);
     
     return coordinates;
 
@@ -241,7 +241,7 @@ export const reverseGeocode = async (lat, lng) => {
 
     const address = data.results[0]?.formatted_address || 'Adresse inconnue';
 
-    logger.success('✅ Adresse trouvée', { address });
+    logger.info('Google Maps', `✅ Adresse trouvée: ${address}`);
     
     return address;
 
@@ -289,7 +289,7 @@ export const getCurrentPosition = () => {
           lng: position.coords.longitude,
           accuracy: position.coords.accuracy,
         };
-        logger.success('✅ Position obtenue', coords);
+        logger.info('Google Maps', `✅ Position obtenue: ${coords.lat}, ${coords.lng}`);
         resolve(coords);
       },
       (error) => {

@@ -342,12 +342,14 @@ const VenueSearchModal = ({ isOpen, onClose, onVenueSelect, initialValue = '' })
         {/* Footer Actions */}
         <div className="bg-gray-800/50 border-t border-gray-700 p-6 flex gap-3">
           <button
+            type="button"
             onClick={onClose}
             className="flex-1 bg-gray-700 hover:bg-gray-600 text-white font-semibold py-3 px-6 rounded-xl transition-all"
           >
             Annuler
           </button>
           <button
+            type="button"
             onClick={handleConfirm}
             disabled={!selectedVenue}
             className={`flex-1 font-semibold py-3 px-6 rounded-xl transition-all ${
