@@ -1485,6 +1485,7 @@ const CompetitivePartyModal = ({ onClose, onPartySaved, draftData = null }) => {
                 onVenueSelect={(selectedVenue) => {
                     setVenue(selectedVenue);
                     setLocation(selectedVenue.name);
+                    setShowVenueSearch(false);
                 }}
                 initialValue={location}
             />

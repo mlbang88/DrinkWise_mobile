@@ -4,10 +4,12 @@ import { httpsCallable } from "firebase/functions";
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { FirebaseContext } from '../contexts/FirebaseContext.jsx';
 import { drinkOptions, partyCategories } from '../utils/data.jsx';
-import { Upload, X, Trash2, PlusCircle, Plus, Minus, Users, User, Video } from 'lucide-react';
+import { Upload, X, Trash2, PlusCircle, Plus, Minus, Users, User, Video, MapPin } from 'lucide-react';
 import DrinkAnalyzer from './DrinkAnalyzer';
 import UserAvatar from './UserAvatar';
 import { logger } from '../utils/logger.js';
+import VenueSearchModal from './VenueSearchModal';
+import venueService from '../services/venueService';
 
 const BasicPartyModal = ({ onClose, onPartySaved }) => {
     const { db, storage, user, appId, userProfile, setMessageBox, functions } = useContext(FirebaseContext);
@@ -23,6 +25,8 @@ const BasicPartyModal = ({ onClose, onPartySaved }) => {
         vomitCount: 0
     });
     const [location, setLocation] = useState('');
+    const [venue, setVenue] = useState(null);
+    const [showVenueSearch, setShowVenueSearch] = useState(false);
     const [category, setCategory] = useState(partyCategories[0]);
     const [companions, setCompanions] = useState({ type: 'none', selectedIds: [], selectedNames: [] });
     
@@ -341,7 +345,15 @@ RÉPONDS UNIQUEMENT AVEC LES 3 PHRASES, SANS PRÉAMBULE NI EXPLICATION.`;
             date, 
             drinks, 
             ...stats, 
-            location, 
+            location,
+            venue: venue ? {
+                placeId: venue.placeId,
+                name: venue.name,
+                address: venue.address,
+                coordinates: venue.coordinates,
+                rating: venue.rating,
+                types: venue.types
+            } : null,
             category, 
             companions,
             timestamp: Timestamp.now(), 
@@ -352,6 +364,38 @@ RÉPONDS UNIQUEMENT AVEC LES 3 PHRASES, SANS PRÉAMBULE NI EXPLICATION.`;
         
         try {
             const docRef = await addDoc(collection(db, `artifacts/${appId}/users/${user.uid}/parties`), partyData);
+
+            // Mettre à jour le contrôle territorial si un lieu est sélectionné
+            if (venue) {
+                try {
+                    const territoryResult = await venueService.updateVenueControl(db, appId, {
+                        venue,
+                        userId: user.uid,
+                        username: userProfile?.username || "Anonyme",
+                        partyData,
+                        battleMode: 'balanced' // Mode par défaut pour soirée basique
+                    });
+
+                    if (territoryResult.success) {
+                        console.log(`🗺️ Contrôle territorial: +${territoryResult.pointsEarned} points (${territoryResult.level.name})`);
+                        
+                        // Afficher notification si takeover ou nouveau contrôle
+                        if (territoryResult.isTakeover) {
+                            setMessageBox({ 
+                                message: `⚔️ Territoire conquis! +${territoryResult.pointsEarned} points`, 
+                                type: "success" 
+                            });
+                        } else if (territoryResult.isNewControl) {
+                            setMessageBox({ 
+                                message: `👑 Nouveau territoire! +${territoryResult.pointsEarned} points`, 
+                                type: "success" 
+                            });
+                        }
+                    }
+                } catch (territoryError) {
+                    console.error("Erreur mise à jour contrôle territorial:", territoryError);
+                }
+            }
             
             // Upload photos en arrière-plan si présentes
             if (photoFiles.length > 0) {
@@ -887,22 +931,30 @@ RÉPONDS UNIQUEMENT AVEC LES 3 PHRASES, SANS PRÉAMBULE NI EXPLICATION.`;
                         }}>
                             Lieu (optionnel):
                         </label>
-                        <input 
-                            type="text" 
-                            value={location} 
-                            onChange={(e) => setLocation(e.target.value)} 
-                            placeholder="Où s'est déroulée la soirée ?"
+                        <button
+                            type="button"
+                            onClick={() => setShowVenueSearch(true)}
                             style={{
                                 width: '100%',
                                 padding: '12px 16px',
-                                background: 'rgba(255, 255, 255, 0.08)',
-                                border: '1px solid rgba(255, 255, 255, 0.2)',
+                                background: venue ? 'rgba(124, 58, 237, 0.2)' : 'rgba(255, 255, 255, 0.08)',
+                                border: `1px solid ${venue ? 'rgba(124, 58, 237, 0.5)' : 'rgba(255, 255, 255, 0.2)'}`,
                                 borderRadius: '12px',
                                 color: 'white',
                                 fontSize: '16px',
-                                outline: 'none'
+                                outline: 'none',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                transition: 'all 0.2s'
                             }}
-                        />
+                        >
+                            <MapPin size={18} className={venue ? 'text-violet-400' : 'text-gray-400'} />
+                            <span style={{ flex: 1, textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {venue ? venue.name : location || '📍 Rechercher un lieu'}
+                            </span>
+                        </button>
                     </div>
 
                     {/* Catégorie */}
@@ -1371,6 +1423,18 @@ RÉPONDS UNIQUEMENT AVEC LES 3 PHRASES, SANS PRÉAMBULE NI EXPLICATION.`;
                     </button>
                 </form>
             </div>
+
+            {/* Venue Search Modal */}
+            <VenueSearchModal
+                isOpen={showVenueSearch}
+                onClose={() => setShowVenueSearch(false)}
+                onVenueSelect={(selectedVenue) => {
+                    setVenue(selectedVenue);
+                    setLocation(selectedVenue.name);
+                    setShowVenueSearch(false);
+                }}
+                initialValue={location}
+            />
         </div>
     );
 };

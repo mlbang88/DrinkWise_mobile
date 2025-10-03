@@ -118,7 +118,7 @@ const VenueSearchModal = ({ isOpen, onClose, onVenueSelect, initialValue = '' })
   const handleConfirm = () => {
     if (selectedVenue) {
       onVenueSelect(selectedVenue);
-      onClose();
+      // onClose est maintenant appelé dans onVenueSelect du parent
     }
   };
 
