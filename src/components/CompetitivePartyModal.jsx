@@ -11,7 +11,7 @@ import DrinkAnalyzer from './DrinkAnalyzer';
 import UserAvatar from './UserAvatar';
 import BattlePointsNotification from './BattlePointsNotification';
 import VenueSearchModal from './VenueSearchModal';
-import venueService from '../services/venueService';
+import { updateVenueControl } from '../services/venueService';
 
 const CompetitivePartyModal = ({ onClose, onPartySaved, draftData = null }) => {
     const { db, storage, user, appId, userProfile, setMessageBox, functions } = useContext(FirebaseContext);
@@ -461,7 +461,7 @@ const CompetitivePartyModal = ({ onClose, onPartySaved, draftData = null }) => {
             if (venue) {
                 try {
                     console.log('🗺️ Venue sélectionné:', venue);
-                    const territoryResult = await venueService.updateVenueControl(db, appId, {
+                    const territoryResult = await updateVenueControl(db, appId, {
                         venue,
                         userId: user.uid,
                         username: userProfile?.username || "Anonyme",

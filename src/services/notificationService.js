@@ -1,6 +1,8 @@
 // Mobile notifications service for DrinkWise
 import { httpsCallable } from 'firebase/functions';
 import { collection, onSnapshot, query, where, orderBy, limit, doc, updateDoc, getDocs } from 'firebase/firestore';
+import { PushNotifications } from '@capacitor/push-notifications';
+import { Capacitor } from '@capacitor/core';
 
 export class NotificationService {
     constructor() {
@@ -9,6 +11,8 @@ export class NotificationService {
         this.unsubscribe = null;
         this.isSupported = false;
         this.indexReady = false;
+        this.fcmToken = null;
+        this.isPushInitialized = false;
         this.init();
     }
 
@@ -274,6 +278,198 @@ export class NotificationService {
             detail: notification
         });
         window.dispatchEvent(event);
+    }
+
+    // ============================================
+    // PUSH NOTIFICATIONS (NATIVE MOBILE)
+    // ============================================
+
+    /**
+     * Initialise les notifications push natives (iOS/Android)
+     * @param {string} userId - ID de l'utilisateur
+     * @param {string} appId - ID de l'application
+     */
+    async initializePushNotifications(userId, appId) {
+        if (!Capacitor.isNativePlatform()) {
+            console.log('📱 Notifications push natives non disponibles (web)');
+            return;
+        }
+
+        if (this.isPushInitialized) {
+            console.log('⚠️ Push notifications déjà initialisées');
+            return;
+        }
+
+        try {
+            // Demander la permission
+            const permission = await PushNotifications.requestPermissions();
+            
+            if (permission.receive !== 'granted') {
+                console.warn('⚠️ Permission notifications push refusée');
+                return;
+            }
+
+            // Enregistrer pour les notifications
+            await PushNotifications.register();
+
+            // Écouter le token FCM
+            PushNotifications.addListener('registration', async (token) => {
+                console.log('✅ FCM Token reçu:', token.value);
+                this.fcmToken = token.value;
+                
+                // Sauvegarder le token en Firestore
+                await this.saveFCMToken(userId, appId, token.value);
+            });
+
+            // Écouter les erreurs d'enregistrement
+            PushNotifications.addListener('registrationError', (error) => {
+                console.error('❌ Erreur enregistrement push:', error);
+            });
+
+            // Écouter les notifications reçues (app ouverte)
+            PushNotifications.addListener('pushNotificationReceived', (notification) => {
+                console.log('📬 Push notification reçue (app ouverte):', notification);
+                this.handlePushNotificationReceived(notification);
+            });
+
+            // Écouter les actions sur les notifications (app fermée/background)
+            PushNotifications.addListener('pushNotificationActionPerformed', (notification) => {
+                console.log('👆 Action sur push notification:', notification);
+                this.handlePushNotificationAction(notification);
+            });
+
+            this.isPushInitialized = true;
+            console.log('✅ Push notifications initialisées');
+
+        } catch (error) {
+            console.error('❌ Erreur initialisation push notifications:', error);
+        }
+    }
+
+    /**
+     * Sauvegarde le token FCM dans Firestore
+     */
+    async saveFCMToken(userId, appId, token) {
+        try {
+            const { db } = await import('../firebase');
+            const { doc, updateDoc, serverTimestamp } = await import('firebase/firestore');
+            
+            const userRef = doc(db, `artifacts/${appId}/users`, userId);
+            await updateDoc(userRef, {
+                fcmToken: token,
+                fcmTokenUpdatedAt: serverTimestamp(),
+                pushNotificationsEnabled: true,
+                platform: Capacitor.getPlatform()
+            });
+            console.log('✅ Token FCM sauvegardé');
+        } catch (error) {
+            console.error('❌ Erreur sauvegarde FCM token:', error);
+        }
+    }
+
+    /**
+     * Gère une push notification reçue quand l'app est ouverte
+     */
+    handlePushNotificationReceived(notification) {
+        const { title, body, data } = notification;
+
+        // Créer une notification in-app personnalisée
+        this.createInAppNotification({
+            type: data?.type || 'general',
+            title,
+            message: body,
+            data,
+            timestamp: new Date()
+        });
+
+        // Optionnel : afficher une alerte
+        if (data?.urgent === 'true') {
+            if (window.confirm(`${title}\n\n${body}\n\nVoir maintenant ?`)) {
+                this.navigateFromPushNotification(data);
+            }
+        }
+    }
+
+    /**
+     * Gère un clic sur une push notification
+     */
+    handlePushNotificationAction(notification) {
+        const { data } = notification.notification;
+        this.navigateFromPushNotification(data);
+    }
+
+    /**
+     * Navigation basée sur les données de la push notification
+     */
+    navigateFromPushNotification(data) {
+        if (!data) return;
+
+        switch (data.type) {
+            case 'territory_lost':
+                window.location.href = '/#/map';
+                break;
+            
+            case 'rival_nearby':
+                window.location.href = `/#/map?venue=${data.venueId}`;
+                break;
+            
+            case 'achievement_unlocked':
+                window.location.href = '/#/profile';
+                break;
+            
+            case 'battle_started':
+                window.location.href = `/#/battle?id=${data.battleId}`;
+                break;
+            
+            case 'level_up':
+                window.location.href = '/#/profile?tab=stats';
+                break;
+            
+            case 'zone_controlled':
+                window.location.href = '/#/map?zone=' + data.zoneName;
+                break;
+            
+            default:
+                console.warn('⚠️ Type de push notification inconnu:', data.type);
+        }
+    }
+
+    /**
+     * Désactive les push notifications
+     */
+    async disablePushNotifications(userId, appId) {
+        try {
+            if (Capacitor.isNativePlatform()) {
+                await PushNotifications.removeAllListeners();
+            }
+
+            const { db } = await import('../firebase');
+            const { doc, updateDoc } = await import('firebase/firestore');
+            
+            const userRef = doc(db, `artifacts/${appId}/users`, userId);
+            await updateDoc(userRef, {
+                pushNotificationsEnabled: false
+            });
+
+            this.isPushInitialized = false;
+            console.log('✅ Push notifications désactivées');
+        } catch (error) {
+            console.error('❌ Erreur désactivation push:', error);
+        }
+    }
+
+    /**
+     * Obtient le token FCM actuel
+     */
+    getFCMToken() {
+        return this.fcmToken;
+    }
+
+    /**
+     * Vérifie si les push notifications sont supportées
+     */
+    isPushSupported() {
+        return Capacitor.isNativePlatform();
     }
 }
 

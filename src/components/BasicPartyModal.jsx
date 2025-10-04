@@ -9,7 +9,7 @@ import DrinkAnalyzer from './DrinkAnalyzer';
 import UserAvatar from './UserAvatar';
 import { logger } from '../utils/logger.js';
 import VenueSearchModal from './VenueSearchModal';
-import venueService from '../services/venueService';
+import { updateVenueControl } from '../services/venueService';
 
 const BasicPartyModal = ({ onClose, onPartySaved }) => {
     const { db, storage, user, appId, userProfile, setMessageBox, functions } = useContext(FirebaseContext);
@@ -367,7 +367,7 @@ RÉPONDS UNIQUEMENT AVEC LES 3 PHRASES, SANS PRÉAMBULE NI EXPLICATION.`;
             // Mettre à jour le contrôle territorial si un lieu est sélectionné
             if (venue) {
                 try {
-                    const territoryResult = await venueService.updateVenueControl(db, appId, {
+                    const territoryResult = await updateVenueControl(db, appId, {
                         venue,
                         userId: user.uid,
                         username: userProfile?.username || "Anonyme",

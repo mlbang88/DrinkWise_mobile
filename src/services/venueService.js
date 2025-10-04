@@ -49,11 +49,12 @@ const POINTS_CONFIG = {
 };
 
 // Configuration du contrôle de zones
-const ZONE_CONTROL_CONFIG = {
+export const ZONE_CONTROL_CONFIG = {
     STREET_CONTROL_THRESHOLD: 0.6,     // 60% des lieux d'une rue pour la contrôler
     DISTRICT_CONTROL_THRESHOLD: 15,    // 15 lieux dans un quartier pour le contrôler
     MIN_VENUES_FOR_STREET: 3,          // Minimum de lieux dans une rue pour comptabiliser
 };
+
 
 /**
  * Détermine le niveau de contrôle basé sur les points
@@ -362,34 +363,80 @@ export const getVenueLeaderboard = async (db, appId, placeId, limitCount = 10) =
                 limit(limitCount)
             );
         } else {
-            // Leaderboard global (tous les lieux)
+            // Leaderboard global (tous les lieux) - Récupérer TOUS les contrôles pour agréger par utilisateur
             controlsQuery = query(
                 collection(db, `artifacts/${appId}/venueControls`),
-                orderBy('totalPoints', 'desc'),
-                limit(limitCount)
+                orderBy('totalPoints', 'desc')
             );
         }
 
         const snapshot = await getDocs(controlsQuery);
         
-        const leaderboard = snapshot.docs.map((doc, index) => {
-            const data = doc.data();
-            return {
-                rank: index + 1,
-                userId: data.userId,
-                username: data.username,
-                totalPoints: data.totalPoints,
-                visitCount: data.visitCount,
-                level: getControlLevel(data.totalPoints),
-                lastVisit: data.lastVisit,
-                isCurrentController: index === 0,
-                placeId: data.placeId,
-                venueName: data.venueName
-            };
-        });
+        if (placeId) {
+            // Pour un lieu spécifique, retourner directement les données
+            const leaderboard = snapshot.docs.map((doc, index) => {
+                const data = doc.data();
+                return {
+                    rank: index + 1,
+                    userId: data.userId,
+                    username: data.username,
+                    totalPoints: data.totalPoints,
+                    visitCount: data.visitCount,
+                    level: getControlLevel(data.totalPoints),
+                    lastVisit: data.lastVisit,
+                    isCurrentController: index === 0,
+                    placeId: data.placeId,
+                    venueName: data.venueName,
+                    venuesCount: 1 // Pour un lieu spécifique, c'est toujours 1
+                };
+            });
+            return leaderboard;
+        } else {
+            // Pour le leaderboard global, agréger par utilisateur
+            const userMap = new Map();
+            
+            snapshot.docs.forEach(doc => {
+                const data = doc.data();
+                const userId = data.userId;
+                
+                if (userMap.has(userId)) {
+                    // Utilisateur déjà présent, ajouter les points et incrémenter le nombre de lieux
+                    const existing = userMap.get(userId);
+                    existing.totalPoints += data.totalPoints;
+                    existing.venuesCount += 1;
+                    existing.visitCount += data.visitCount || 0;
+                } else {
+                    // Nouvel utilisateur
+                    userMap.set(userId, {
+                        userId: data.userId,
+                        username: data.username,
+                        totalPoints: data.totalPoints,
+                        visitCount: data.visitCount || 0,
+                        venuesCount: 1,
+                        lastVisit: data.lastVisit
+                    });
+                }
+            });
 
-        logger.info('✅ Leaderboard chargé', { count: leaderboard.length });
-        return leaderboard;
+            // Convertir en tableau et trier par totalPoints
+            const leaderboard = Array.from(userMap.values())
+                .sort((a, b) => b.totalPoints - a.totalPoints)
+                .slice(0, limitCount)
+                .map((user, index) => ({
+                    rank: index + 1,
+                    userId: user.userId,
+                    username: user.username,
+                    totalPoints: user.totalPoints,
+                    visitCount: user.visitCount,
+                    venuesCount: user.venuesCount,
+                    level: getControlLevel(user.totalPoints),
+                    lastVisit: user.lastVisit,
+                    isCurrentController: index === 0
+                }));
+
+            logger.info('✅ Leaderboard global chargé', { count: leaderboard.length });
+            return leaderboard;
+        }
 
     } catch (error) {
         logger.error('❌ Erreur chargement leaderboard lieu', error);
@@ -449,6 +496,96 @@ export const getUserControlledVenues = async (db, appId, userId) => {
         logger.error('❌ Erreur chargement lieux utilisateur', error);
         return [];
     }
+};
+
+/**
+ * Récupère les lieux contrôlés par d'autres utilisateurs (rivaux)
+ * @param {Object} db - Instance Firestore
+ * @param {string} appId - ID de l'application
+ * @param {string} userId - ID de l'utilisateur actuel (à exclure)
+ * @param {Object} userLocation - Position de l'utilisateur {lat, lng}
+ * @param {number} maxDistance - Distance maximale en mètres (5000, 10000, 50000)
+ * @returns {Promise<Array>} Liste des lieux contrôlés par les rivaux
+ */
+export const getRivalControlledVenues = async (db, appId, userId, userLocation, maxDistance = 10000) => {
+    try {
+        logger.info('⚔️ Chargement lieux rivaux', { userId, maxDistance });
+
+        // Récupérer tous les contrôles sauf ceux de l'utilisateur actuel
+        const controlsQuery = query(
+            collection(db, `artifacts/${appId}/venueControls`),
+            orderBy('totalPoints', 'desc'),
+            limit(200) // Limite pour performance
+        );
+
+        const snapshot = await getDocs(controlsQuery);
+        
+        const rivalVenues = snapshot.docs
+            .map(doc => {
+                const data = doc.data();
+                return {
+                    placeId: data.placeId,
+                    userId: data.userId,
+                    username: data.username,
+                    name: data.venueName,
+                    address: data.venueAddress,
+                    coordinates: data.coordinates,
+                    totalPoints: data.totalPoints,
+                    visitCount: data.visitCount,
+                    visitStreak: data.visitStreak,
+                    level: getControlLevel(data.totalPoints),
+                    lastVisit: data.lastVisit,
+                    controlledSince: data.controlledSince
+                };
+            })
+            .filter(venue => {
+                // Exclure les venues de l'utilisateur actuel
+                if (venue.userId === userId) return false;
+                
+                // Filtrer par distance si une position utilisateur est fournie
+                if (userLocation && venue.coordinates) {
+                    const distance = calculateDistance(
+                        userLocation.lat,
+                        userLocation.lng,
+                        venue.coordinates.lat,
+                        venue.coordinates.lng
+                    );
+                    return distance <= maxDistance;
+                }
+                
+                return true;
+            });
+
+        logger.info('✅ Lieux rivaux chargés', { count: rivalVenues.length });
+        return rivalVenues;
+
+    } catch (error) {
+        logger.error('❌ Erreur chargement lieux rivaux', error);
+        return [];
+    }
+};
+
+/**
+ * Calcule la distance entre deux coordonnées (formule Haversine)
+ * @param {number} lat1 - Latitude point 1
+ * @param {number} lng1 - Longitude point 1
+ * @param {number} lat2 - Latitude point 2
+ * @param {number} lng2 - Longitude point 2
+ * @returns {number} Distance en mètres
+ */
+const calculateDistance = (lat1, lng1, lat2, lng2) => {
+    const R = 6371000; // Rayon de la Terre en mètres
+    const φ1 = (lat1 * Math.PI) / 180;
+    const φ2 = (lat2 * Math.PI) / 180;
+    const Δφ = ((lat2 - lat1) * Math.PI) / 180;
+    const Δλ = ((lng2 - lng1) * Math.PI) / 180;
+
+    const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+              Math.cos(φ1) * Math.cos(φ2) *
+              Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    return R * c; // Distance en mètres
 };
 
 /**
@@ -692,11 +829,13 @@ export const getUserControlledZones = async (db, appId, userId) => {
     }
 };
 
+// Export default pour compatibilité (mais utiliser les exports nommés est préférable)
 export default {
     calculateVenueControlPoints,
     updateVenueControl,
     getVenueLeaderboard,
     getUserControlledVenues,
+    getRivalControlledVenues,
     getUserTerritoryStats,
     getUserControlledZones,
     checkStreetControl,

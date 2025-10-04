@@ -1,11 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, MapPin, Users, Trophy, Filter, Target, Navigation2 } from 'lucide-react';
-import { auth, appId } from '../firebase';
+import { ArrowLeft, MapPin, Users, Trophy, Filter, Target, Navigation2, History } from 'lucide-react';
+import { MarkerClusterer, GridAlgorithm } from '@googlemaps/markerclusterer';
+import { auth, appId, db } from '../firebase';
 import googleMapsService from '../services/googleMapsService';
-import { getUserControlledVenues, getVenueLeaderboard, getUserControlledZones } from '../services/venueService';
+import { getUserControlledVenues, getRivalControlledVenues, getVenueLeaderboard, getUserControlledZones } from '../services/venueService';
 import { logger } from '../utils/logger';
 import TerritoryLeaderboard from '../components/TerritoryLeaderboard';
 import VenueInfoWindow from '../components/VenueInfoWindow';
+import MapFilters from '../components/MapFilters';
+import ZoneOverlay from '../components/ZoneOverlay';
+import TerritoryHistory from '../components/TerritoryHistory';
 
 /**
  * MapPage - Carte interactive des territoires conquis
@@ -15,6 +19,7 @@ const MapPage = ({ setCurrentPage }) => {
     const mapRef = useRef(null);
     const mapInstanceRef = useRef(null);
     const markersRef = useRef([]);
+    const markerClustererRef = useRef(null);
     
     const [isLoading, setIsLoading] = useState(true);
     const [mapReady, setMapReady] = useState(false);
@@ -22,13 +27,19 @@ const MapPage = ({ setCurrentPage }) => {
     const [userLocation, setUserLocation] = useState(null);
     const [venues, setVenues] = useState([]);
     const [userVenues, setUserVenues] = useState([]);
+    const [rivalVenues, setRivalVenues] = useState([]);
     const [leaderboard, setLeaderboard] = useState([]);
     const [controlledZones, setControlledZones] = useState({ streets: [], districts: [], totalZones: 0 });
     const [selectedVenue, setSelectedVenue] = useState(null);
     const [venueLeaderboard, setVenueLeaderboard] = useState([]);
     const [showLeaderboard, setShowLeaderboard] = useState(false);
-    const [filter, setFilter] = useState('all'); // 'all', 'mine', 'rivals'
-    const [radius, setRadius] = useState(5000); // 5km par défaut
+    const [showHistory, setShowHistory] = useState(false);
+    const [mapFilter, setMapFilter] = useState({
+        distance: 10000,
+        showUserVenues: true,
+        showRivalVenues: true
+    });
+    const [showZones, setShowZones] = useState(true); // Afficher les zones par défaut
 
     // Écouter les changements d'authentification
     useEffect(() => {
@@ -183,7 +194,7 @@ const MapPage = ({ setCurrentPage }) => {
         console.log(`✅ ${markersRef.current.length} markers affichés`);
         logger.info(`📍 ${markersRef.current.length} markers affichés`);
 
-    }, [userVenues, filter, mapReady]);
+    }, [userVenues, mapFilter, mapReady]);
 
     // Créer un marker pour un lieu
     const createVenueMarker = (venue) => {
@@ -330,12 +341,22 @@ const MapPage = ({ setCurrentPage }) => {
                         </p>
                     </div>
 
-                    <button
-                        onClick={() => setShowLeaderboard(!showLeaderboard)}
-                        className="p-2 hover:bg-gray-700/50 rounded-lg transition-colors"
-                    >
-                        <Trophy size={24} style={{ color: '#8b5cf6' }} />
-                    </button>
+                    <div className="flex gap-2">
+                        <button
+                            onClick={() => setShowHistory(true)}
+                            className="p-2 hover:bg-gray-700/50 rounded-lg transition-colors"
+                            title="Timeline des conquêtes"
+                        >
+                            <History size={24} style={{ color: '#22c55e' }} />
+                        </button>
+
+                        <button
+                            onClick={() => setShowLeaderboard(!showLeaderboard)}
+                            className="p-2 hover:bg-gray-700/50 rounded-lg transition-colors"
+                        >
+                            <Trophy size={24} style={{ color: '#8b5cf6' }} />
+                        </button>
+                    </div>
                 </div>
 
                 {/* Quick Stats */}
@@ -395,6 +416,16 @@ const MapPage = ({ setCurrentPage }) => {
                     controlledZones={controlledZones}
                     currentUserId={currentUser?.uid}
                     onClose={() => setShowLeaderboard(false)}
+                />
+            )}
+
+            {/* Territory History Modal */}
+            {showHistory && currentUser && (
+                <TerritoryHistory
+                    db={db}
+                    appId={appId}
+                    userId={currentUser.uid}
+                    onClose={() => setShowHistory(false)}
                 />
             )}
 

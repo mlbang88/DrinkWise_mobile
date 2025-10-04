@@ -1232,6 +1232,257 @@ exports.helloWorld = onRequest((request, response) => {
     response.send("Hello from Firebase!");
   });
 });
+
+// ============================================
+// NOTIFICATIONS PUSH
+// ============================================
+
+/**
+ * Envoie une notification push à un utilisateur
+ */
+exports.sendPushNotification = onCall(async (request) => {
+  try {
+    const { userId, appId, title, body, data } = request.data;
+
+    if (!userId || !appId || !title || !body) {
+      throw new Error('Paramètres manquants');
+    }
+
+    // Récupérer le token FCM de l'utilisateur
+    const userDoc = await db.collection(`artifacts/${appId}/users`).doc(userId).get();
+    
+    if (!userDoc.exists) {
+      throw new Error('Utilisateur non trouvé');
+    }
+
+    const userData = userDoc.data();
+    const fcmToken = userData.fcmToken;
+
+    if (!fcmToken) {
+      logger.warn(`⚠️ Pas de FCM token pour ${userId}`);
+      return { success: false, error: 'No FCM token' };
+    }
+
+    if (!userData.pushNotificationsEnabled) {
+      logger.warn(`⚠️ Notifications désactivées pour ${userId}`);
+      return { success: false, error: 'Notifications disabled' };
+    }
+
+    // Construire le message
+    const message = {
+      notification: {
+        title,
+        body
+      },
+      data: data || {},
+      token: fcmToken,
+      android: {
+        priority: 'high',
+        notification: {
+          sound: 'default',
+          color: '#8b5cf6',
+          icon: 'notification_icon'
+        }
+      },
+      apns: {
+        payload: {
+          aps: {
+            sound: 'default',
+            badge: 1
+          }
+        }
+      }
+    };
+
+    // Envoyer la notification
+    const response = await admin.messaging().send(message);
+    logger.info(`✅ Notification envoyée à ${userId}:`, response);
+
+    return { success: true, messageId: response };
+
+  } catch (error) {
+    logger.error('❌ Erreur envoi notification push:', error);
+    throw new Error(`Erreur envoi notification: ${error.message}`);
+  }
+});
+
+/**
+ * Notification automatique : Territoire perdu
+ * Déclenché quand un venueControl change de propriétaire
+ */
+exports.onTerritoryLost = onDocumentUpdated('artifacts/{appId}/venueControls/{venueId}', async (event) => {
+  try {
+    const before = event.data.before.data();
+    const after = event.data.after.data();
+
+    // Vérifier si le contrôleur a changé
+    if (before.userId !== after.userId) {
+      const previousOwnerId = before.userId;
+      const newOwnerId = after.userId;
+      const venueName = after.venueName;
+      const appId = event.params.appId;
+
+      logger.info(`🏴 Territoire perdu: ${venueName} (${previousOwnerId} → ${newOwnerId})`);
+
+      // Envoyer notification au propriétaire précédent
+      await admin.messaging().sendToCondition(
+        `userId == '${previousOwnerId}'`,
+        {
+          notification: {
+            title: '🏴 Territoire perdu !',
+            body: `${venueName} a été conquis par ${after.username || 'un rival'}`
+          },
+          data: {
+            type: 'territory_lost',
+            venueId: event.params.venueId,
+            venueName: venueName,
+            newOwnerId: newOwnerId
+          }
+        }
+      );
+
+      logger.info(`✅ Notification territoire perdu envoyée à ${previousOwnerId}`);
+    }
+
+  } catch (error) {
+    logger.error('❌ Erreur notification territoire perdu:', error);
+  }
+});
+
+/**
+ * Notification : Achievement débloqué
+ */
+exports.sendAchievementNotification = onCall(async (request) => {
+  try {
+    const { userId, appId, achievementName, achievementDescription, achievementIcon } = request.data;
+
+    await admin.messaging().sendToCondition(
+      `userId == '${userId}'`,
+      {
+        notification: {
+          title: `${achievementIcon} Achievement débloqué !`,
+          body: `${achievementName}: ${achievementDescription}`
+        },
+        data: {
+          type: 'achievement_unlocked',
+          achievementName
+        }
+      }
+    );
+
+    logger.info(`✅ Notification achievement envoyée à ${userId}: ${achievementName}`);
+
+    return { success: true };
+
+  } catch (error) {
+    logger.error('❌ Erreur notification achievement:', error);
+    throw new Error(`Erreur: ${error.message}`);
+  }
+});
+
+/**
+ * Notification : Rival à proximité
+ */
+exports.sendRivalNearbyNotification = onCall(async (request) => {
+  try {
+    const { userId, appId, rivalName, venueName, distance } = request.data;
+
+    await admin.messaging().sendToCondition(
+      `userId == '${userId}'`,
+      {
+        notification: {
+          title: '⚔️ Rival à proximité !',
+          body: `${rivalName} est à ${distance}m de ${venueName}`
+        },
+        data: {
+          type: 'rival_nearby',
+          rivalName,
+          venueName,
+          distance: String(distance)
+        }
+      }
+    );
+
+    logger.info(`✅ Notification rival proche envoyée à ${userId}`);
+
+    return { success: true };
+
+  } catch (error) {
+    logger.error('❌ Erreur notification rival:', error);
+    throw new Error(`Erreur: ${error.message}`);
+  }
+});
+
+/**
+ * Notification : Battle démarrée
+ */
+exports.sendBattleStartedNotification = onCall(async (request) => {
+  try {
+    const { userIds, battleId, venueName } = request.data;
+
+    for (const userId of userIds) {
+      await admin.messaging().sendToCondition(
+        `userId == '${userId}'`,
+        {
+          notification: {
+            title: '⚔️ Bataille démarrée !',
+            body: `Une bataille a commencé à ${venueName}`
+          },
+          data: {
+            type: 'battle_started',
+            battleId,
+            venueName,
+            urgent: 'true'
+          }
+        }
+      );
+    }
+
+    logger.info(`✅ Notifications bataille envoyées à ${userIds.length} utilisateurs`);
+
+    return { success: true };
+
+  } catch (error) {
+    logger.error('❌ Erreur notification bataille:', error);
+    throw new Error(`Erreur: ${error.message}`);
+  }
+});
+
+/**
+ * Notification : Zone contrôlée
+ */
+exports.sendZoneControlledNotification = onCall(async (request) => {
+  try {
+    const { userId, zoneName, zoneType } = request.data;
+
+    const zoneIcon = zoneType === 'street' ? '🏙️' : '🗺️';
+    const zoneLabel = zoneType === 'street' ? 'rue' : 'quartier';
+
+    await admin.messaging().sendToCondition(
+      `userId == '${userId}'`,
+      {
+        notification: {
+          title: `${zoneIcon} Roi de ${zoneName} !`,
+          body: `Vous contrôlez maintenant cette ${zoneLabel}`
+        },
+        data: {
+          type: 'zone_controlled',
+          zoneName,
+          zoneType
+        }
+      }
+    );
+
+    logger.info(`✅ Notification zone contrôlée envoyée à ${userId}: ${zoneName}`);
+
+    return { success: true };
+
+  } catch (error) {
+    logger.error('❌ Erreur notification zone:', error);
+    throw new Error(`Erreur: ${error.message}`);
+  }
+});
+
 // functions should each use functions.runWith({ maxInstances: 10 }) instead.
 // In the v1 API, each function can only serve one request per container, so
 // this will be the maximum concurrent request count.
