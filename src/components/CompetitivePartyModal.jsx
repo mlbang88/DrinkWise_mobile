@@ -1331,6 +1331,7 @@ const CompetitivePartyModal = ({ onClose, onPartySaved, draftData = null }) => {
                     }}>
                         <div>
                             <button
+                                type="button"
                                 onClick={() => setShowVenueSearch(true)}
                                 style={{
                                     width: '100%',
