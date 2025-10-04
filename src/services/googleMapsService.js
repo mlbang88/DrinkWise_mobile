@@ -1,21 +1,82 @@
 /**
- * Google Maps Service
- * Wrapper pour l'API Google Maps (Places, Geocoding, Maps JavaScript)
- * Gère la recherche de lieux, géocodage et détails de lieux
+ * Google Maps Service v2
+ * Utilise la bibliothèque JavaScript Google Maps (pas d'appel REST direct)
+ * Résout les problèmes CORS en utilisant les services côté client
  */
 
 import { logger } from '../utils/logger';
 
 const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
 
-// Configuration des endpoints
-const PLACES_API_BASE = 'https://maps.googleapis.com/maps/api/place';
-const GEOCODING_API_BASE = 'https://maps.googleapis.com/maps/api/geocode';
+// État de chargement de l'API
+let googleMapsLoaded = false;
+let googleMapsLoadPromise = null;
+let autocompleteService = null;
+let placesService = null;
+let geocoder = null;
 
-// Cache pour réduire les appels API
-const searchCache = new Map();
-const detailsCache = new Map();
-const CACHE_DURATION = 1000 * 60 * 30; // 30 minutes
+/**
+ * Charge l'API Google Maps JavaScript
+ */
+const loadGoogleMapsAPI = () => {
+  if (googleMapsLoaded && window.google?.maps) {
+    return Promise.resolve();
+  }
+
+  if (googleMapsLoadPromise) {
+    return googleMapsLoadPromise;
+  }
+
+  googleMapsLoadPromise = new Promise((resolve, reject) => {
+    if (window.google?.maps) {
+      googleMapsLoaded = true;
+      initializeServices();
+      resolve();
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places&language=fr`;
+    script.async = true;
+    script.defer = true;
+
+    script.onload = () => {
+      googleMapsLoaded = true;
+      initializeServices();
+      logger.info('✅ Google Maps API chargée');
+      resolve();
+    };
+
+    script.onerror = () => {
+      googleMapsLoadPromise = null;
+      logger.error('❌ Erreur chargement Google Maps API');
+      reject(new Error('Échec chargement Google Maps API'));
+    };
+
+    document.head.appendChild(script);
+  });
+
+  return googleMapsLoadPromise;
+};
+
+/**
+ * Initialise les services Google Maps
+ */
+const initializeServices = () => {
+  if (!window.google?.maps) return;
+
+  // AutocompleteService pour la recherche
+  autocompleteService = new window.google.maps.places.AutocompleteService();
+  
+  // PlacesService pour les détails (nécessite un div container)
+  const container = document.createElement('div');
+  placesService = new window.google.maps.places.PlacesService(container);
+  
+  // Geocoder pour le géocodage
+  geocoder = new window.google.maps.Geocoder();
+  
+  logger.info('✅ Services Google Maps initialisés');
+};
 
 /**
  * Recherche de lieux avec autocomplete
@@ -25,71 +86,61 @@ const CACHE_DURATION = 1000 * 60 * 30; // 30 minutes
  */
 export const searchPlaces = async (query, options = {}) => {
   try {
-    if (!query || query.length < 3) {
+    if (!query || query.length < 2) {
       return [];
     }
 
-    // Vérifier le cache
-    const cacheKey = `${query}_${JSON.stringify(options)}`;
-    const cached = searchCache.get(cacheKey);
-    if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
-      logger.info('📦 Résultats depuis le cache', { query });
-      return cached.data;
+    // Charger l'API si nécessaire
+    await loadGoogleMapsAPI();
+
+    if (!autocompleteService) {
+      throw new Error('AutocompleteService non initialisé');
     }
 
     const {
       location = null, // { lat, lng }
-      radius = 5000, // 5km par défaut
-      type = 'bar|restaurant|night_club|cafe',
-      language = 'fr',
+      radius = 5000,
+      types = ['establishment']
     } = options;
 
-    // Construction de l'URL
-    const params = new URLSearchParams({
+    // Construire les options de recherche
+    const request = {
       input: query,
-      key: GOOGLE_MAPS_API_KEY,
-      language,
-      types: 'establishment',
-    });
+      types,
+      componentRestrictions: { country: 'fr' }, // Limiter à la France
+    };
 
     // Ajouter location bias si disponible
     if (location) {
-      params.append('location', `${location.lat},${location.lng}`);
-      params.append('radius', radius);
+      request.location = new window.google.maps.LatLng(location.lat, location.lng);
+      request.radius = radius;
     }
 
-    const url = `${PLACES_API_BASE}/autocomplete/json?${params}`;
-    
     logger.info('🔍 Recherche Google Places', { query, location });
-    
-    const response = await fetch(url);
-    const data = await response.json();
 
-    if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
-      throw new Error(`Google Places API error: ${data.status}`);
-    }
+    // Appel à l'AutocompleteService
+    return new Promise((resolve, reject) => {
+      autocompleteService.getPlacePredictions(request, (predictions, status) => {
+        if (status === window.google.maps.places.PlacesServiceStatus.OK && predictions) {
+          const results = predictions.map(prediction => ({
+            placeId: prediction.place_id,
+            description: prediction.description,
+            mainText: prediction.structured_formatting?.main_text || prediction.description,
+            secondaryText: prediction.structured_formatting?.secondary_text || '',
+            types: prediction.types || [],
+          }));
 
-    const results = data.predictions || [];
-
-    // Filtrer par type si nécessaire
-    const filteredResults = results.map(prediction => ({
-      placeId: prediction.place_id,
-      description: prediction.description,
-      mainText: prediction.structured_formatting?.main_text || prediction.description,
-      secondaryText: prediction.structured_formatting?.secondary_text || '',
-      types: prediction.types || [],
-    }));
-
-    // Mettre en cache
-    searchCache.set(cacheKey, {
-      data: filteredResults,
-      timestamp: Date.now(),
+          logger.info(`✅ ${results.length} résultats trouvés`);
+          resolve(results);
+        } else if (status === window.google.maps.places.PlacesServiceStatus.ZERO_RESULTS) {
+          logger.info('ℹ️ Aucun résultat trouvé');
+          resolve([]);
+        } else {
+          logger.error('❌ Erreur searchPlaces', status);
+          reject(new Error(`Erreur Places API: ${status}`));
+        }
+      });
     });
-
-    logger.info('Google Maps', `✅ Résultats trouvés: ${filteredResults.length}`);
-    
-    return filteredResults;
-
   } catch (error) {
     logger.error('❌ Erreur searchPlaces', error);
     throw error;
@@ -97,72 +148,68 @@ export const searchPlaces = async (query, options = {}) => {
 };
 
 /**
- * Récupère les détails complets d'un lieu
- * @param {string} placeId - ID du lieu Google
+ * Récupère les détails d'un lieu
+ * @param {string} placeId - ID du lieu
  * @returns {Promise<Object>} Détails du lieu
  */
 export const getPlaceDetails = async (placeId) => {
   try {
-    // Vérifier le cache
-    const cached = detailsCache.get(placeId);
-    if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
-      logger.info('📦 Détails depuis le cache', { placeId });
-      return cached.data;
+    await loadGoogleMapsAPI();
+
+    if (!placesService) {
+      throw new Error('PlacesService non initialisé');
     }
 
-    const params = new URLSearchParams({
-      place_id: placeId,
-      key: GOOGLE_MAPS_API_KEY,
-      fields: 'place_id,name,formatted_address,geometry,types,rating,user_ratings_total,price_level,opening_hours,formatted_phone_number,website,photos',
-      language: 'fr',
+    logger.info('📍 Récupération détails lieu', { placeId });
+
+    return new Promise((resolve, reject) => {
+      placesService.getDetails(
+        {
+          placeId,
+          fields: [
+            'name',
+            'formatted_address',
+            'geometry',
+            'types',
+            'place_id',
+            'rating',
+            'user_ratings_total',
+            'photos',
+            'opening_hours',
+            'formatted_phone_number',
+            'website'
+          ]
+        },
+        (place, status) => {
+          if (status === window.google.maps.places.PlacesServiceStatus.OK && place) {
+            const details = {
+              placeId: place.place_id,
+              name: place.name,
+              address: place.formatted_address,
+              coordinates: {
+                lat: place.geometry.location.lat(),
+                lng: place.geometry.location.lng()
+              },
+              types: place.types || [],
+              rating: place.rating || null,
+              totalRatings: place.user_ratings_total || 0,
+              phoneNumber: place.formatted_phone_number || null,
+              website: place.website || null,
+              openingHours: place.opening_hours?.weekday_text || null,
+              photos: place.photos?.map(photo => ({
+                url: photo.getUrl({ maxWidth: 400 })
+              })) || []
+            };
+
+            logger.info('✅ Détails lieu obtenus', { name: details.name });
+            resolve(details);
+          } else {
+            logger.error('❌ Erreur getPlaceDetails', status);
+            reject(new Error(`Erreur Places API: ${status}`));
+          }
+        }
+      );
     });
-
-    const url = `${PLACES_API_BASE}/details/json?${params}`;
-    
-    logger.info('🏢 Récupération détails lieu', { placeId });
-    
-    const response = await fetch(url);
-    const data = await response.json();
-
-    if (data.status !== 'OK') {
-      throw new Error(`Google Place Details error: ${data.status}`);
-    }
-
-    const result = data.result;
-    
-    const venueDetails = {
-      placeId: result.place_id,
-      name: result.name,
-      address: result.formatted_address,
-      coordinates: {
-        lat: result.geometry?.location?.lat || 0,
-        lng: result.geometry?.location?.lng || 0,
-      },
-      types: result.types || [],
-      rating: result.rating || 0,
-      totalRatings: result.user_ratings_total || 0,
-      priceLevel: result.price_level || 0,
-      phoneNumber: result.formatted_phone_number || '',
-      website: result.website || '',
-      openingHours: result.opening_hours?.weekday_text || [],
-      isOpen: result.opening_hours?.open_now || false,
-      photos: result.photos?.slice(0, 5).map(photo => ({
-        reference: photo.photo_reference,
-        width: photo.width,
-        height: photo.height,
-      })) || [],
-    };
-
-    // Mettre en cache
-    detailsCache.set(placeId, {
-      data: venueDetails,
-      timestamp: Date.now(),
-    });
-
-    logger.info('Google Maps', `✅ Détails récupérés: ${venueDetails.name}`);
-    
-    return venueDetails;
-
   } catch (error) {
     logger.error('❌ Erreur getPlaceDetails', error);
     throw error;
@@ -176,38 +223,31 @@ export const getPlaceDetails = async (placeId) => {
  */
 export const geocodeAddress = async (address) => {
   try {
-    const params = new URLSearchParams({
-      address,
-      key: GOOGLE_MAPS_API_KEY,
-      language: 'fr',
+    await loadGoogleMapsAPI();
+
+    if (!geocoder) {
+      throw new Error('Geocoder non initialisé');
+    }
+
+    logger.info('🗺️ Géocodage adresse', { address });
+
+    return new Promise((resolve, reject) => {
+      geocoder.geocode({ address }, (results, status) => {
+        if (status === window.google.maps.GeocoderStatus.OK && results[0]) {
+          const location = results[0].geometry.location;
+          const coords = {
+            lat: location.lat(),
+            lng: location.lng()
+          };
+
+          logger.info('✅ Géocodage réussi', coords);
+          resolve(coords);
+        } else {
+          logger.error('❌ Erreur géocodage', status);
+          reject(new Error(`Erreur géocodage: ${status}`));
+        }
+      });
     });
-
-    const url = `${GEOCODING_API_BASE}/json?${params}`;
-    
-    logger.info('📍 Géocodage adresse', { address });
-    
-    const response = await fetch(url);
-    const data = await response.json();
-
-    if (data.status !== 'OK') {
-      throw new Error(`Geocoding API error: ${data.status}`);
-    }
-
-    const location = data.results[0]?.geometry?.location;
-    
-    if (!location) {
-      throw new Error('Aucune coordonnée trouvée');
-    }
-
-    const coordinates = {
-      lat: location.lat,
-      lng: location.lng,
-    };
-
-    logger.info('Google Maps', `✅ Adresse géocodée: ${coordinates.lat}, ${coordinates.lng}`);
-    
-    return coordinates;
-
   } catch (error) {
     logger.error('❌ Erreur geocodeAddress', error);
     throw error;
@@ -215,36 +255,34 @@ export const geocodeAddress = async (address) => {
 };
 
 /**
- * Géocode inverse : coordonnées vers adresse
- * @param {number} lat - Latitude
- * @param {number} lng - Longitude
+ * Géocode inverse (coordonnées -> adresse)
+ * @param {Object} coordinates - { lat, lng }
  * @returns {Promise<string>} Adresse formatée
  */
-export const reverseGeocode = async (lat, lng) => {
+export const reverseGeocode = async (coordinates) => {
   try {
-    const params = new URLSearchParams({
-      latlng: `${lat},${lng}`,
-      key: GOOGLE_MAPS_API_KEY,
-      language: 'fr',
-    });
+    await loadGoogleMapsAPI();
 
-    const url = `${GEOCODING_API_BASE}/json?${params}`;
-    
-    logger.info('📍 Géocodage inverse', { lat, lng });
-    
-    const response = await fetch(url);
-    const data = await response.json();
-
-    if (data.status !== 'OK') {
-      throw new Error(`Reverse Geocoding error: ${data.status}`);
+    if (!geocoder) {
+      throw new Error('Geocoder non initialisé');
     }
 
-    const address = data.results[0]?.formatted_address || 'Adresse inconnue';
+    logger.info('🗺️ Géocodage inverse', coordinates);
 
-    logger.info('Google Maps', `✅ Adresse trouvée: ${address}`);
-    
-    return address;
+    const latLng = new window.google.maps.LatLng(coordinates.lat, coordinates.lng);
 
+    return new Promise((resolve, reject) => {
+      geocoder.geocode({ location: latLng }, (results, status) => {
+        if (status === window.google.maps.GeocoderStatus.OK && results[0]) {
+          const address = results[0].formatted_address;
+          logger.info('✅ Géocodage inverse réussi', { address });
+          resolve(address);
+        } else {
+          logger.error('❌ Erreur géocodage inverse', status);
+          reject(new Error(`Erreur géocodage inverse: ${status}`));
+        }
+      });
+    });
   } catch (error) {
     logger.error('❌ Erreur reverseGeocode', error);
     throw error;
@@ -252,31 +290,15 @@ export const reverseGeocode = async (lat, lng) => {
 };
 
 /**
- * Récupère l'URL d'une photo de lieu
- * @param {string} photoReference - Référence de la photo
- * @param {number} maxWidth - Largeur maximale (défaut: 400)
- * @returns {string} URL de la photo
- */
-export const getPhotoUrl = (photoReference, maxWidth = 400) => {
-  if (!photoReference) return '';
-  
-  const params = new URLSearchParams({
-    photo_reference: photoReference,
-    maxwidth: maxWidth,
-    key: GOOGLE_MAPS_API_KEY,
-  });
-
-  return `${PLACES_API_BASE}/photo?${params}`;
-};
-
-/**
  * Récupère la position actuelle de l'utilisateur
- * @returns {Promise<Object>} Position { lat, lng }
+ * @returns {Promise<Object>} Position { lat, lng, accuracy }
  */
 export const getCurrentPosition = () => {
   return new Promise((resolve, reject) => {
     if (!navigator.geolocation) {
-      reject(new Error('Géolocalisation non supportée'));
+      const error = new Error('Géolocalisation non supportée');
+      logger.error('❌ Géolocalisation non disponible');
+      reject(error);
       return;
     }
 
@@ -284,91 +306,32 @@ export const getCurrentPosition = () => {
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        const coords = {
+        const result = {
           lat: position.coords.latitude,
           lng: position.coords.longitude,
-          accuracy: position.coords.accuracy,
+          accuracy: position.coords.accuracy
         };
-        logger.info('Google Maps', `✅ Position obtenue: ${coords.lat}, ${coords.lng}`);
-        resolve(coords);
+        logger.info('✅ Position obtenue', result);
+        resolve(result);
       },
       (error) => {
-        logger.error('❌ Erreur géolocalisation', error);
+        logger.error('❌ Erreur géolocalisation', error.message);
         reject(error);
       },
       {
         enableHighAccuracy: true,
         timeout: 10000,
-        maximumAge: 30000,
+        maximumAge: 300000 // 5 minutes
       }
     );
   });
 };
 
-/**
- * Calcule la distance entre deux points (en mètres)
- * Utilise la formule de Haversine
- * @param {Object} point1 - { lat, lng }
- * @param {Object} point2 - { lat, lng }
- * @returns {number} Distance en mètres
- */
-export const calculateDistance = (point1, point2) => {
-  const R = 6371e3; // Rayon de la Terre en mètres
-  const φ1 = (point1.lat * Math.PI) / 180;
-  const φ2 = (point2.lat * Math.PI) / 180;
-  const Δφ = ((point2.lat - point1.lat) * Math.PI) / 180;
-  const Δλ = ((point2.lng - point1.lng) * Math.PI) / 180;
-
-  const a =
-    Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-    Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-  return R * c; // Distance en mètres
-};
-
-/**
- * Formate une distance en texte lisible
- * @param {number} meters - Distance en mètres
- * @returns {string} Distance formatée
- */
-export const formatDistance = (meters) => {
-  if (meters < 1000) {
-    return `${Math.round(meters)} m`;
-  }
-  return `${(meters / 1000).toFixed(1)} km`;
-};
-
-/**
- * Nettoie le cache
- */
-export const clearCache = () => {
-  searchCache.clear();
-  detailsCache.clear();
-  logger.info('🗑️ Cache Google Maps nettoyé');
-};
-
-/**
- * Vérifie si l'API key est configurée
- * @returns {boolean}
- */
-export const isConfigured = () => {
-  const configured = !!GOOGLE_MAPS_API_KEY && GOOGLE_MAPS_API_KEY !== '';
-  if (!configured) {
-    logger.warn('⚠️ VITE_GOOGLE_MAPS_API_KEY non configurée');
-  }
-  return configured;
-};
-
+// Export par défaut
 export default {
   searchPlaces,
   getPlaceDetails,
   geocodeAddress,
   reverseGeocode,
-  getPhotoUrl,
-  getCurrentPosition,
-  calculateDistance,
-  formatDistance,
-  clearCache,
-  isConfigured,
+  getCurrentPosition
 };
