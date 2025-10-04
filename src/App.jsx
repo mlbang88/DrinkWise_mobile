@@ -18,6 +18,7 @@ import FriendsPage from './pages/FriendsPage';
 import ProfilePage from './pages/ProfilePage';
 import FriendStatsPage from './pages/FriendStatsPage';
 import FeedPage from './pages/FeedPage';
+import MapPage from './pages/MapPage';
 import Phase2CDemo from './components/Phase2CDemo';
 import BattleRoyale from './components/BattleRoyale';
 
@@ -91,7 +92,8 @@ const AppContent = () => {
             switch (currentPage) {
                 case 'home': return <HomePage />;
                 case 'feed': return <FeedPage />;
-                case 'battle': return <BattleRoyale />;
+                case 'battle': return <BattleRoyale setCurrentPage={setCurrentPage} />;
+                case 'map': return <MapPage setCurrentPage={setCurrentPage} />;
                 case 'stats': return <StatsPage />;
                 case 'badges': return <BadgesPage />;
                 case 'challenges': return <ChallengesPage />;

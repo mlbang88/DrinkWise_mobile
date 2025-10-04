@@ -55,7 +55,6 @@ const CompetitivePartyModal = ({ onClose, onPartySaved, draftData = null }) => {
     const [stats, setStats] = useState(initialData.stats);
     const [location, setLocation] = useState(initialData.location);
     const [venue, setVenue] = useState(draftData?.venue || null);
-    const [showVenueSearch, setShowVenueSearch] = useState(false);
     const [category] = useState(initialData.category);
     const [companions, setCompanions] = useState(initialData.companions);
     const [lastPartyData, setLastPartyData] = useState(null);
@@ -148,11 +147,12 @@ const CompetitivePartyModal = ({ onClose, onPartySaved, draftData = null }) => {
 
             console.log("🤖 Génération du résumé de soirée...", { docId });
             const result = await callGeminiAPI({ prompt, partyId: docId });
-
+            
+            console.log("📦 Résultat Cloud Function:", JSON.stringify(result, null, 2));
             const aiSummary = (result?.data?.text || result?.data?.summary || '').trim();
             const partyRef = doc(db, `artifacts/${appId}/users/${user.uid}/parties`, docId);
 
-            if (aiSummary) {
+            if (aiSummary && aiSummary.length > 0) {
                 await updateDoc(partyRef, {
                     summary: aiSummary,
                     summarySource: 'gemini',
@@ -460,6 +460,7 @@ const CompetitivePartyModal = ({ onClose, onPartySaved, draftData = null }) => {
             // Mettre à jour le contrôle territorial si un lieu est sélectionné
             if (venue) {
                 try {
+                    console.log('🗺️ Venue sélectionné:', venue);
                     const territoryResult = await venueService.updateVenueControl(db, appId, {
                         venue,
                         userId: user.uid,
@@ -487,6 +488,8 @@ const CompetitivePartyModal = ({ onClose, onPartySaved, draftData = null }) => {
                 } catch (territoryError) {
                     console.error("Erreur mise à jour contrôle territorial:", territoryError);
                 }
+            } else {
+                console.warn('⚠️ Aucun lieu sélectionné, contrôle territorial ignoré');
             }
             
             // Préparer et lancer le quiz
@@ -1229,6 +1232,111 @@ const CompetitivePartyModal = ({ onClose, onPartySaved, draftData = null }) => {
                         )}
                     </div>
 
+                    {/* Recherche de lieu avec Google Maps */}
+                    <div>
+                        <label style={{
+                            display: 'block',
+                            marginBottom: '8px',
+                            color: 'white',
+                            fontSize: '14px',
+                            fontWeight: 'bold'
+                        }}>
+                            📍 Rechercher un lieu
+                        </label>
+                        <VenueSearchModal
+                            isOpen={true}
+                            onClose={() => {}}
+                            onVenueSelect={(selectedVenue) => {
+                                setVenue(selectedVenue);
+                                setLocation(selectedVenue.name);
+                            }}
+                            initialValue={location}
+                        />
+                    </div>
+
+                    {/* Photos rapides */}
+                    {photoFiles.length > 0 && (
+                        <div
+                            style={{
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(auto-fit, minmax(72px, 1fr))',
+                                gap: '10px',
+                                marginBottom: '12px'
+                            }}
+                        >
+                            {photoFiles.map((file, index) => (
+                                <div
+                                    key={`${file.name}-${index}`}
+                                    style={{
+                                        position: 'relative',
+                                        aspectRatio: '1',
+                                        borderRadius: '10px',
+                                        overflow: 'hidden',
+                                        background: 'rgba(255, 255, 255, 0.06)'
+                                    }}
+                                >
+                                    <img
+                                        src={URL.createObjectURL(file)}
+                                        alt={`Photo ${index + 1}`}
+                                        style={{
+                                            width: '100%',
+                                            height: '100%',
+                                            objectFit: 'cover'
+                                        }}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => removePhoto(index)}
+                                        style={{
+                                            position: 'absolute',
+                                            top: '4px',
+                                            right: '4px',
+                                            width: '22px',
+                                            height: '22px',
+                                            borderRadius: '50%',
+                                            background: 'rgba(220, 38, 38, 0.9)',
+                                            border: 'none',
+                                            color: 'white',
+                                            fontSize: '12px',
+                                            fontWeight: 700,
+                                            cursor: 'pointer',
+                                            lineHeight: 1
+                                        }}
+                                    >
+                                        ×
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {photoFiles.length < 5 && (
+                        <label style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '8px',
+                            padding: '16px',
+                            background: 'rgba(255, 255, 255, 0.08)',
+                            border: '2px dashed rgba(255, 255, 255, 0.3)',
+                            borderRadius: '12px',
+                            color: 'white',
+                            cursor: 'pointer',
+                            fontSize: '16px',
+                            fontWeight: '600'
+                        }}>
+                            <Upload size={20} />
+                            📸 Photos ({photoFiles.length}/5)
+                            <input
+                                type="file"
+                                accept="image/*"
+                                multiple
+                                onChange={handlePhotoAdd}
+                                style={{ display: 'none' }}
+                            />
+                        </label>
+                    )}
+
                     {/* Vidéos express */}
                     <div>
                         {/* Vidéos express */}
@@ -1323,124 +1431,6 @@ const CompetitivePartyModal = ({ onClose, onPartySaved, draftData = null }) => {
                         </div>
                     </div>
 
-                    {/* Infos rapides */}
-                    <div style={{
-                        display: 'grid',
-                        gridTemplateColumns: '1fr 1fr',
-                        gap: '12px'
-                    }}>
-                        <div>
-                            <button
-                                type="button"
-                                onClick={() => setShowVenueSearch(true)}
-                                style={{
-                                    width: '100%',
-                                    padding: '14px',
-                                    background: venue ? 'rgba(124, 58, 237, 0.2)' : 'rgba(255, 255, 255, 0.08)',
-                                    border: `1px solid ${venue ? 'rgba(124, 58, 237, 0.5)' : 'rgba(255, 255, 255, 0.2)'}`,
-                                    borderRadius: '12px',
-                                    color: 'white',
-                                    fontSize: '14px',
-                                    outline: 'none',
-                                    cursor: 'pointer',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '8px',
-                                    transition: 'all 0.2s'
-                                }}
-                            >
-                                <MapPin size={16} className={venue ? 'text-violet-400' : 'text-gray-400'} />
-                                <span style={{ flex: 1, textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                    {venue ? venue.name : location || '📍 Rechercher un lieu'}
-                                </span>
-                            </button>
-                        </div>
-
-                    </div>
-
-                    {/* Photos rapides */}
-                    {photoFiles.length > 0 && (
-                        <div
-                            style={{
-                                display: 'grid',
-                                gridTemplateColumns: 'repeat(auto-fit, minmax(72px, 1fr))',
-                                gap: '10px',
-                                marginBottom: '12px'
-                            }}
-                        >
-                            {photoFiles.map((file, index) => (
-                                <div
-                                    key={`${file.name}-${index}`}
-                                    style={{
-                                        position: 'relative',
-                                        aspectRatio: '1',
-                                        borderRadius: '10px',
-                                        overflow: 'hidden',
-                                        background: 'rgba(255, 255, 255, 0.06)'
-                                    }}
-                                >
-                                    <img
-                                        src={URL.createObjectURL(file)}
-                                        alt={`Photo ${index + 1}`}
-                                        style={{
-                                            width: '100%',
-                                            height: '100%',
-                                            objectFit: 'cover'
-                                        }}
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => removePhoto(index)}
-                                        style={{
-                                            position: 'absolute',
-                                            top: '4px',
-                                            right: '4px',
-                                            width: '22px',
-                                            height: '22px',
-                                            borderRadius: '50%',
-                                            background: 'rgba(220, 38, 38, 0.9)',
-                                            border: 'none',
-                                            color: 'white',
-                                            fontSize: '12px',
-                                            fontWeight: 700,
-                                            cursor: 'pointer',
-                                            lineHeight: 1
-                                        }}
-                                    >
-                                        ×
-                                    </button>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-
-                    {photoFiles.length < 5 && (
-                        <label style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: '8px',
-                            padding: '16px',
-                            background: 'rgba(255, 255, 255, 0.08)',
-                            border: '2px dashed rgba(255, 255, 255, 0.3)',
-                            borderRadius: '12px',
-                            color: 'white',
-                            cursor: 'pointer',
-                            fontSize: '16px',
-                            fontWeight: '600'
-                        }}>
-                            <Upload size={20} />
-                            📸 Photos ({photoFiles.length}/5)
-                            <input
-                                type="file"
-                                accept="image/*"
-                                multiple
-                                onChange={handlePhotoAdd}
-                                style={{ display: 'none' }}
-                            />
-                        </label>
-                    )}
-
                     {/* Submit Button */}
                     <button 
                         type="submit"
@@ -1478,18 +1468,6 @@ const CompetitivePartyModal = ({ onClose, onPartySaved, draftData = null }) => {
                     onClose={() => setNotificationData(null)}
                 />
             )}
-
-            {/* Venue Search Modal */}
-            <VenueSearchModal
-                isOpen={showVenueSearch}
-                onClose={() => setShowVenueSearch(false)}
-                onVenueSelect={(selectedVenue) => {
-                    setVenue(selectedVenue);
-                    setLocation(selectedVenue.name);
-                    setShowVenueSearch(false);
-                }}
-                initialValue={location}
-            />
         </div>
     );
 };

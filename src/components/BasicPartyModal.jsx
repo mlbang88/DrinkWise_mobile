@@ -26,7 +26,6 @@ const BasicPartyModal = ({ onClose, onPartySaved }) => {
     });
     const [location, setLocation] = useState('');
     const [venue, setVenue] = useState(null);
-    const [showVenueSearch, setShowVenueSearch] = useState(false);
     const [category, setCategory] = useState(partyCategories[0]);
     const [companions, setCompanions] = useState({ type: 'none', selectedIds: [], selectedNames: [] });
     
@@ -920,7 +919,7 @@ RÉPONDS UNIQUEMENT AVEC LES 3 PHRASES, SANS PRÉAMBULE NI EXPLICATION.`;
                         </div>
                     </div>
 
-                    {/* Lieu */}
+                    {/* Lieu avec Google Maps */}
                     <div>
                         <label style={{
                             display: 'block',
@@ -931,30 +930,15 @@ RÉPONDS UNIQUEMENT AVEC LES 3 PHRASES, SANS PRÉAMBULE NI EXPLICATION.`;
                         }}>
                             Lieu (optionnel):
                         </label>
-                        <button
-                            type="button"
-                            onClick={() => setShowVenueSearch(true)}
-                            style={{
-                                width: '100%',
-                                padding: '12px 16px',
-                                background: venue ? 'rgba(124, 58, 237, 0.2)' : 'rgba(255, 255, 255, 0.08)',
-                                border: `1px solid ${venue ? 'rgba(124, 58, 237, 0.5)' : 'rgba(255, 255, 255, 0.2)'}`,
-                                borderRadius: '12px',
-                                color: 'white',
-                                fontSize: '16px',
-                                outline: 'none',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px',
-                                transition: 'all 0.2s'
+                        <VenueSearchModal
+                            isOpen={true}
+                            onClose={() => {}}
+                            onVenueSelect={(selectedVenue) => {
+                                setVenue(selectedVenue);
+                                setLocation(selectedVenue.name);
                             }}
-                        >
-                            <MapPin size={18} className={venue ? 'text-violet-400' : 'text-gray-400'} />
-                            <span style={{ flex: 1, textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                {venue ? venue.name : location || '📍 Rechercher un lieu'}
-                            </span>
-                        </button>
+                            initialValue={location}
+                        />
                     </div>
 
                     {/* Catégorie */}
@@ -1423,18 +1407,6 @@ RÉPONDS UNIQUEMENT AVEC LES 3 PHRASES, SANS PRÉAMBULE NI EXPLICATION.`;
                     </button>
                 </form>
             </div>
-
-            {/* Venue Search Modal */}
-            <VenueSearchModal
-                isOpen={showVenueSearch}
-                onClose={() => setShowVenueSearch(false)}
-                onVenueSelect={(selectedVenue) => {
-                    setVenue(selectedVenue);
-                    setLocation(selectedVenue.name);
-                    setShowVenueSearch(false);
-                }}
-                initialValue={location}
-            />
         </div>
     );
 };

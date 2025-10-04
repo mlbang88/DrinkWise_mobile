@@ -20,6 +20,23 @@ const VenueSearchModal = ({ isOpen, onClose, onVenueSelect, initialValue = '' })
   const searchTimeoutRef = useRef(null);
   const inputRef = useRef(null);
 
+  // Style pour le placeholder
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.innerHTML = `
+      .venue-search-input::placeholder {
+        color: #6b7280 !important;
+        opacity: 1 !important;
+      }
+      .venue-search-input:focus {
+        ring-color: rgba(139, 92, 246, 0.5) !important;
+        border-color: rgba(139, 92, 246, 0.5) !important;
+      }
+    `;
+    document.head.appendChild(style);
+    return () => document.head.removeChild(style);
+  }, []);
+
   // Focus automatique sur l'input
   useEffect(() => {
     if (isOpen && inputRef.current) {
@@ -102,6 +119,11 @@ const VenueSearchModal = ({ isOpen, onClose, onVenueSelect, initialValue = '' })
       setSelectedVenue(details);
       setSuggestions([]);
       setSearchQuery(details.name);
+      
+      // Appeler onVenueSelect immédiatement après avoir récupéré les détails
+      if (onVenueSelect) {
+        onVenueSelect(details);
+      }
     } catch (err) {
       logger.error('❌ Erreur chargement détails', err);
       setError('Impossible de charger les détails du lieu');
@@ -142,221 +164,188 @@ const VenueSearchModal = ({ isOpen, onClose, onVenueSelect, initialValue = '' })
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden border border-violet-500/20">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-violet-600 to-purple-600 p-6 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="bg-white/20 p-2 rounded-lg backdrop-blur-sm">
-              <MapPin className="text-white" size={24} />
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold text-white">Rechercher un lieu</h2>
-              <p className="text-white/80 text-sm">Bars, restaurants, clubs...</p>
-            </div>
+    <div className="w-full space-y-3">
+      {/* Search Input avec suggestions intégrées */}
+      <div className="relative">
+        <div className="relative">
+          <div className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none z-10" style={{ color: '#9ca3af' }}>
+            <Search size={20} />
           </div>
+          <input
+            ref={inputRef}
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Nom du bar, restaurant, club..."
+            className="venue-search-input w-full rounded-xl py-3.5 font-medium focus:outline-none focus:ring-2 transition-all text-center"
+            style={{
+              backgroundColor: 'rgba(31, 41, 55, 0.8)',
+              border: '2px solid rgba(55, 65, 81, 0.5)',
+              color: '#ffffff',
+              paddingLeft: '48px',
+              paddingRight: '48px'
+            }}
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={handleClear}
+              className="absolute right-16 top-1/2 -translate-y-1/2 transition-colors z-10"
+              style={{ color: '#9ca3af' }}
+            >
+              <X size={18} />
+            </button>
+          )}
           <button
-            onClick={onClose}
-            className="text-white/80 hover:text-white transition-colors p-2 hover:bg-white/10 rounded-lg"
+            type="button"
+            onClick={getUserLocation}
+            className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors p-2 hover:bg-violet-500/20 rounded-lg z-10"
+            style={{ color: '#c084fc' }}
+            title="Utiliser ma position"
           >
-            <X size={24} />
+            <Navigation size={18} />
           </button>
         </div>
 
-        {/* Content */}
-        <div className="p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
-          {/* Search Input */}
-          <div className="relative mb-4">
-            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
-              <Search size={20} />
-            </div>
-            <input
-              ref={inputRef}
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Nom du bar, restaurant, club..."
-              className="w-full bg-gray-800/50 border border-gray-700 rounded-xl pl-12 pr-24 py-4 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-            />
-            {searchQuery && (
-              <button
-                onClick={handleClear}
-                className="absolute right-16 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
-              >
-                <X size={18} />
-              </button>
+        {/* Suggestions dropdown - apparaît sous l'input */}
+        {(suggestions.length > 0 || isLoading || error) && !selectedVenue && (
+          <div 
+            className="absolute top-full left-0 right-0 mt-2 rounded-xl shadow-2xl overflow-hidden z-50 max-h-[300px] overflow-y-auto"
+            style={{
+              backgroundColor: '#1a1a1a',
+              border: '2px solid rgba(139, 92, 246, 0.4)'
+            }}
+          >
+            {/* Loading */}
+            {isLoading && (
+              <div className="p-6 text-center" style={{ backgroundColor: '#1a1a1a' }}>
+                <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-violet-500"></div>
+                <p className="text-sm mt-2 font-medium" style={{ color: '#ffffff' }}>Recherche...</p>
+              </div>
             )}
-            {userLocation && (
-              <button
-                onClick={getUserLocation}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-violet-400 hover:text-violet-300 transition-colors p-2 hover:bg-violet-500/10 rounded-lg"
-                title="Utiliser ma position"
-              >
-                <Navigation size={18} />
-              </button>
+
+            {/* Error */}
+            {error && !isLoading && (
+              <div className="p-4 border-b" style={{ backgroundColor: 'rgba(239, 68, 68, 0.2)', borderColor: 'rgba(239, 68, 68, 0.3)' }}>
+                <p className="text-sm font-medium" style={{ color: '#fca5a5' }}>{error}</p>
+              </div>
+            )}
+
+            {/* Suggestions */}
+            {suggestions.length > 0 && !isLoading && (
+              <>
+                <div className="px-4 py-2.5 border-b" style={{ backgroundColor: '#2a2a2a', borderColor: '#3a3a3a' }}>
+                  <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: '#d1d5db' }}>
+                    {suggestions.length} résultat{suggestions.length > 1 ? 's' : ''}
+                  </p>
+                </div>
+                <div className="divide-y" style={{ backgroundColor: '#1a1a1a', borderColor: 'rgba(55, 65, 81, 0.5)' }}>
+                  {suggestions.map((suggestion) => (
+                    <button
+                      type="button"
+                      key={suggestion.placeId}
+                      onClick={() => handleSuggestionClick(suggestion)}
+                      className="w-full p-4 transition-all group text-left hover:bg-violet-600/20"
+                      style={{ backgroundColor: '#1a1a1a' }}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="p-2.5 rounded-lg transition-colors flex-shrink-0" style={{ backgroundColor: 'rgba(139, 92, 246, 0.3)' }}>
+                          <MapPin style={{ color: '#c4b5fd' }} size={18} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-bold text-sm group-hover:text-violet-200 transition-colors" style={{ color: '#ffffff' }}>
+                            {suggestion.mainText}
+                          </h3>
+                          <p className="text-xs mt-1 truncate" style={{ color: '#d1d5db' }}>
+                            {suggestion.secondaryText}
+                          </p>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </>
             )}
           </div>
+        )}
+      </div>
 
-          {/* Loading indicator */}
-          {isLoading && (
-            <div className="text-center py-8">
-              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-violet-500"></div>
-              <p className="text-gray-400 mt-2">Recherche en cours...</p>
-            </div>
-          )}
+      {/* Loading details */}
+      {isLoadingDetails && (
+        <div className="rounded-xl p-6 text-center" style={{ backgroundColor: 'rgba(31, 41, 55, 0.8)', border: '2px solid rgba(139, 92, 246, 0.3)' }}>
+          <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-violet-500"></div>
+          <p className="text-sm mt-2" style={{ color: '#d1d5db' }}>Chargement des détails...</p>
+        </div>
+      )}
 
-          {/* Error message */}
-          {error && (
-            <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 mb-4">
-              <p className="text-red-400 text-sm">{error}</p>
-            </div>
-          )}
-
-          {/* Suggestions List */}
-          {suggestions.length > 0 && !selectedVenue && (
-            <div className="space-y-2">
-              <p className="text-sm text-gray-400 mb-3">
-                {suggestions.length} résultat{suggestions.length > 1 ? 's' : ''} trouvé{suggestions.length > 1 ? 's' : ''}
-              </p>
-              {suggestions.map((suggestion) => (
-                <button
-                  key={suggestion.placeId}
-                  onClick={() => handleSuggestionClick(suggestion)}
-                  className="w-full bg-gray-800/30 hover:bg-gray-800/50 border border-gray-700 hover:border-violet-500/50 rounded-xl p-4 text-left transition-all group"
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="bg-violet-500/20 p-2 rounded-lg group-hover:bg-violet-500/30 transition-colors">
-                      <MapPin className="text-violet-400" size={20} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-white font-semibold group-hover:text-violet-300 transition-colors">
-                        {suggestion.mainText}
-                      </h3>
-                      <p className="text-gray-400 text-sm mt-1 truncate">
-                        {suggestion.secondaryText}
-                      </p>
-                    </div>
+      {/* Selected Venue Card - affiché en dessous de l'input */}
+      {selectedVenue && !isLoadingDetails && (
+        <div className="rounded-xl p-5 space-y-4 shadow-xl" style={{ background: 'linear-gradient(to bottom right, rgba(31, 41, 55, 0.9), rgba(31, 41, 55, 0.7))', border: '2px solid rgba(139, 92, 246, 0.4)' }}>
+          {/* Header avec bouton supprimer */}
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-2">
+                <MapPin style={{ color: '#c084fc' }} className="flex-shrink-0" size={20} />
+                <h3 className="text-lg font-bold" style={{ color: '#ffffff' }}>
+                  {selectedVenue.name}
+                </h3>
+              </div>
+              <div className="flex items-center gap-3 flex-wrap">
+                {selectedVenue.rating > 0 && (
+                  <div className="flex items-center gap-1">
+                    <Star style={{ color: '#fbbf24' }} size={14} fill="currentColor" />
+                    <span className="font-semibold text-sm" style={{ color: '#ffffff' }}>
+                      {selectedVenue.rating.toFixed(1)}
+                    </span>
+                    <span className="text-xs" style={{ color: '#9ca3af' }}>
+                      ({selectedVenue.totalRatings})
+                    </span>
                   </div>
-                </button>
+                )}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleClear}
+              className="transition-colors p-2 hover:bg-gray-700/50 rounded-lg flex-shrink-0"
+              style={{ color: '#9ca3af' }}
+              title="Changer de lieu"
+            >
+              <X size={18} />
+            </button>
+          </div>
+
+          {/* Address */}
+          <div className="flex items-start gap-2 p-3 rounded-lg" style={{ backgroundColor: 'rgba(17, 24, 39, 0.6)' }}>
+            <p className="text-sm leading-relaxed" style={{ color: '#d1d5db' }}>{selectedVenue.address}</p>
+          </div>
+
+          {/* Types */}
+          {selectedVenue.types && selectedVenue.types.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {selectedVenue.types.slice(0, 3).map((type) => (
+                <span
+                  key={type}
+                  className="px-2.5 py-1 text-xs rounded-full font-medium"
+                  style={{ backgroundColor: 'rgba(139, 92, 246, 0.2)', color: '#d8b4fe', border: '1px solid rgba(139, 92, 246, 0.3)' }}
+                >
+                  {type.replace(/_/g, ' ')}
+                </span>
               ))}
             </div>
           )}
 
-          {/* Selected Venue Details */}
-          {isLoadingDetails && (
-            <div className="text-center py-8">
-              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-violet-500"></div>
-              <p className="text-gray-400 mt-2">Chargement des détails...</p>
+          {/* Success indicator */}
+          <div className="flex items-center gap-2 p-3 rounded-lg" style={{ backgroundColor: 'rgba(34, 197, 94, 0.1)', border: '1px solid rgba(34, 197, 94, 0.3)' }}>
+            <div className="rounded-full p-1" style={{ backgroundColor: '#22c55e' }}>
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="#ffffff">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+              </svg>
             </div>
-          )}
-
-          {selectedVenue && !isLoadingDetails && (
-            <div className="bg-gradient-to-br from-gray-800/50 to-gray-800/30 border border-violet-500/30 rounded-2xl p-6 space-y-4">
-              {/* Venue Header */}
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <h3 className="text-2xl font-bold text-white mb-2">
-                    {selectedVenue.name}
-                  </h3>
-                  <div className="flex items-center gap-4 flex-wrap">
-                    {selectedVenue.rating > 0 && (
-                      <div className="flex items-center gap-1">
-                        <Star className="text-yellow-400" size={16} fill="currentColor" />
-                        <span className="text-white font-semibold">
-                          {selectedVenue.rating.toFixed(1)}
-                        </span>
-                        <span className="text-gray-400 text-sm">
-                          ({selectedVenue.totalRatings})
-                        </span>
-                      </div>
-                    )}
-                    {selectedVenue.priceLevel > 0 && renderPriceLevel(selectedVenue.priceLevel)}
-                    {selectedVenue.isOpen !== undefined && (
-                      <div className="flex items-center gap-1">
-                        <Clock size={14} className={selectedVenue.isOpen ? 'text-green-400' : 'text-red-400'} />
-                        <span className={`text-sm ${selectedVenue.isOpen ? 'text-green-400' : 'text-red-400'}`}>
-                          {selectedVenue.isOpen ? 'Ouvert' : 'Fermé'}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Address */}
-              <div className="flex items-start gap-3 p-3 bg-gray-900/50 rounded-xl">
-                <MapPin className="text-violet-400 mt-1 flex-shrink-0" size={18} />
-                <p className="text-gray-300 text-sm">{selectedVenue.address}</p>
-              </div>
-
-              {/* Types */}
-              <div className="flex flex-wrap gap-2">
-                {selectedVenue.types.slice(0, 3).map((type) => (
-                  <span
-                    key={type}
-                    className="px-3 py-1 bg-violet-500/20 text-violet-300 text-xs rounded-full border border-violet-500/30"
-                  >
-                    {type.replace(/_/g, ' ')}
-                  </span>
-                ))}
-              </div>
-
-              {/* Website & Phone */}
-              {(selectedVenue.website || selectedVenue.phoneNumber) && (
-                <div className="flex flex-wrap gap-3">
-                  {selectedVenue.website && (
-                    <a
-                      href={selectedVenue.website}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-2 text-violet-400 hover:text-violet-300 text-sm transition-colors"
-                    >
-                      <ExternalLink size={14} />
-                      Site web
-                    </a>
-                  )}
-                  {selectedVenue.phoneNumber && (
-                    <a
-                      href={`tel:${selectedVenue.phoneNumber}`}
-                      className="text-violet-400 hover:text-violet-300 text-sm transition-colors"
-                    >
-                      {selectedVenue.phoneNumber}
-                    </a>
-                  )}
-                </div>
-              )}
-
-              {/* Coordinates Info */}
-              <div className="text-xs text-gray-500 border-t border-gray-700 pt-3">
-                📍 {selectedVenue.coordinates.lat.toFixed(6)}, {selectedVenue.coordinates.lng.toFixed(6)}
-              </div>
-            </div>
-          )}
+            <span className="text-sm font-medium" style={{ color: '#4ade80' }}>Lieu sélectionné</span>
+          </div>
         </div>
-
-        {/* Footer Actions */}
-        <div className="bg-gray-800/50 border-t border-gray-700 p-6 flex gap-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex-1 bg-gray-700 hover:bg-gray-600 text-white font-semibold py-3 px-6 rounded-xl transition-all"
-          >
-            Annuler
-          </button>
-          <button
-            type="button"
-            onClick={handleConfirm}
-            disabled={!selectedVenue}
-            className={`flex-1 font-semibold py-3 px-6 rounded-xl transition-all ${
-              selectedVenue
-                ? 'bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 text-white shadow-lg shadow-violet-500/30'
-                : 'bg-gray-700 text-gray-500 cursor-not-allowed'
-            }`}
-          >
-            Confirmer
-          </button>
-        </div>
-      </div>
+      )}
     </div>
   );
 };

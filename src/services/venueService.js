@@ -32,6 +32,7 @@ export const CONTROL_LEVELS = {
 // Configuration des points
 const POINTS_CONFIG = {
     BASE_VISIT: 10,                    // Points de base par visite
+    DRINK_MULTIPLIER: 2,               // +2 points par verre consommé
     NEW_VENUE_BONUS: 50,               // Bonus première visite du lieu
     FIRST_CONTROL_BONUS: 100,          // Bonus première prise de contrôle
     TAKEOVER_BONUS: 75,                // Bonus reprise de contrôle
@@ -40,6 +41,18 @@ const POINTS_CONFIG = {
     COMPETITIVE_MODE_BONUS: 20,        // Bonus mode compétitif
     GROUP_MULTIPLIER: 1.5,             // x1.5 si en groupe
     EXPLORER_MODE_BONUS: 30,           // Bonus mode explorateur
+    
+    // Nouveaux bonus de zone
+    STREET_CONTROL_BONUS: 150,         // Bonus contrôle d'une rue
+    DISTRICT_CONTROL_BONUS: 500,       // Bonus contrôle d'un quartier
+    AREA_DOMINATION_MULTIPLIER: 1.3,   // x1.3 si domination de zone
+};
+
+// Configuration du contrôle de zones
+const ZONE_CONTROL_CONFIG = {
+    STREET_CONTROL_THRESHOLD: 0.6,     // 60% des lieux d'une rue pour la contrôler
+    DISTRICT_CONTROL_THRESHOLD: 15,    // 15 lieux dans un quartier pour le contrôler
+    MIN_VENUES_FOR_STREET: 3,          // Minimum de lieux dans une rue pour comptabiliser
 };
 
 /**
@@ -71,6 +84,10 @@ export const calculateVenueControlPoints = (params) => {
         isCompetitiveMode = false,    // Mode compétitif activé
         hasGroup = false,             // En groupe
         battleMode = 'balanced',      // Mode de jeu Battle Royale
+        drinkCount = 0,               // Nombre de verres consommés
+        controlsStreet = false,       // Contrôle la rue
+        controlsDistrict = false,     // Contrôle le quartier
+        districtDomination = 0,       // Pourcentage de domination du quartier (0-1)
     } = params;
 
     let breakdown = [];
@@ -79,6 +96,13 @@ export const calculateVenueControlPoints = (params) => {
     // Points de base
     totalPoints += POINTS_CONFIG.BASE_VISIT;
     breakdown.push({ label: 'Visite du lieu', points: POINTS_CONFIG.BASE_VISIT });
+
+    // Bonus nombre de verres
+    if (drinkCount > 0) {
+        const drinkPoints = drinkCount * POINTS_CONFIG.DRINK_MULTIPLIER;
+        totalPoints += drinkPoints;
+        breakdown.push({ label: `🍺 ${drinkCount} verre${drinkCount > 1 ? 's' : ''}`, points: drinkPoints });
+    }
 
     // Bonus nouveau lieu
     if (isNewVenue) {
@@ -128,6 +152,26 @@ export const calculateVenueControlPoints = (params) => {
     if (battleMode === 'explorer') {
         totalPoints += POINTS_CONFIG.EXPLORER_MODE_BONUS;
         breakdown.push({ label: '🗺️ Mode Explorateur', points: POINTS_CONFIG.EXPLORER_MODE_BONUS });
+    }
+
+    // Bonus contrôle de rue
+    if (controlsStreet) {
+        totalPoints += POINTS_CONFIG.STREET_CONTROL_BONUS;
+        breakdown.push({ label: '🏘️ Contrôle de la rue', points: POINTS_CONFIG.STREET_CONTROL_BONUS });
+    }
+
+    // Bonus contrôle de quartier
+    if (controlsDistrict) {
+        totalPoints += POINTS_CONFIG.DISTRICT_CONTROL_BONUS;
+        breakdown.push({ label: '🏙️ Contrôle du quartier', points: POINTS_CONFIG.DISTRICT_CONTROL_BONUS });
+    }
+
+    // Multiplicateur de domination de zone
+    if (districtDomination > 0.5) {
+        const dominationBonus = Math.floor(totalPoints * (POINTS_CONFIG.AREA_DOMINATION_MULTIPLIER - 1));
+        totalPoints += dominationBonus;
+        const percentage = Math.round(districtDomination * 100);
+        breakdown.push({ label: `🌍 Domination ${percentage}%`, points: dominationBonus });
     }
 
     return {
@@ -226,6 +270,8 @@ export const updateVenueControl = async (db, appId, params) => {
         const controlUpdate = {
             placeId: venue.placeId,
             venueName: venue.name,
+            venueAddress: venue.address,
+            coordinates: venue.coordinates,
             userId,
             username,
             totalPoints: newTotalPoints,
@@ -265,6 +311,15 @@ export const updateVenueControl = async (db, appId, params) => {
             total: newTotalPoints,
             level: newLevel.name
         });
+        
+        // 🔍 LOG DEBUG: Vérifier si le document est bien créé
+        console.log('🔍 DEBUG venueControl créé:', {
+            docId: `${userId}_${venue.placeId}`,
+            userId: controlUpdate.userId,
+            placeId: controlUpdate.placeId,
+            coordinates: controlUpdate.coordinates,
+            totalPoints: controlUpdate.totalPoints
+        });
 
         return {
             success: true,
@@ -288,7 +343,7 @@ export const updateVenueControl = async (db, appId, params) => {
  * Récupère le leaderboard d'un lieu spécifique
  * @param {Object} db - Instance Firestore
  * @param {string} appId - ID de l'application
- * @param {string} placeId - ID du lieu
+ * @param {string} placeId - ID du lieu (null pour tous les lieux)
  * @param {number} limitCount - Nombre de résultats (défaut: 10)
  * @returns {Promise<Array>} Liste des contrôleurs
  */
@@ -296,12 +351,24 @@ export const getVenueLeaderboard = async (db, appId, placeId, limitCount = 10) =
     try {
         logger.info('📊 Chargement leaderboard lieu', { placeId, limit: limitCount });
 
-        const controlsQuery = query(
-            collection(db, `artifacts/${appId}/venueControls`),
-            where('placeId', '==', placeId),
-            orderBy('totalPoints', 'desc'),
-            limit(limitCount)
-        );
+        // Construire la requête selon si on filtre par lieu ou pas
+        let controlsQuery;
+        if (placeId) {
+            // Leaderboard pour un lieu spécifique
+            controlsQuery = query(
+                collection(db, `artifacts/${appId}/venueControls`),
+                where('placeId', '==', placeId),
+                orderBy('totalPoints', 'desc'),
+                limit(limitCount)
+            );
+        } else {
+            // Leaderboard global (tous les lieux)
+            controlsQuery = query(
+                collection(db, `artifacts/${appId}/venueControls`),
+                orderBy('totalPoints', 'desc'),
+                limit(limitCount)
+            );
+        }
 
         const snapshot = await getDocs(controlsQuery);
         
@@ -315,7 +382,9 @@ export const getVenueLeaderboard = async (db, appId, placeId, limitCount = 10) =
                 visitCount: data.visitCount,
                 level: getControlLevel(data.totalPoints),
                 lastVisit: data.lastVisit,
-                isCurrentController: index === 0
+                isCurrentController: index === 0,
+                placeId: data.placeId,
+                venueName: data.venueName
             };
         });
 
@@ -347,11 +416,23 @@ export const getUserControlledVenues = async (db, appId, userId) => {
 
         const snapshot = await getDocs(controlsQuery);
         
+        console.log('🔍 DEBUG getUserControlledVenues:', {
+            userId,
+            appId,
+            collectionPath: `artifacts/${appId}/venueControls`,
+            docsCount: snapshot.docs.length,
+            docsIds: snapshot.docs.map(d => d.id)
+        });
+        
         const venues = snapshot.docs.map(doc => {
             const data = doc.data();
             return {
                 placeId: data.placeId,
+                userId: data.userId,
+                username: data.username,
                 name: data.venueName,
+                address: data.venueAddress,
+                coordinates: data.coordinates,
                 totalPoints: data.totalPoints,
                 visitCount: data.visitCount,
                 visitStreak: data.visitStreak,
@@ -408,12 +489,221 @@ export const getUserTerritoryStats = async (db, appId, userId) => {
     }
 };
 
+/**
+ * Extrait le nom de la rue d'une adresse
+ * @param {string} address - Adresse complète
+ * @returns {string} Nom de la rue
+ */
+export const extractStreetName = (address) => {
+    if (!address) return '';
+    
+    // Extraire la partie rue de l'adresse (avant la virgule ou le code postal)
+    const parts = address.split(',')[0].trim();
+    
+    // Supprimer le numéro de rue s'il existe
+    const streetName = parts.replace(/^\d+\s*/, '').trim();
+    
+    return streetName;
+};
+
+/**
+ * Extrait le quartier/code postal d'une adresse
+ * @param {string} address - Adresse complète
+ * @returns {string} Quartier ou code postal
+ */
+export const extractDistrict = (address) => {
+    if (!address) return '';
+    
+    // Chercher un code postal français (5 chiffres)
+    const postalCodeMatch = address.match(/\b(\d{5})\b/);
+    if (postalCodeMatch) {
+        return postalCodeMatch[1];
+    }
+    
+    // Sinon, prendre la ville (dernière partie)
+    const parts = address.split(',');
+    return parts[parts.length - 1].trim();
+};
+
+/**
+ * Calcule si l'utilisateur contrôle une rue
+ * @param {Object} db - Instance Firestore
+ * @param {string} appId - ID de l'application
+ * @param {string} userId - ID de l'utilisateur
+ * @param {string} streetName - Nom de la rue
+ * @returns {Promise<Object>} Résultat du contrôle
+ */
+export const checkStreetControl = async (db, appId, userId, streetName) => {
+    try {
+        if (!streetName) return { controls: false, percentage: 0, total: 0, controlled: 0 };
+
+        // Récupérer tous les lieux de cette rue
+        const venuesQuery = query(
+            collection(db, `artifacts/${appId}/venues`),
+            where('street', '==', streetName)
+        );
+        const venuesSnapshot = await getDocs(venuesQuery);
+        
+        const totalVenues = venuesSnapshot.size;
+        
+        if (totalVenues < ZONE_CONTROL_CONFIG.MIN_VENUES_FOR_STREET) {
+            return { controls: false, percentage: 0, total: totalVenues, controlled: 0 };
+        }
+
+        // Compter combien sont contrôlés par l'utilisateur
+        let controlledByUser = 0;
+        venuesSnapshot.forEach(doc => {
+            const data = doc.data();
+            if (data.currentController?.userId === userId) {
+                controlledByUser++;
+            }
+        });
+
+        const percentage = controlledByUser / totalVenues;
+        const controls = percentage >= ZONE_CONTROL_CONFIG.STREET_CONTROL_THRESHOLD;
+
+        return {
+            controls,
+            percentage,
+            total: totalVenues,
+            controlled: controlledByUser,
+            streetName
+        };
+
+    } catch (error) {
+        logger.error('❌ Erreur vérification contrôle rue', error);
+        return { controls: false, percentage: 0, total: 0, controlled: 0 };
+    }
+};
+
+/**
+ * Calcule si l'utilisateur contrôle un quartier
+ * @param {Object} db - Instance Firestore
+ * @param {string} appId - ID de l'application
+ * @param {string} userId - ID de l'utilisateur
+ * @param {string} district - Code postal ou nom du quartier
+ * @returns {Promise<Object>} Résultat du contrôle
+ */
+export const checkDistrictControl = async (db, appId, userId, district) => {
+    try {
+        if (!district) return { controls: false, percentage: 0, total: 0, controlled: 0 };
+
+        // Récupérer tous les lieux du quartier
+        const venuesQuery = query(
+            collection(db, `artifacts/${appId}/venues`),
+            where('district', '==', district)
+        );
+        const venuesSnapshot = await getDocs(venuesQuery);
+        
+        const totalVenues = venuesSnapshot.size;
+
+        // Compter combien sont contrôlés par l'utilisateur
+        let controlledByUser = 0;
+        venuesSnapshot.forEach(doc => {
+            const data = doc.data();
+            if (data.currentController?.userId === userId) {
+                controlledByUser++;
+            }
+        });
+
+        const percentage = controlledByUser / totalVenues;
+        const controls = controlledByUser >= ZONE_CONTROL_CONFIG.DISTRICT_CONTROL_THRESHOLD;
+
+        return {
+            controls,
+            percentage,
+            total: totalVenues,
+            controlled: controlledByUser,
+            district
+        };
+
+    } catch (error) {
+        logger.error('❌ Erreur vérification contrôle quartier', error);
+        return { controls: false, percentage: 0, total: 0, controlled: 0 };
+    }
+};
+
+/**
+ * Récupère toutes les zones contrôlées par un utilisateur
+ * @param {Object} db - Instance Firestore
+ * @param {string} appId - ID de l'application
+ * @param {string} userId - ID de l'utilisateur
+ * @returns {Promise<Object>} Zones contrôlées
+ */
+export const getUserControlledZones = async (db, appId, userId) => {
+    try {
+        const venues = await getUserControlledVenues(db, appId, userId);
+        
+        // Grouper par rue et quartier
+        const streetGroups = {};
+        const districtGroups = {};
+
+        for (const venue of venues) {
+            // Extraire rue et quartier depuis l'adresse
+            const street = extractStreetName(venue.address || '');
+            const district = extractDistrict(venue.address || '');
+
+            if (street) {
+                if (!streetGroups[street]) streetGroups[street] = [];
+                streetGroups[street].push(venue);
+            }
+
+            if (district) {
+                if (!districtGroups[district]) districtGroups[district] = [];
+                districtGroups[district].push(venue);
+            }
+        }
+
+        // Vérifier le contrôle pour chaque rue
+        const controlledStreets = [];
+        for (const [streetName, venues] of Object.entries(streetGroups)) {
+            const control = await checkStreetControl(db, appId, userId, streetName);
+            if (control.controls) {
+                controlledStreets.push({
+                    name: streetName,
+                    venues: venues.length,
+                    ...control
+                });
+            }
+        }
+
+        // Vérifier le contrôle pour chaque quartier
+        const controlledDistricts = [];
+        for (const [district, venues] of Object.entries(districtGroups)) {
+            const control = await checkDistrictControl(db, appId, userId, district);
+            if (control.controls) {
+                controlledDistricts.push({
+                    name: district,
+                    venues: venues.length,
+                    ...control
+                });
+            }
+        }
+
+        return {
+            streets: controlledStreets,
+            districts: controlledDistricts,
+            totalZones: controlledStreets.length + controlledDistricts.length
+        };
+
+    } catch (error) {
+        logger.error('❌ Erreur récupération zones contrôlées', error);
+        return { streets: [], districts: [], totalZones: 0 };
+    }
+};
+
 export default {
     calculateVenueControlPoints,
     updateVenueControl,
     getVenueLeaderboard,
     getUserControlledVenues,
     getUserTerritoryStats,
+    getUserControlledZones,
+    checkStreetControl,
+    checkDistrictControl,
+    extractStreetName,
+    extractDistrict,
     getControlLevel,
     CONTROL_LEVELS,
+    ZONE_CONTROL_CONFIG,
 };

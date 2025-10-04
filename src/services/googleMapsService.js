@@ -329,6 +329,7 @@ export const getCurrentPosition = () => {
 
 // Export par défaut
 export default {
+  loadGoogleMapsAPI,
   searchPlaces,
   getPlaceDetails,
   geocodeAddress,

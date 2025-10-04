@@ -123,7 +123,7 @@ const getTimeRemaining = (endTime) => {
     return 'Moins d\'1h';
 };
 
-const BattleRoyale = () => {
+const BattleRoyale = ({ setCurrentPage }) => {
     const { db, user, appId, userProfile, setMessageBox } = useContext(FirebaseContext);
     const [activeMode, setActiveMode] = useState(null);
     const [currentTournament, setCurrentTournament] = useState(null);
@@ -457,6 +457,44 @@ const BattleRoyale = () => {
                     <p style={{ color: '#ccc', fontSize: '1.1rem' }}>
                         Choisis ton style, rejoins la compétition, montre qui tu es vraiment !
                     </p>
+                </div>
+
+                {/* Bouton Carte Territoriale */}
+                <div style={{ 
+                    display: 'flex', 
+                    justifyContent: 'center', 
+                    marginBottom: '30px'
+                }}>
+                    <button
+                        onClick={() => setCurrentPage('map')}
+                        style={{
+                            padding: '16px 32px',
+                            borderRadius: '16px',
+                            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                            border: 'none',
+                            color: '#fff',
+                            fontSize: '16px',
+                            fontWeight: 'bold',
+                            cursor: 'pointer',
+                            transition: 'all 0.3s ease',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '12px',
+                            boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)'
+                        }}
+                        onMouseEnter={(e) => {
+                            e.currentTarget.style.transform = 'translateY(-2px)';
+                            e.currentTarget.style.boxShadow = '0 6px 20px rgba(102, 126, 234, 0.6)';
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.transform = 'translateY(0)';
+                            e.currentTarget.style.boxShadow = '0 4px 15px rgba(102, 126, 234, 0.4)';
+                        }}
+                    >
+                        <span style={{ fontSize: '20px' }}>🗺️</span>
+                        <span>Carte Territoriale</span>
+                        <span style={{ fontSize: '14px', opacity: 0.9 }}>Nouveau !</span>
+                    </button>
                 </div>
 
                 {/* Système d'onglets */}
