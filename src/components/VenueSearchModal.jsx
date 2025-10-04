@@ -70,11 +70,6 @@ const VenueSearchModal = ({ isOpen, onClose, onVenueSelect, initialValue = '' })
   };
 
   const performSearch = async (query) => {
-    if (!googleMapsService.isConfigured()) {
-      setError('Google Maps API non configurée');
-      return;
-    }
-
     setIsLoading(true);
     setError(null);
 
