@@ -10,7 +10,7 @@ const FriendItem = ({ friendId, onRemove, onViewStats, appId, db }) => {
         const unsub = onSnapshot(profileRef, (doc) => {
             if (doc.exists()) setFriendProfile({ id: doc.id, ...doc.data() });
         }, (error) => {
-            console.error("❌ Erreur d'accès au profil ami:", error);
+            console.error("❌ Erreur d'accès au profil ami:", error?.message || String(error));
             // Profil ami non accessible, on peut continuer sans
         });
         return () => unsub();

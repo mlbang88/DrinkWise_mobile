@@ -14,6 +14,7 @@ import {
     arrayRemove,
     serverTimestamp 
 } from 'firebase/firestore';
+import { logger } from '../utils/logger';
 
 export const groupService = {
     /**
@@ -43,14 +44,14 @@ export const groupService = {
                 }
             });
 
-            console.log('✅ Groupe créé:', groupRef.id);
+            logger.info('groupService: Group created', { groupId: groupRef.id });
             
             // Calculer et mettre à jour les stats du groupe après création
             await this.calculateGroupStats(db, appId, groupRef.id);
             
             return groupRef.id;
         } catch (error) {
-            console.error('❌ Erreur création groupe:', error);
+            logger.error('groupService: Create group error', { error: error.message });
             throw error;
         }
     },
@@ -65,12 +66,12 @@ export const groupService = {
                 members: arrayUnion(userId),
                 updatedAt: serverTimestamp()
             });
-            console.log('✅ Membre ajouté au groupe:', userId);
+            logger.info('groupService: Member added', { groupId, userId });
             
             // Recalculer les stats du groupe après ajout d'un membre
             await this.calculateGroupStats(db, appId, groupId);
         } catch (error) {
-            console.error('❌ Erreur ajout membre:', error);
+            logger.error('groupService: Add member error', { error: error.message, groupId });
             throw error;
         }
     },
@@ -81,7 +82,7 @@ export const groupService = {
     async inviteMemberByUsername(db, appId, groupId, username) {
         try {
             // Rechercher l'utilisateur par nom d'utilisateur
-            console.log('🔍 Recherche utilisateur:', username);
+            logger.debug('groupService: Searching user', { username });
             const usersRef = collection(db, `artifacts/${appId}/public_user_stats`);
             const q = query(usersRef, where("username", "==", username));
             const querySnapshot = await getDocs(q);
@@ -108,11 +109,11 @@ export const groupService = {
 
             // Ajouter l'utilisateur au groupe
             await this.addMemberToGroup(db, appId, groupId, userId);
-            console.log('✅ Utilisateur invité avec succès:', username);
+            logger.info('groupService: User invited successfully', { username, userId, groupId });
             
             return userId;
         } catch (error) {
-            console.error('❌ Erreur invitation par username:', error);
+            logger.error('groupService: Invite by username error', { error: error.message, username });
             throw error;
         }
     },
@@ -128,12 +129,12 @@ export const groupService = {
                 admins: arrayRemove(userId), // Le retirer aussi des admins
                 updatedAt: serverTimestamp()
             });
-            console.log('✅ Membre retiré du groupe:', userId);
+            logger.info('groupService: Member removed', { groupId, userId });
             
             // Recalculer les stats du groupe après suppression d'un membre
             await this.calculateGroupStats(db, appId, groupId);
         } catch (error) {
-            console.error('❌ Erreur suppression membre:', error);
+            logger.error('groupService: Remove member error', { error: error.message, groupId });
             throw error;
         }
     },
@@ -145,9 +146,9 @@ export const groupService = {
         try {
             const groupRef = doc(db, `artifacts/${appId}/groups`, groupId);
             await deleteDoc(groupRef);
-            console.log('✅ Groupe supprimé:', groupId);
+            logger.info('groupService: Group deleted', { groupId });
         } catch (error) {
-            console.error('❌ Erreur suppression groupe:', error);
+            logger.error('groupService: Delete group error', { error: error.message, groupId });
             throw error;
         }
     },
@@ -204,10 +205,10 @@ export const groupService = {
                 updatedAt: serverTimestamp()
             });
 
-            console.log('✅ Stats du groupe mises à jour:', cumulatedStats);
+            logger.info('groupService: Group stats updated', { groupId, memberCount: cumulatedStats.memberCount });
             return cumulatedStats;
         } catch (error) {
-            console.error('❌ Erreur calcul stats groupe:', error);
+            logger.error('groupService: Calculate stats error', { error: error.message, groupId });
             throw error;
         }
     },
@@ -228,7 +229,7 @@ export const groupService = {
 
             return groups;
         } catch (error) {
-            console.error('❌ Erreur récupération groupes:', error);
+            logger.error('groupService: Get user groups error', { error: error.message, userId });
             throw error;
         }
     },
@@ -252,10 +253,10 @@ export const groupService = {
                 updatedAt: serverTimestamp()
             });
 
-            console.log('✅ Objectif de groupe créé:', goalWithId);
+            logger.info('groupService: Group goal created', { groupId, goalId: goalWithId.id, type: goal.type });
             return goalWithId;
         } catch (error) {
-            console.error('❌ Erreur création objectif:', error);
+            logger.error('groupService: Create goal error', { error: error.message, groupId });
             throw error;
         }
     },
@@ -316,12 +317,12 @@ export const groupService = {
                     goals: updatedGoals,
                     updatedAt: serverTimestamp()
                 });
-                console.log('✅ Objectifs de groupe mis à jour');
+                logger.info('groupService: Group goals updated', { groupId });
             }
 
             return updatedGoals;
         } catch (error) {
-            console.error('❌ Erreur vérification objectifs:', error);
+            logger.error('groupService: Check goals error', { error: error.message, groupId });
             throw error;
         }
     }

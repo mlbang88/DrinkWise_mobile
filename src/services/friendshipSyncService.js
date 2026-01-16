@@ -56,7 +56,7 @@ export const friendshipSyncService = {
                         }
                         
                     } catch (error) {
-                        console.error("❌ Erreur synchronisation amitié:", error);
+                        console.error("❌ Erreur synchronisation amitié:", error?.message || String(error));
                     }
                 }
             }
@@ -102,7 +102,7 @@ export const friendshipSyncService = {
                         }
                         
                     } catch (error) {
-                        console.error("❌ Erreur synchronisation demande acceptée:", error);
+                        console.error("❌ Erreur synchronisation demande acceptée:", error?.message || String(error));
                     }
                 }
             }

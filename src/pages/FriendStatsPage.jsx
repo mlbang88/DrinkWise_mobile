@@ -2,48 +2,24 @@ import React, { useState, useEffect, useContext } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { FirebaseContext } from '../contexts/FirebaseContext';
 import { ExperienceService } from '../services/experienceService';
-import { gameplayConfig } from '../utils/data';
+import { gameplayConfig, badgeList } from '../utils/data';
 import { badgeService } from '../services/badgeService';
 import { DrinkWiseImages } from '../assets/DrinkWiseImages';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { useUserLevel } from '../hooks/useUserLevel';
+import { logger } from '../utils/logger';
 
 export default function FriendStatsPage({ friendId }) {
     const { db, user, appId, userProfile, setMessageBox } = useContext(FirebaseContext);
     const [friendStats, setFriendStats] = useState(null);
     const [loading, setLoading] = useState(true);
 
-    // Fonction pour calculer le niveau et l'XP avec ExperienceService
-    const calculateLevelInfo = (stats) => {
-        if (!stats) return { level: 1, levelName: "Novice", currentXp: 0, nextLevelXp: 100, progress: 0 };
-        
-        const unifiedStats = {
-            totalParties: stats.totalParties || stats.parties || 0,
-            totalDrinks: stats.totalDrinks || stats.drinks || 0,
-            totalChallenges: stats.challengesCompleted || stats.defis || 0,
-            totalBadges: stats.badgesUnlocked || stats.badges || 0,
-            totalQuizQuestions: 0
-        };
-        
-        const totalXp = ExperienceService.calculateTotalXP(unifiedStats);
-        const level = ExperienceService.calculateLevel(totalXp);
-        const levelName = ExperienceService.getLevelName(level);
-        
-        console.log("🔍 FriendStatsPage - Stats unifiées:", unifiedStats);
-        console.log("🔍 FriendStatsPage - Stats brutes:", stats);
-        console.log("🎯 FriendStatsPage - XP calculé:", totalXp, "Niveau:", level);
-        
-        const currentLevelXp = ExperienceService.getXpForLevel(level);
-        const nextLevelXp = ExperienceService.getXpForLevel(level + 1);
-        const progress = ((totalXp - currentLevelXp) / (nextLevelXp - currentLevelXp)) * 100;
-
-        return {
-            level,
-            levelName,
-            currentXp: totalXp,
-            nextLevelXp,
-            progress: Math.min(progress, 100)
-        };
-    };
+    // ✅ SOURCE UNIQUE DE VÉRITÉ - Utiliser le même hook que ProfilePage
+    const userLevelData = useUserLevel(userProfile);
+    
+    // État pour stocker le profil de l'ami
+    const [friendProfile, setFriendProfile] = useState(null);
+    const friendLevelData = useUserLevel(friendProfile);
 
     useEffect(() => {
         if (!user || !friendId) {
@@ -53,12 +29,12 @@ export default function FriendStatsPage({ friendId }) {
 
         // Mettre à jour les stats publiques de l'utilisateur actuel si nécessaire
         if (user && userProfile) {
-            console.log("🔍 Vérification des stats publiques:", userProfile.publicStats);
+            logger.debug('FriendStatsPage: Checking public stats', { hasPublicStats: !!userProfile.publicStats });
             // Synchroniser avec le nouveau système unifié
             ExperienceService.syncUserStats(db, appId, user.uid, userProfile).then(() => {
-                console.log("✅ Stats publiques synchronisées avec ExperienceService");
+                logger.info('FriendStatsPage: Public stats synced with ExperienceService');
             }).catch(error => {
-                console.error("❌ Erreur sync stats publiques:", error);
+                logger.error('FriendStatsPage: Stats sync error', { error: error.message });
                 // Fallback vers l'ancien système
                 badgeService.updatePublicStats(db, user, appId, userProfile);
             });
@@ -66,18 +42,20 @@ export default function FriendStatsPage({ friendId }) {
 
         const statsRef = doc(db, `artifacts/${appId}/public_user_stats`, friendId);
         const unsub = onSnapshot(statsRef, (doc) => {
-            console.log("📊 Données ami reçues:", doc.exists(), doc.data());
+            logger.debug('FriendStatsPage: Friend data received', { exists: doc.exists(), hasBadges: !!doc.data()?.unlockedBadges });
             if (doc.exists()) {
                 const friendData = doc.data();
-                console.log("🏆 Badges ami:", friendData.unlockedBadges);
+                logger.debug('FriendStatsPage: Friend badges', { badgesCount: friendData.unlockedBadges?.length || 0 });
                 setFriendStats(friendData);
+                // Stocker le profil complet pour le hook useUserLevel
+                setFriendProfile(friendData);
             } else {
-                console.log("❌ Document ami non trouvé pour:", friendId);
+                logger.debug('FriendStatsPage: Friend document not found', { friendId });
                 setMessageBox({ message: "Le profil de cet ami est privé ou n'existe pas.", type: "info" });
             }
             setLoading(false);
         }, (error) => {
-            console.error("❌ Erreur d'accès aux stats de l'ami:", error);
+            logger.error('FriendStatsPage: Access error', { error: error.message, friendId });
             setMessageBox({ message: "Impossible d'accéder aux statistiques de cet ami.", type: "error" });
             setLoading(false);
         });
@@ -87,16 +65,7 @@ export default function FriendStatsPage({ friendId }) {
 
     if (loading) return <LoadingSpinner />;
 
-    // Fallback si stats absentes
-    const userLevelInfo = calculateLevelInfo({
-        totalParties: userProfile?.publicStats?.totalParties ?? 0,
-        totalDrinks: userProfile?.publicStats?.totalDrinks ?? 0
-    });
-
-    const friendLevelInfo = calculateLevelInfo({
-        totalParties: friendStats?.totalParties ?? 0,
-        totalDrinks: friendStats?.totalDrinks ?? 0
-    });
+    // Les niveaux sont calculés automatiquement par useUserLevel
 
     return (
         <div style={{
@@ -115,7 +84,7 @@ export default function FriendStatsPage({ friendId }) {
                 <div style={{ textAlign: 'left' }}>
                     <div style={{ fontSize: '1rem', color: '#10b981', fontWeight: 'bold' }}>Moi</div>
                     <div style={{ fontSize: '1.1rem', color: '#a78bfa', fontWeight: 'bold' }}>
-                        Niveau {userLevelInfo.level + 1} - {userLevelInfo.levelName}
+                        Niveau {userLevelData.level} - {userLevelData.levelName}
                     </div>
                 </div>
                 <h1 style={{ fontSize: '24px', fontWeight: 'bold', margin: 0 }}>
@@ -124,7 +93,7 @@ export default function FriendStatsPage({ friendId }) {
                 <div style={{ textAlign: 'right' }}>
                     <div style={{ fontSize: '1rem', color: '#8b5cf6', fontWeight: 'bold' }}>{friendStats?.username}</div>
                     <div style={{ fontSize: '1.1rem', color: '#a78bfa', fontWeight: 'bold' }}>
-                        Niveau {friendLevelInfo.level + 1} - {friendLevelInfo.levelName}
+                        Niveau {friendLevelData.level} - {friendLevelData.levelName}
                     </div>
                 </div>
             </div>
@@ -157,10 +126,10 @@ export default function FriendStatsPage({ friendId }) {
                             <div style={{ textAlign: 'center' }}>
                                 <div style={{ fontSize: '14px', color: '#10b981', marginBottom: '8px' }}>Vous</div>
                                 <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#10b981', marginBottom: '5px' }}>
-                                    Niveau {userLevelInfo.level} - {userLevelInfo.levelName}
+                                    Niveau {userLevelData.level} - {userLevelData.levelName}
                                 </div>
                                 <div style={{ fontSize: '12px', color: '#9ca3af', marginBottom: '10px' }}>
-                                    {userLevelInfo.currentXp} XP
+                                    {userLevelData.xp} XP
                                 </div>
                                 <div style={{
                                     width: '100%',
@@ -170,7 +139,7 @@ export default function FriendStatsPage({ friendId }) {
                                     overflow: 'hidden'
                                 }}>
                                     <div style={{
-                                        width: `${userLevelInfo.progress}%`,
+                                        width: `${userLevelData.progress}%`,
                                         height: '100%',
                                         backgroundColor: '#10b981',
                                         borderRadius: '4px',
@@ -194,10 +163,10 @@ export default function FriendStatsPage({ friendId }) {
                                     {friendStats.username}
                                 </div>
                                 <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#8b5cf6', marginBottom: '5px' }}>
-                                    Niveau {friendLevelInfo.level + 1} - {friendLevelInfo.levelName}
+                                    Niveau {friendLevelData.level} - {friendLevelData.levelName}
                                 </div>
                                 <div style={{ fontSize: '12px', color: '#9ca3af', marginBottom: '10px' }}>
-                                    {friendLevelInfo.currentXp} XP
+                                    {friendLevelData.xp} XP
                                 </div>
                                 <div style={{
                                     width: '100%',
@@ -207,7 +176,7 @@ export default function FriendStatsPage({ friendId }) {
                                     overflow: 'hidden'
                                 }}>
                                     <div style={{
-                                        width: `${friendLevelInfo.progress}%`,
+                                        width: `${friendLevelData.progress}%`,
                                         height: '100%',
                                         backgroundColor: '#8b5cf6',
                                         borderRadius: '4px',
@@ -340,15 +309,9 @@ export default function FriendStatsPage({ friendId }) {
                             maxHeight: '300px',
                             overflowY: 'auto'
                         }}>
-                            {(() => {
-                                console.log("🎯 Debug badges:", {
-                                    userBadges: userProfile?.unlockedBadges,
-                                    friendBadges: friendStats.unlockedBadges,
-                                    friendStats: friendStats
-                                });
-                                return Object.entries(badgeList).map(([badgeId, badge]) => {
-                                    const userHas = userProfile?.unlockedBadges?.includes(badgeId) || false;
-                                    const friendHas = friendStats.unlockedBadges?.includes(badgeId) || false;
+                            {Object.entries(badgeList).map(([badgeId, badge]) => {
+                                const userHas = userProfile?.unlockedBadges?.includes(badgeId) || false;
+                                const friendHas = friendStats.unlockedBadges?.includes(badgeId) || false;
                                     
                                     let borderColor = 'rgba(75, 85, 99, 0.5)'; // Gris par défaut
                                     let bgColor = 'rgba(0, 0, 0, 0.3)';
@@ -397,8 +360,8 @@ export default function FriendStatsPage({ friendId }) {
                                             )}
                                         </div>
                                     );
-                                });
-                            })()}
+                                })
+                            }
                         </div>
                         
                         {/* Légende */}

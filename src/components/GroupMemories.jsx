@@ -26,7 +26,7 @@ export default function GroupMemories({ groupId, groupMembers }) {
             setMemories(recentParties);
             setAchievements(groupAchievements);
         } catch (error) {
-            console.error('❌ Erreur chargement souvenirs:', error);
+            console.error('❌ Erreur chargement souvenirs:', error?.message || String(error));
             setMemories([]);
             setAchievements([]);
         } finally {
@@ -65,7 +65,7 @@ export default function GroupMemories({ groupId, groupMembers }) {
                 }
             }
         } catch (error) {
-            console.error('Erreur chargement souvenirs publics:', error);
+            console.error('Erreur chargement souvenirs publics:', error?.message || String(error));
         }
         
         // Si aucun souvenir public, on charge les soirées de l'utilisateur actuel
@@ -92,7 +92,7 @@ export default function GroupMemories({ groupId, groupMembers }) {
                     parties.push(party);
                 }
             } catch (error) {
-                console.error('Erreur chargement vos soirées:', error);
+                console.error('Erreur chargement vos soirées:', error?.message || String(error));
             }
         }
         
@@ -136,7 +136,7 @@ export default function GroupMemories({ groupId, groupMembers }) {
             
             console.log('✅ Souvenir de test créé !');
         } catch (error) {
-            console.error('❌ Erreur création souvenir test:', error);
+            console.error('❌ Erreur création souvenir test:', error?.message || String(error));
         }
     };
 

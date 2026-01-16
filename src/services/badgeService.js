@@ -1,6 +1,7 @@
 import { collection, getDocs, updateDoc, doc, getDoc, setDoc } from 'firebase/firestore';
 import { badgeList } from '../utils/data';
 import { ExperienceService } from './experienceService';
+import { logger } from '../utils/logger';
 
 const normalizeValue = (value) => {
     if (!value && value !== 0) return value;
@@ -42,7 +43,7 @@ const isDeepEqual = (a, b) => {
 export const badgeService = {
     // DEPRECATED: Utiliser ExperienceService.calculateRealStats à la place
     calculateGlobalStats: (parties, userProfile = null) => {
-        console.warn('⚠️ DEPRECATED: badgeService.calculateGlobalStats - Utiliser ExperienceService.calculateRealStats');
+        logger.warn('badgeService: DEPRECATED calculateGlobalStats - Utiliser ExperienceService.calculateRealStats');
         return ExperienceService.calculateRealStats(parties, userProfile);
     },
 
@@ -172,21 +173,21 @@ export const badgeService = {
                     updatedAt: new Date()
                 }, { merge: true });
 
-                console.log("📊 Stats publiques mises à jour:", cumulativeStats);
+                logger.info('badgeService: Stats publiques mises à jour', { statsCount: Object.keys(cumulativeStats).length });
             }
 
             return cumulativeStats;
         } catch (error) {
-            console.error("❌ Erreur lors de la mise à jour des stats publiques:", error);
+            logger.error('badgeService: Erreur mise à jour stats publiques', { error: error.message });
             return null;
         }
     },
 
     checkAndAwardBadges: async (db, user, userProfile, appId, newPartyData, setMessageBox) => {
-        console.log("🎖️ Début checkAndAwardBadges", { user: !!user, userProfile: !!userProfile, appId, newPartyData });
+        logger.debug('badgeService: Début checkAndAwardBadges', { hasUser: !!user, hasUserProfile: !!userProfile });
         
         if (!user || !userProfile) {
-            console.log("❌ Pas d'utilisateur ou de profil");
+            logger.warn('badgeService: Pas d\'utilisateur ou de profil');
             return { newBadgesCount: 0 };
         }
 
@@ -196,31 +197,31 @@ export const badgeService = {
         try {
             const partiesSnapshot = await getDocs(userPartiesRef);
             const allParties = partiesSnapshot.docs.map(doc => doc.data());
-            console.log("📊 Parties récupérées:", allParties.length);
+            logger.debug('badgeService: Parties récupérées', { count: allParties.length });
 
             const cumulativeStats = ExperienceService.calculateRealStats(allParties, userProfile);
-            console.log("📈 Stats cumulatives:", cumulativeStats);
+            logger.debug('badgeService: Stats cumulatives calculées');
             
             let updatedBadges = [...(userProfile.unlockedBadges || [])];
             let newBadgesAwarded = [];
-            console.log("🏅 Badges actuels:", updatedBadges);
+            logger.debug('badgeService: Badges actuels', { count: updatedBadges.length });
 
             for (const badgeId in badgeList) {
                 const badge = badgeList[badgeId];
                 const isAlreadyUnlocked = updatedBadges.includes(badgeId);
                 const meetsCriteria = badge.criteria(cumulativeStats, newPartyData);
                 
-                console.log(`🔍 Badge ${badgeId}: déjà débloqué=${isAlreadyUnlocked}, critères remplis=${meetsCriteria}`);
+                logger.debug('badgeService: Vérification badge', { badgeId, isAlreadyUnlocked, meetsCriteria });
                 
                 if (!isAlreadyUnlocked && meetsCriteria) {
                     updatedBadges.push(badgeId);
                     newBadgesAwarded.push(badgeId); // Stocker l'ID au lieu du nom
-                    console.log(`✅ Nouveau badge débloqué: ${badge.name}`);
+                    logger.info('badgeService: Nouveau badge débloqué', { badgeName: badge.name });
                 }
             }
 
             if (newBadgesAwarded.length > 0) {
-                console.log("💾 Sauvegarde des nouveaux badges:", newBadgesAwarded);
+                logger.info('badgeService: Sauvegarde nouveaux badges', { count: newBadgesAwarded.length });
                 
                 const publicStats = {
                     totalDrinks: cumulativeStats.totalDrinks,
@@ -265,10 +266,10 @@ export const badgeService = {
                 // Mettre à jour les stats des groupes auxquels l'utilisateur appartient
                 await badgeService.updateUserGroupsStats(db, appId, user.uid);
             }
-            console.log("📝 Aucun nouveau badge");
+            logger.debug('badgeService: Aucun nouveau badge');
             return { newBadgesCount: 0, newBadges: [] };
         } catch (error) {
-            console.error("❌ Erreur lors de la vérification des badges:", error);
+            logger.error('badgeService: Erreur vérification badges', { error: error.message });
             setMessageBox({ message: "Erreur lors de la mise à jour des badges.", type: "error" });
             return { newBadgesCount: 0, newBadges: [] };
         }
@@ -293,9 +294,9 @@ export const badgeService = {
                 await groupService.checkGroupGoals(db, appId, group.id);
             }
             
-            console.log(`✅ Stats mises à jour pour ${userGroups.length} groupes`);
+            logger.info('badgeService: Stats groupes mises à jour', { groupCount: userGroups.length });
         } catch (error) {
-            console.error('❌ Erreur mise à jour groupes:', error);
+            logger.error('badgeService: Erreur mise à jour groupes', { error: error.message });
         }
     },
 

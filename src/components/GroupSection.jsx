@@ -39,7 +39,7 @@ const GroupSection = () => {
                         };
                     }
                 } catch (err) {
-                    console.error('Erreur lors du chargement du profil:', err);
+                    console.error('Erreur lors du chargement du profil:', err?.message || String(err));
                 }
             }
         }
@@ -59,7 +59,7 @@ const GroupSection = () => {
             setGroups(userGroups);
             setHasLoadedGroups(true);
         } catch (error) {
-            console.error('❌ Erreur chargement groupes:', error);
+            console.error('❌ Erreur chargement groupes:', error?.message || String(error));
             setMessageBox({ message: 'Erreur lors du chargement des groupes', type: 'error' });
             setHasLoadedGroups(false); // Réinitialiser en cas d'erreur
         } finally {
@@ -93,7 +93,7 @@ const GroupSection = () => {
             setShowCreateForm(false);
             loadUserGroups(); // Recharger la liste
         } catch (error) {
-            console.error('❌ Erreur création groupe:', error);
+            console.error('❌ Erreur création groupe:', error?.message || String(error));
             setMessageBox({ message: 'Erreur lors de la création du groupe', type: 'error' });
         }
     };
@@ -113,7 +113,7 @@ const GroupSection = () => {
             setShowInviteForm(false);
             loadUserGroups(); // Recharger pour voir les nouveaux membres
         } catch (error) {
-            console.error('❌ Erreur invitation:', error);
+            console.error('❌ Erreur invitation:', error?.message || String(error));
             setMessageBox({ message: 'Erreur lors de l\'invitation', type: 'error' });
         }
     };
@@ -136,7 +136,7 @@ const GroupSection = () => {
                 setMessageBox({ message: 'Membre supprimé du groupe', type: 'success' });
                 loadUserGroups(); // Recharger la liste
             } catch (error) {
-                console.error('❌ Erreur suppression membre:', error);
+                console.error('❌ Erreur suppression membre:', error?.message || String(error));
                 setMessageBox({ message: 'Erreur lors de la suppression du membre', type: 'error' });
             }
         }
@@ -156,7 +156,7 @@ const GroupSection = () => {
                 setSelectedGroup(null); // Déselectionner le groupe
                 loadUserGroups(); // Recharger la liste
             } catch (error) {
-                console.error('❌ Erreur suppression groupe:', error);
+                console.error('❌ Erreur suppression groupe:', error?.message || String(error));
                 setMessageBox({ message: 'Erreur lors de la suppression du groupe', type: 'error' });
             }
         }

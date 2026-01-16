@@ -2,6 +2,7 @@
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { doc, updateDoc } from 'firebase/firestore';
 import { storage } from '../firebase';
+import { logger } from '../utils/logger';
 
 export const profilePhotoService = {
     /**
@@ -9,7 +10,7 @@ export const profilePhotoService = {
      */
     async uploadProfilePhoto(file, userId, appId) {
         try {
-            console.log('📸 Upload photo de profil pour:', userId);
+            logger.info('profilePhotoService: Upload photo de profil', { userId });
             
             // Validation du fichier
             if (!file) {
@@ -33,12 +34,12 @@ export const profilePhotoService = {
             const storageRef = ref(storage, filename);
 
             // Upload du fichier
-            console.log('⬆️ Upload en cours...');
+            logger.info('profilePhotoService: Upload en cours');
             const snapshot = await uploadBytes(storageRef, file);
             
             // Obtenir l'URL de téléchargement
             const downloadURL = await getDownloadURL(snapshot.ref);
-            console.log('✅ Photo uploadée:', downloadURL);
+            logger.info('profilePhotoService: Photo uploadée', { hasUrl: !!downloadURL });
 
             return {
                 url: downloadURL,
@@ -48,7 +49,7 @@ export const profilePhotoService = {
                 type: file.type
             };
         } catch (error) {
-            console.error('❌ Erreur upload photo:', error);
+            logger.error('profilePhotoService: Erreur upload photo', { error: error.message });
             throw error;
         }
     },
@@ -71,9 +72,9 @@ export const profilePhotoService = {
                 updatedAt: new Date()
             });
 
-            console.log('✅ Photo de profil mise à jour');
+            logger.info('profilePhotoService: Photo de profil mise à jour');
         } catch (error) {
-            console.error('❌ Erreur mise à jour profil:', error);
+            logger.error('profilePhotoService: Erreur mise à jour profil', { error: error.message });
             throw error;
         }
     },
@@ -90,7 +91,7 @@ export const profilePhotoService = {
             console.log('✅ Ancienne photo supprimée');
         } catch (error) {
             // Ne pas faire échouer si la photo n'existe pas
-            console.warn('⚠️ Impossible de supprimer l\'ancienne photo:', error);
+            console.warn('⚠️ Impossible de supprimer l\'ancienne photo:', error?.message || String(error));
         }
     },
 
@@ -112,7 +113,7 @@ export const profilePhotoService = {
 
             return photoData;
         } catch (error) {
-            console.error('❌ Erreur changement photo profil:', error);
+            console.error('❌ Erreur changement photo profil:', error?.message || String(error));
             throw error;
         }
     },
@@ -143,7 +144,7 @@ export const profilePhotoService = {
 
             console.log('✅ Photo de profil supprimée');
         } catch (error) {
-            console.error('❌ Erreur suppression photo:', error);
+            console.error('❌ Erreur suppression photo:', error?.message || String(error));
             throw error;
         }
     },

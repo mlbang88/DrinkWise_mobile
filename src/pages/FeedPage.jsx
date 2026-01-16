@@ -1,22 +1,38 @@
 import React, { useState, useEffect, useContext, useCallback } from 'react';
-import { collection, query, where, getDocs, orderBy, limit, doc, getDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy, limit, doc, getDoc, updateDoc, arrayUnion, setDoc } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { FirebaseContext } from '../contexts/FirebaseContext.jsx';
 import { badgeService } from '../services/badgeService';
 import { challengeService } from '../services/challengeService';
 import LoadingSpinner from '../components/LoadingSpinner';
 import LoadingIcon from '../components/LoadingIcon';
+import ErrorFallback, { EmptyState } from '../components/ErrorFallback';
 
 // Phase 2C: Animation components
 import AnimatedList from '../components/AnimatedList';
 import AnimatedCard from '../components/AnimatedCard';
 import FeedbackOverlay from '../components/FeedbackOverlay';
 
-import { Calendar, Users, Trophy, MapPin, Heart, MessageCircle } from 'lucide-react';
+import { Calendar, Users, Trophy, MapPin, Heart, MessageCircle, RefreshCw } from 'lucide-react';
 import UserAvatar from '../components/UserAvatar';
 import EditPartyModal from '../components/EditPartyModal';
 import { DrinkWiseImages } from '../assets/DrinkWiseImages';
 import { logger } from '../utils/logger.js';
+import { toast } from 'sonner';
+import { hapticFeedback } from '../utils/haptics';
+import { useGesture } from '@use-gesture/react';
+import { SkeletonCard } from '../components/SkeletonCard';
+import InstagramPost from '../components/InstagramPost';
+
+// Types de réactions disponibles (défini en dehors pour être accessible partout)
+const REACTIONS = [
+    { type: 'like', emoji: '👍', label: "J'aime" },
+    { type: 'love', emoji: '❤️', label: 'Amour' },
+    { type: 'haha', emoji: '😂', label: 'Drôle' },
+    { type: 'wow', emoji: '😮', label: 'Wow' },
+    { type: 'sad', emoji: '😢', label: 'Triste' },
+    { type: 'angry', emoji: '😡', label: 'Énervé' }
+];
 
 const FeedPage = () => {
     const { db, user, appId, userProfile, setMessageBox, functions } = useContext(FirebaseContext);
@@ -24,6 +40,7 @@ const FeedPage = () => {
     // États principaux
     const [feedItems, setFeedItems] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
     const [refreshing, setRefreshing] = useState(false);
     const [friendsData, setFriendsData] = useState({});
     
@@ -31,6 +48,7 @@ const FeedPage = () => {
     const [interactions, setInteractions] = useState({});
     const [showComments, setShowComments] = useState({});
     const [isLoadingInteraction, setIsLoadingInteraction] = useState({});
+    const [showReactionPicker, setShowReactionPicker] = useState({});
     
     // États pour l'affichage des photos
     const [selectedPhoto, setSelectedPhoto] = useState(null);
@@ -43,11 +61,70 @@ const FeedPage = () => {
     const [editingParty, setEditingParty] = useState(null);
     const [showEditModal, setShowEditModal] = useState(false);
     
+    // États pour double-tap to like
+    const [lastTap, setLastTap] = useState({});
+    const [heartAnimation, setHeartAnimation] = useState({});
+    
+    // État pour pull-to-refresh
+    const [pullY, setPullY] = useState(0);
+    
     // Fonctions Firebase
     const handleFeedInteraction = httpsCallable(functions, 'handleFeedInteraction');
     const getFeedInteractions = httpsCallable(functions, 'getFeedInteractions');
 
     logger.info('FeedPage initialisé', { userId: user?.uid, username: userProfile?.username });
+
+    // ===== INTERACTIONS MODERNES =====
+
+    // Double-tap to like (Instagram-style)
+    const handleDoubleTap = (itemId) => {
+        const now = Date.now();
+        const lastTapTime = lastTap[itemId] || 0;
+        
+        if (now - lastTapTime < 300) {
+            // Double tap détecté!
+            handleInteraction(itemId, 'like');
+            hapticFeedback.light();
+            
+            // Animation du coeur
+            setHeartAnimation({ [itemId]: true });
+            setTimeout(() => {
+                setHeartAnimation({ [itemId]: false });
+            }, 1000);
+            
+            logger.debug('Double-tap like', { itemId });
+        }
+        
+        setLastTap({ ...lastTap, [itemId]: now });
+    };
+
+    // Pull-to-refresh
+    const handlePullRefresh = async () => {
+        if (refreshing) return;
+        
+        setRefreshing(true);
+        hapticFeedback.medium();
+        logger.info('Pull-to-refresh déclenché');
+        
+        await loadFeed();
+        
+        setRefreshing(false);
+        hapticFeedback.success();
+        toast.success('✨ Feed mis à jour!');
+    };
+
+    // Gesture pour pull-to-refresh
+    const bind = useGesture({
+        onDrag: ({ down, movement: [, my] }) => {
+            if (my > 0 && window.scrollY === 0) {
+                setPullY(down ? Math.min(my, 100) : 0);
+                
+                if (!down && my > 80) {
+                    handlePullRefresh();
+                }
+            }
+        },
+    });
 
     // ===== CHARGEMENT DES DONNÉES =====
 
@@ -87,6 +164,11 @@ const FeedPage = () => {
 
     // Charger mes soirées
     const loadMyParties = async () => {
+        if (!db || !appId || !user?.uid) {
+            logger.warn('loadMyParties: db, appId ou user.uid manquant');
+            return [];
+        }
+        
         try {
             const partiesQuery = query(
                 collection(db, `artifacts/${appId}/users/${user.uid}/parties`),
@@ -112,6 +194,11 @@ const FeedPage = () => {
 
     // Charger les soirées des amis
     const loadFriendsParties = async (friends) => {
+        if (!db || !appId) {
+            logger.warn('loadFriendsParties: db ou appId manquant');
+            return [];
+        }
+        
         const parties = [];
         
         for (const [friendId, friendData] of Object.entries(friends)) {
@@ -137,6 +224,7 @@ const FeedPage = () => {
                 });
             } catch (error) {
                 logger.error('Erreur chargement soirées ami', { friendId, error: error.message });
+                // Continue with other friends even if one fails
             }
         }
         
@@ -146,13 +234,14 @@ const FeedPage = () => {
     // Charger le feed principal
     const loadFeed = useCallback(async () => {
         if (!db || !user || !appId) {
-            console.log('⏳ Firebase pas encore prêt, attente...');
+            logger.debug('FeedPage: Firebase not ready, waiting');
             setLoading(false);
             return;
         }
         
         try {
             setLoading(true);
+            setError(null);
             logger.info('Chargement du feed...');
 
             // 1. Charger les amis
@@ -178,6 +267,7 @@ const FeedPage = () => {
 
         } catch (error) {
             logger.error('Erreur chargement feed', { error: error.message });
+            setError(error.message || 'Erreur lors du chargement du fil');
             setMessageBox({ message: 'Erreur lors du chargement du fil', type: 'error' });
         } finally {
             setLoading(false);
@@ -201,6 +291,18 @@ const FeedPage = () => {
 
             if (result?.data?.success) {
                 const interactionsData = result.data.interactions || { likes: [], comments: [], congratulations: [] };
+                
+                // Calculer userReaction depuis reactions object
+                // Format: { like: [{userId, username, timestamp}], love: [...] }
+                let userReaction = null;
+                if (interactionsData.reactions) {
+                    for (const [reactionType, users] of Object.entries(interactionsData.reactions)) {
+                        if (Array.isArray(users) && users.some(u => u.userId === user.uid)) {
+                            userReaction = reactionType;
+                            break;
+                        }
+                    }
+                }
                 
                 // Enrichir les commentaires avec les noms d'utilisateur
                 if (interactionsData.comments?.length > 0) {
@@ -231,10 +333,13 @@ const FeedPage = () => {
 
                 setInteractions(prev => ({
                     ...prev,
-                    [itemId]: interactionsData
+                    [itemId]: {
+                        ...interactionsData,
+                        userReaction
+                    }
                 }));
 
-                logger.debug('Interactions chargées', { itemId, commentsCount: interactionsData.comments?.length || 0 });
+                logger.debug('Interactions chargées', { itemId, commentsCount: interactionsData.comments?.length || 0, userReaction });
             } else {
                 // Pas d'interactions trouvées
                 setInteractions(prev => ({
@@ -256,9 +361,9 @@ const FeedPage = () => {
         if (isLoadingInteraction[itemId]) return;
 
         try {
-            logger.debug('Interaction', { type, itemId, data });
+            logger.debug('Interaction', { type, itemId });
 
-            // Trouver le propriétaire de l'item
+            // Trouver le propriétaire de l'item seulement pour l'appel Firebase
             const item = feedItems.find(i => i.id === itemId);
             if (!item) {
                 logger.error('Item non trouvé', { itemId });
@@ -266,23 +371,52 @@ const FeedPage = () => {
             }
 
             // ⚡ MISE À JOUR OPTIMISTE : Met à jour l'UI instantanément
-            if (type === 'like') {
-                const currentInteractions = interactions[itemId] || { likes: [], comments: [], congratulations: [] };
-                const hasLiked = currentInteractions.likes?.some(like => like.userId === user.uid);
+            if (['like', 'love', 'haha', 'wow', 'sad', 'angry'].includes(type)) {
+                const currentInteractions = interactions[itemId] || { likes: [], comments: [], congratulations: [], reactions: {} };
+                const currentReactions = currentInteractions.reactions || {};
+                const userReaction = Object.keys(currentReactions).find(reactionType => 
+                    currentReactions[reactionType]?.some(r => r.userId === user.uid)
+                );
+                
+                // Si l'utilisateur a déjà réagi, on retire son ancienne réaction
+                let newReactions = { ...currentReactions };
+                if (userReaction) {
+                    newReactions[userReaction] = newReactions[userReaction].filter(r => r.userId !== user.uid);
+                    if (newReactions[userReaction].length === 0) {
+                        delete newReactions[userReaction];
+                    }
+                }
+                
+                // Ajouter la nouvelle réaction (sauf si c'était la même)
+                if (userReaction !== type) {
+                    newReactions[type] = [...(newReactions[type] || []), {
+                        userId: user.uid,
+                        username: userProfile?.username || 'Vous',
+                        timestamp: new Date()
+                    }];
+                    
+                    // Haptic feedback + toast
+                    hapticFeedback.light();
+                    const reactionEmoji = REACTIONS.find(r => r.type === type)?.emoji || '👍';
+                    toast.success(`${reactionEmoji} Réaction ajoutée!`);
+                }
+                
+                // Calculer le nouveau userReaction après modification
+                const newUserReaction = Object.keys(newReactions).find(reactionType =>
+                    Array.isArray(newReactions[reactionType]) && newReactions[reactionType]?.some(r => r.userId === user.uid)
+                ) || null;
                 
                 setInteractions(prev => ({
                     ...prev,
                     [itemId]: {
                         ...currentInteractions,
-                        likes: hasLiked 
-                            ? currentInteractions.likes.filter(like => like.userId !== user.uid)
-                            : [...(currentInteractions.likes || []), { 
-                                userId: user.uid, 
-                                username: userProfile?.username || 'Vous',
-                                timestamp: new Date()
-                              }]
+                        reactions: newReactions,
+                        userReaction: newUserReaction
                     }
                 }));
+                
+                // Fermer le picker après sélection
+                setShowReactionPicker(prev => ({ ...prev, [itemId]: false }));
             } else if (type === 'comment' && data?.text) {
                 const currentInteractions = interactions[itemId] || { likes: [], comments: [], congratulations: [] };
                 const newComment = {
@@ -300,6 +434,10 @@ const FeedPage = () => {
                         comments: [...(currentInteractions.comments || []), newComment]
                     }
                 }));
+                
+                // Haptic feedback + toast
+                hapticFeedback.medium();
+                toast.success('💬 Commentaire ajouté!');
             }
 
             // Utiliser l'ID original pour Firebase
@@ -347,6 +485,59 @@ const FeedPage = () => {
             return itemInteractions.congratulations?.some(congrat => congrat.userId === user.uid);
         }
         return false;
+    };
+
+    // Ajouter un commentaire
+    const handleAddComment = async (itemId, commentText) => {
+        if (!commentText.trim() || !user) return;
+
+        try {
+            const newComment = {
+                userId: user.uid,
+                username: userProfile?.username || user.displayName || 'Utilisateur',
+                text: commentText.trim(),
+                timestamp: new Date()
+            };
+
+            // Mise à jour optimiste
+            setInteractions(prev => ({
+                ...prev,
+                [itemId]: {
+                    ...prev[itemId],
+                    comments: [...(prev[itemId]?.comments || []), newComment]
+                }
+            }));
+
+            // Utiliser l'ID original pour les interactions (sans préfixe userId)
+            const originalId = itemId.includes('-') ? itemId.split('-')[1] : itemId;
+
+            // Enregistrer dans Firestore via artifacts/{appId}/feed_interactions
+            const interactionRef = doc(db, `artifacts/${appId}/feed_interactions`, originalId);
+            
+            // Vérifier si le document existe
+            const interactionDoc = await getDoc(interactionRef);
+            
+            if (interactionDoc.exists()) {
+                // Mettre à jour le document existant
+                await updateDoc(interactionRef, {
+                    comments: arrayUnion(newComment)
+                });
+            } else {
+                // Créer le document s'il n'existe pas
+                await setDoc(interactionRef, {
+                    likes: [],
+                    comments: [newComment],
+                    congratulations: []
+                });
+            }
+
+            logger.info('Commentaire ajouté', { itemId, commentLength: commentText.length });
+
+        } catch (error) {
+            logger.error('Erreur ajout commentaire', { error: error.message });
+            // Recharger les interactions en cas d'erreur
+            loadInteractions(itemId);
+        }
     };
 
     // ===== GESTION ÉDITION/SUPPRESSION DES SOIRÉES =====
@@ -542,728 +733,87 @@ const FeedPage = () => {
         );
     };
 
-    // Item de soirée
+    // Item de soirée - Version Instagram
     const PartyItem = ({ item, onEditParty, onDeleteParty }) => {
         const party = item.data;
         const totalDrinks = party.drinks?.reduce((sum, drink) => sum + drink.quantity, 0) || 0;
-        const timeAgo = getTimeAgo(item.timestamp?.toDate());
+        
+        // Protection: s'assurer que item.user existe
+        if (!item.user) {
+            item.user = item.isOwn ? userProfile : friendsData[item.userId] || { username: 'Utilisateur inconnu', displayName: 'Utilisateur' };
+        }
 
-        // Debug: vérifier si la soirée a des photos et des badges
-        logger.debug(`PartyItem ${item.id}`, {
-            hasPhotos: !!(party.photoURLs && party.photoURLs.length > 0),
-            photosCount: party.photoURLs?.length || 0,
-            hasVideos: !!(party.videoURLs && party.videoURLs.length > 0),
-            videosCount: party.videoURLs?.length || 0,
-            // Debug badges
-            hasBadges: !!(party.unlockedBadges && party.unlockedBadges.length > 0),
-            badgesCount: party.unlockedBadges?.length || 0,
-            badges: party.unlockedBadges,
-            // Debug level-up
-            hasLevelUp: !!party.levelUp,
-            levelUp: party.levelUp,
-            // Debug challenges
-            hasChallenges: !!(party.completedChallenges && party.completedChallenges.length > 0),
-            challenges: party.completedChallenges
-        });
+        // Vérifier si l'utilisateur a réagi
+        const userReaction = interactions[item.id]?.userReaction;
+        const isLiked = userReaction === 'like' || userReaction === 'love';
+        
+        // Compter les likes
+        const likesCount = interactions[item.id]?.reactions ? 
+            Object.values(interactions[item.id].reactions).reduce((sum, users) => sum + users.length, 0) : 0;
+        
+        const commentsCount = interactions[item.id]?.comments?.length || 0;
+        
+        // Récupérer les interactions de cet item
+        const currentInteractions = interactions[item.id];
+
+        // Convertir timestamp en Date si nécessaire
+        let timestampDate = null;
+        try {
+            if (item.timestamp?.toDate) {
+                timestampDate = item.timestamp.toDate();
+            } else if (item.timestamp instanceof Date) {
+                timestampDate = item.timestamp;
+            }
+        } catch (e) {
+            console.error('Error converting timestamp:', e?.message || 'Unknown error');
+        }
+
+        // Préparer les données du post pour InstagramPost (valeurs primitives uniquement)
+        const postData = {
+            summary: (typeof party.summary === 'string' && party.summary) || '',
+            totalDrinks: Number(totalDrinks) || 0,
+            girlsTalkedTo: Number(party.girlsTalkedTo) || 0,
+            // location est un string direct, pas un objet
+            locationName: (typeof party.location === 'string' && party.location) || '',
+            photoURLs: Array.isArray(party.photoURLs) ? party.photoURLs : [],
+            photoURL: (typeof party.photoURL === 'string' && party.photoURL) || '',
+            videoURLs: Array.isArray(party.videoURLs) ? party.videoURLs : [],
+            xpGained: Number(party.xpGained) || 0,
+            // companions.selectedNames contient les noms des amis
+            companions: party.companions?.selectedNames && Array.isArray(party.companions.selectedNames)
+                ? party.companions.selectedNames.filter(name => typeof name === 'string' && name.trim() !== '')
+                : [],
+            companionsType: party.companions?.type || 'none',
+            groupName: (typeof party.companions?.groupName === 'string' && party.companions.groupName) || '',
+            badges: Array.isArray(party.badges) ? party.badges : [],
+            comments: currentInteractions?.comments || []
+        };
+
+        // Simplifier user en valeurs primitives uniquement
+        const userData = {
+            username: (typeof item.user?.username === 'string' && item.user.username) || 
+                      (typeof item.user?.displayName === 'string' && item.user.displayName) || 
+                      'Utilisateur',
+            profilePhoto: (typeof item.user?.photoURL === 'string' && item.user.photoURL) || 
+                         (typeof item.user?.profilePhoto === 'string' && item.user.profilePhoto) || 
+                         null
+        };
 
         return (
-            <div style={{
-                backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                borderRadius: '16px',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
-                padding: '20px',
-                marginBottom: '16px',
-                width: '100%',
-                boxSizing: 'border-box',
-                position: 'relative'
-            }}>
-                {/* Boutons Edit/Delete pour les soirées du propriétaire */}
-                {item.isOwn && (
-                    <div style={{
-                        position: 'absolute',
-                        top: '12px',
-                        right: '12px',
-                        display: 'flex',
-                        gap: '6px',
-                        zIndex: 10
-                    }}>
-                        <button
-                            onClick={() => onEditParty && onEditParty(item)}
-                            style={{
-                                padding: '6px 8px',
-                                backgroundColor: 'rgba(59, 130, 246, 0.9)',
-                                border: 'none',
-                                borderRadius: '6px',
-                                color: 'white',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                fontSize: '12px',
-                                fontWeight: '600'
-                            }}
-                            title="Modifier cette soirée"
-                        >
-                            ✏️
-                        </button>
-                        <button
-                            onClick={() => onDeleteParty && onDeleteParty(item)}
-                            style={{
-                                padding: '6px 8px',
-                                backgroundColor: 'rgba(220, 38, 38, 0.9)',
-                                border: 'none',
-                                borderRadius: '6px',
-                                color: 'white',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                fontSize: '12px',
-                                fontWeight: '600'
-                            }}
-                            title="Supprimer cette soirée"
-                        >
-                            🗑️
-                        </button>
-                    </div>
-                )}
-                {/* Header */}
-                <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    marginBottom: '16px',
-                    width: '100%',
-                    maxWidth: '100%',
-                    overflow: 'hidden'
-                }}>
-                    <UserAvatar 
-                        user={item.isOwn ? userProfile : friendsData[item.userId]}
-                        size={40}
-                        style={{ marginRight: '12px', flexShrink: 0 }}
-                    />
-                    <div style={{ 
-                        flex: 1, 
-                        minWidth: 0, // Permet la compression
-                        overflow: 'hidden'
-                    }}>
-                        <div style={{ 
-                            color: 'white', 
-                            fontWeight: '600', 
-                            fontSize: 'clamp(14px, 4vw, 16px)', // Responsive font size
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            flexWrap: 'wrap', // Permet le passage à la ligne
-                            overflow: 'hidden'
-                        }}>
-                            <span style={{
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap',
-                                maxWidth: '150px' // Limite la largeur du nom
-                            }}>
-                                {item.isOwn ? 'Vous' : item.username}
-                            </span>
-                            {/* Indicateur de photos */}
-                            {(party.photoURLs && party.photoURLs.length > 0) && (
-                                <span style={{
-                                    backgroundColor: '#8b45ff',
-                                    color: 'white',
-                                    fontSize: 'clamp(9px, 2.5vw, 10px)', // Responsive
-                                    padding: '2px 4px',
-                                    borderRadius: '6px',
-                                    fontWeight: '600',
-                                    flexShrink: 0,
-                                    whiteSpace: 'nowrap'
-                                }}>
-                                    📸 {party.photoURLs.length}
-                                </span>
-                            )}
-                            {/* Indicateur de vidéos */}
-                            {(party.videoURLs && party.videoURLs.length > 0) && (
-                                <span style={{
-                                    backgroundColor: '#ef4444',
-                                    color: 'white',
-                                    fontSize: 'clamp(9px, 2.5vw, 10px)', // Responsive
-                                    padding: '2px 4px',
-                                    borderRadius: '6px',
-                                    fontWeight: '600',
-                                    flexShrink: 0,
-                                    whiteSpace: 'nowrap'
-                                }}>
-                                    🎥 {party.videoURLs.length}
-                                </span>
-                            )}
-                            {/* Rétrocompatibilité avec l'ancien format */}
-                            {party.photoURL && !(party.photoURLs && party.photoURLs.length > 0) && (
-                                <span style={{
-                                    backgroundColor: '#8b45ff',
-                                    color: 'white',
-                                    fontSize: 'clamp(9px, 2.5vw, 10px)', // Responsive
-                                    padding: '2px 4px',
-                                    borderRadius: '6px',
-                                    fontWeight: '600',
-                                    flexShrink: 0,
-                                    whiteSpace: 'nowrap'
-                                }}>
-                                    📸 1
-                                </span>
-                            )}
-                        </div>
-                        <div style={{ 
-                            color: '#9ca3af', 
-                            fontSize: 'clamp(12px, 3.5vw, 14px)', // Responsive
-                            display: 'flex', 
-                            alignItems: 'center',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap'
-                        }}>
-                            <Calendar size={14} style={{ marginRight: '4px', flexShrink: 0 }} />
-                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                {item.isOwn ? 'avez fait une soirée' : 'a fait une soirée'} • {timeAgo}
-                            </span>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Contenu */}
-                <div style={{
-                    backgroundColor: 'rgba(0, 0, 0, 0.3)',
-                    borderRadius: '12px',
-                    padding: 'clamp(12px, 4vw, 16px)', // Responsive padding
-                    marginBottom: '12px',
-                    width: '100%',
-                    maxWidth: '100%',
-                    overflow: 'hidden',
-                    boxSizing: 'border-box'
-                }}>
-                    <h4 style={{
-                        color: 'white',
-                        fontSize: 'clamp(14px, 4vw, 16px)', // Responsive
-                        fontWeight: '600',
-                        margin: '0 0 12px 0',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                        wordWrap: 'break-word'
-                    }}>
-                        {party.category} - {party.date}
-                    </h4>
-
-                    {/* Badges débloqués - Affichage juste au-dessus des stats */}
-                    {party.unlockedBadges && party.unlockedBadges.length > 0 && (
-                        <div style={{
-                            backgroundColor: 'rgba(255, 215, 0, 0.1)',
-                            border: '1px solid rgba(255, 215, 0, 0.3)',
-                            borderRadius: '12px',
-                            padding: '12px',
-                            marginBottom: '16px',
-                            width: '100%',
-                            boxSizing: 'border-box'
-                        }}>
-                            <div style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px',
-                                marginBottom: '8px'
-                            }}>
-                                <Trophy size={16} style={{ color: '#ffd700' }} />
-                                <span style={{
-                                    color: '#ffd700',
-                                    fontSize: 'clamp(13px, 3.5vw, 14px)',
-                                    fontWeight: '600'
-                                }}>
-                                    {party.unlockedBadges.length === 1 ? 'Badge débloqué !' : 'Badges débloqués !'}
-                                </span>
-                            </div>
-                            <div style={{
-                                display: 'flex',
-                                flexWrap: 'wrap',
-                                gap: '8px'
-                            }}>
-                                {party.unlockedBadges.map((badgeId, index) => {
-                                    const badgeInfo = badgeService.getBadgeInfo(badgeId);
-                                    return (
-                                        <div
-                                            key={index}
-                                            style={{
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '6px',
-                                                backgroundColor: 'rgba(255, 215, 0, 0.2)',
-                                                padding: '6px 10px',
-                                                borderRadius: '20px',
-                                                border: '1px solid rgba(255, 215, 0, 0.4)'
-                                            }}
-                                        >
-                                            <span style={{ fontSize: '14px' }}>
-                                                {React.cloneElement(badgeInfo.icon, { size: 14 })}
-                                            </span>
-                                            <span style={{
-                                                color: '#fff',
-                                                fontSize: 'clamp(11px, 3vw, 12px)',
-                                                fontWeight: '500'
-                                            }}>
-                                                {badgeInfo.name}
-                                            </span>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Challenges complétés */}
-                    {party.completedChallenges && party.completedChallenges.length > 0 && (
-                        <div style={{
-                            backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                            border: '1px solid rgba(34, 197, 94, 0.3)',
-                            borderRadius: '12px',
-                            padding: '12px',
-                            marginBottom: '16px',
-                            width: '100%',
-                            boxSizing: 'border-box'
-                        }}>
-                            <div style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px',
-                                marginBottom: '8px'
-                            }}>
-                                <span style={{ fontSize: '16px' }}>🎯</span>
-                                <span style={{
-                                    color: '#22c55e',
-                                    fontSize: 'clamp(13px, 3.5vw, 14px)',
-                                    fontWeight: '600'
-                                }}>
-                                    {party.completedChallenges.length === 1 ? 'Défi accompli !' : 'Défis accomplis !'}
-                                </span>
-                            </div>
-                            <div style={{
-                                display: 'flex',
-                                flexWrap: 'wrap',
-                                gap: '8px'
-                            }}>
-                                {party.completedChallenges.map((challengeId, index) => {
-                                    const challengeInfo = challengeService.getChallengeInfo(challengeId);
-                                    return (
-                                        <div
-                                            key={index}
-                                            style={{
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '6px',
-                                                backgroundColor: 'rgba(34, 197, 94, 0.2)',
-                                                padding: '6px 10px',
-                                                borderRadius: '20px',
-                                                border: '1px solid rgba(34, 197, 94, 0.4)'
-                                            }}
-                                        >
-                                            <span style={{ fontSize: '14px' }}>
-                                                {React.cloneElement(challengeInfo.icon, { size: 14 })}
-                                            </span>
-                                            <span style={{
-                                                color: '#fff',
-                                                fontSize: 'clamp(11px, 3vw, 12px)',
-                                                fontWeight: '500'
-                                            }}>
-                                                {challengeInfo.title}
-                                            </span>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Montée de niveau */}
-                    {party.levelUp && (
-                        <div style={{
-                            backgroundColor: 'rgba(168, 85, 247, 0.1)',
-                            border: '1px solid rgba(168, 85, 247, 0.3)',
-                            borderRadius: '12px',
-                            padding: '12px',
-                            marginBottom: '16px',
-                            width: '100%',
-                            boxSizing: 'border-box'
-                        }}>
-                            <div style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px',
-                                marginBottom: '8px'
-                            }}>
-                                <span style={{ fontSize: '18px' }}>⬆️</span>
-                                <span style={{
-                                    color: '#a855f7',
-                                    fontSize: 'clamp(13px, 3.5vw, 14px)',
-                                    fontWeight: '600'
-                                }}>
-                                    {party.levelUp.levelsGained > 1 
-                                        ? `Montée de ${party.levelUp.levelsGained} niveaux !` 
-                                        : 'Montée de niveau !'}
-                                </span>
-                            </div>
-                            <div style={{
-                                backgroundColor: 'rgba(168, 85, 247, 0.2)',
-                                padding: '8px 12px',
-                                borderRadius: '20px',
-                                border: '1px solid rgba(168, 85, 247, 0.4)'
-                            }}>
-                                <span style={{
-                                    color: '#fff',
-                                    fontSize: 'clamp(12px, 3.5vw, 14px)',
-                                    fontWeight: '600'
-                                }}>
-                                    {party.levelUp.levelsGained > 1 
-                                        ? `Niveau ${party.levelUp.oldLevel} → ${party.levelUp.newLevel} • ${party.levelUp.newLevelName}`
-                                        : `Niveau ${party.levelUp.newLevel} • ${party.levelUp.newLevelName}`}
-                                </span>
-                            </div>
-                        </div>
-                    )}
-
-                    <div style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', // Plus petit minmax pour mobile
-                        gap: 'clamp(8px, 3vw, 12px)', // Responsive gap
-                        width: '100%'
-                    }}>
-                        <div style={{ 
-                            color: '#9ca3af', 
-                            fontSize: 'clamp(12px, 3.5vw, 14px)', // Responsive
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap'
-                        }}>
-                            🍺 {totalDrinks} boissons
-                        </div>
-                        <div style={{ 
-                            color: '#9ca3af', 
-                            fontSize: 'clamp(12px, 3.5vw, 14px)', // Responsive
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap'
-                        }}>
-                            👥 {party.girlsTalkedTo || 0} filles
-                        </div>
-                        <div style={{ 
-                            color: '#9ca3af', 
-                            fontSize: 'clamp(12px, 3.5vw, 14px)', // Responsive
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap'
-                        }}>
-                            🤮 {party.vomi || 0} vomis
-                        </div>
-                        <div style={{ 
-                            color: '#9ca3af', 
-                            fontSize: 'clamp(12px, 3.5vw, 14px)', // Responsive
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap'
-                        }}>
-                            👊 {party.fights || 0} bagarres
-                        </div>
-                    </div>
-
-                    {party.summary && (
-                        <div style={{
-                            backgroundColor: 'rgba(139, 69, 255, 0.1)',
-                            border: '1px solid rgba(139, 69, 255, 0.3)',
-                            borderRadius: '8px',
-                            padding: 'clamp(10px, 3vw, 12px)', // Responsive padding
-                            marginTop: '12px',
-                            width: '100%',
-                            maxWidth: '100%',
-                            overflow: 'hidden',
-                            boxSizing: 'border-box'
-                        }}>
-                            {(() => {
-                                const hasMedia = (party.photoURLs && party.photoURLs.length > 0) || 
-                                                party.photoURL || 
-                                                (party.videoURLs && party.videoURLs.length > 0);
-                                const isExpanded = expandedSummaries[party.id] || false;
-                                const shouldTruncate = hasMedia && party.summary.length > 100;
-                                const truncatedSummary = party.summary.slice(0, 100) + '...';
-                                
-                                return (
-                                    <>
-                                        <p style={{
-                                            color: '#c4b5fd',
-                                            fontSize: 'clamp(12px, 3.5vw, 14px)', // Responsive
-                                            fontStyle: 'italic',
-                                            margin: 0,
-                                            lineHeight: '1.4',
-                                            wordWrap: 'break-word',
-                                            overflowWrap: 'break-word',
-                                            wordBreak: 'break-word',
-                                            hyphens: 'auto'
-                                        }}>
-                                            "{shouldTruncate && !isExpanded ? truncatedSummary : party.summary}"
-                                        </p>
-                                        {shouldTruncate && (
-                                            <button
-                                                onClick={() => setExpandedSummaries(prev => ({
-                                                    ...prev,
-                                                    [party.id]: !isExpanded
-                                                }))}
-                                                style={{
-                                                    background: 'rgba(139, 69, 255, 0.2)',
-                                                    border: '1px solid rgba(139, 69, 255, 0.4)',
-                                                    color: '#c4b5fd',
-                                                    borderRadius: '6px',
-                                                    padding: '4px 8px',
-                                                    fontSize: '12px',
-                                                    fontWeight: '500',
-                                                    marginTop: '8px',
-                                                    cursor: 'pointer',
-                                                    transition: 'all 0.2s ease'
-                                                }}
-                                                onMouseEnter={(e) => {
-                                                    e.target.style.backgroundColor = 'rgba(139, 69, 255, 0.3)';
-                                                }}
-                                                onMouseLeave={(e) => {
-                                                    e.target.style.backgroundColor = 'rgba(139, 69, 255, 0.2)';
-                                                }}
-                                            >
-                                                {isExpanded ? 'Voir moins' : 'Voir davantage'}
-                                            </button>
-                                        )}
-                                    </>
-                                );
-                            })()}
-                        </div>
-                    )}
-                </div>
-
-                {/* Photos et vidéos de la soirée */}
-                {((party.photoURLs && party.photoURLs.length > 0) || party.photoURL || (party.videoURLs && party.videoURLs.length > 0)) && (
-                    <div style={{ 
-                        marginTop: '16px',
-                        marginLeft: '-20px',
-                        marginRight: '-20px',
-                        position: 'relative'
-                    }}>
-                        {/* Défilement horizontal pour tous les médias */}
-                        {(party.photoURLs && party.photoURLs.length > 0) || (party.videoURLs && party.videoURLs.length > 0) ? (
-                            <div style={{
-                                display: 'flex',
-                                overflowX: 'auto',
-                                gap: '12px',
-                                paddingLeft: '20px',
-                                paddingRight: '20px',
-                                scrollbarWidth: 'none',
-                                msOverflowStyle: 'none',
-                                WebkitScrollbar: { display: 'none' }
-                            }}>
-                                {/* Photos */}
-                                {party.photoURLs && party.photoURLs.map((photoURL, index) => (
-                                    <div
-                                        key={`photo-${index}`}
-                                        style={{
-                                            minWidth: '85vw',
-                                            maxWidth: '85vw',
-                                            height: '300px',
-                                            cursor: 'pointer',
-                                            borderRadius: '12px',
-                                            overflow: 'hidden',
-                                            border: '1px solid rgba(255, 255, 255, 0.1)',
-                                            position: 'relative',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            backgroundColor: 'rgba(0, 0, 0, 0.1)'
-                                        }}
-                                        onClick={() => setSelectedPhoto(photoURL)}
-                                    >
-                                        <img 
-                                            src={photoURL}
-                                            alt={`Photo ${index + 1}`}
-                                            style={{
-                                                width: '100%',
-                                                height: '100%',
-                                                objectFit: 'cover',
-                                                objectPosition: 'center',
-                                                transition: 'transform 0.2s ease'
-                                            }}
-                                            onError={(e) => {
-                                                e.target.style.display = 'none';
-                                                logger.error('Erreur chargement image', { photoURL });
-                                            }}
-                                        />
-                                        {/* Indicateur de position */}
-                                        <div style={{
-                                            position: 'absolute',
-                                            top: '12px',
-                                            right: '12px',
-                                            backgroundColor: 'rgba(0, 0, 0, 0.7)',
-                                            color: 'white',
-                                            padding: '4px 8px',
-                                            borderRadius: '12px',
-                                            fontSize: '12px',
-                                            fontWeight: '500'
-                                        }}>
-                                            {index + 1}/{(party.photoURLs?.length || 0) + (party.videoURLs?.length || 0)}
-                                        </div>
-                                    </div>
-                                ))}
-                                
-                                {/* Vidéos */}
-                                {party.videoURLs && party.videoURLs.map((videoURL, index) => (
-                                    <div
-                                        key={`video-${index}`}
-                                        style={{
-                                            minWidth: '85vw',
-                                            maxWidth: '85vw',
-                                            height: '300px',
-                                            borderRadius: '12px',
-                                            overflow: 'hidden',
-                                            border: '1px solid rgba(255, 255, 255, 0.1)',
-                                            position: 'relative',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            backgroundColor: 'rgba(0, 0, 0, 0.1)'
-                                        }}
-                                    >
-                                        <video 
-                                            src={videoURL}
-                                            controls
-                                            style={{
-                                                width: '100%',
-                                                height: '100%',
-                                                objectFit: 'cover',
-                                                objectPosition: 'center'
-                                            }}
-                                            onError={(e) => {
-                                                e.target.style.display = 'none';
-                                                console.error('Erreur chargement vidéo:', videoURL);
-                                            }}
-                                        />
-                                        {/* Indicateur de position */}
-                                        <div style={{
-                                            position: 'absolute',
-                                            top: '12px',
-                                            right: '12px',
-                                            backgroundColor: 'rgba(0, 0, 0, 0.7)',
-                                            color: 'white',
-                                            padding: '4px 8px',
-                                            borderRadius: '12px',
-                                            fontSize: '12px',
-                                            fontWeight: '500'
-                                        }}>
-                                            {(party.photoURLs?.length || 0) + index + 1}/{(party.photoURLs?.length || 0) + (party.videoURLs?.length || 0)}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        ) : (
-                            /* Rétrocompatibilité avec l'ancien format */
-                            party.photoURL && (
-                                <div style={{
-                                    marginLeft: '-20px',
-                                    marginRight: '-20px'
-                                }}>
-                                    <div style={{
-                                        paddingLeft: '20px',
-                                        paddingRight: '20px'
-                                    }}>
-                                        <div style={{
-                                            borderRadius: '12px',
-                                            overflow: 'hidden',
-                                            border: '1px solid rgba(255, 255, 255, 0.1)',
-                                            cursor: 'pointer'
-                                        }}>
-                                            <img 
-                                                src={party.photoURL}
-                                                alt="Photo de soirée"
-                                                onClick={() => setSelectedPhoto(party.photoURL)}
-                                                style={{
-                                                    width: '100%',
-                                                    height: '250px',
-                                                    objectFit: 'cover',
-                                                    objectPosition: 'center',
-                                                    display: 'block',
-                                                    transition: 'transform 0.2s ease'
-                                                }}
-                                                onError={(e) => {
-                                                    e.target.style.display = 'none';
-                                                    logger.error('Erreur chargement image', { photoURL: party.photoURL });
-                                                }}
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-                            )
-                        )}
-                    </div>
-                )}
-
-                {/* Actions */}
-                <div style={{ 
-                    display: 'flex', 
-                    gap: 'clamp(8px, 4vw, 16px)', // Responsive gap
-                    paddingTop: '8px',
-                    flexWrap: 'wrap', // Permet le passage à la ligne
-                    width: '100%',
-                    maxWidth: '100%',
-                    overflow: 'hidden'
-                }}>
-                    <button 
-                        onClick={() => handleInteraction(item.id, 'like')}
-                        style={{
-                            background: 'none',
-                            border: 'none',
-                            color: hasUserInteracted(item.id, 'like') ? '#ef4444' : '#9ca3af',
-                            fontSize: 'clamp(12px, 3.5vw, 14px)', // Responsive
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                            transition: 'color 0.2s ease',
-                            padding: 'clamp(4px, 2vw, 8px)', // Responsive padding
-                            minHeight: '44px', // Touch-friendly
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis'
-                        }}
-                    >
-                        <Heart size={16} fill={hasUserInteracted(item.id, 'like') ? '#ef4444' : 'none'} style={{ flexShrink: 0 }} />
-                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            J'aime {interactions[item.id]?.likes?.length > 0 && `(${interactions[item.id].likes.length})`}
-                        </span>
-                    </button>
-                    
-                    <button 
-                        onClick={() => setShowComments(prev => ({ ...prev, [item.id]: !prev[item.id] }))}
-                        style={{
-                            background: 'none',
-                            border: 'none',
-                            color: interactions[item.id]?.comments?.length > 0 ? '#60a5fa' : '#9ca3af',
-                            fontSize: 'clamp(12px, 3.5vw, 14px)', // Responsive
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                            padding: 'clamp(4px, 2vw, 8px)', // Responsive padding
-                            minHeight: '44px', // Touch-friendly
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis'
-                        }}
-                    >
-                        <MessageCircle size={16} style={{ flexShrink: 0 }} />
-                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            Commenter {interactions[item.id]?.comments?.length > 0 && `(${interactions[item.id].comments.length})`}
-                        </span>
-                    </button>
-                </div>
-
-                {/* Section commentaires */}
-                <CommentSection itemId={item.id} />
-            </div>
+            <InstagramPost
+                post={postData}
+                user={userData}
+                onLike={() => handleInteraction(item.id, 'like')}
+                onComment={() => setShowComments(prev => ({ ...prev, [item.id]: !prev[item.id] }))}
+                onAddComment={(text) => handleAddComment(item.id, text)}
+                onDoubleTapLike={() => handleDoubleTap(item.id)}
+                isLiked={Boolean(isLiked)}
+                likesCount={Number(likesCount) || 0}
+                commentsCount={Number(commentsCount) || 0}
+                timestamp={timestampDate}
+                showHeartAnimation={Boolean(heartAnimation[item.id])}
+                isCommentsOpen={Boolean(showComments[item.id])}
+            />
         );
     };
 
@@ -1295,7 +845,7 @@ const FeedPage = () => {
     // Listener pour rafraîchissement automatique du feed
     useEffect(() => {
         const handleFeedRefresh = () => {
-            console.log('🔄 Rafraîchissement automatique du feed déclenché');
+            logger.debug('FeedPage: Auto refresh triggered');
             loadFeed();
         };
 
@@ -1310,7 +860,7 @@ const FeedPage = () => {
     // Charger les interactions quand les items changent
     useEffect(() => {
         if (feedItems.length > 0) {
-            console.log('📥 Chargement interactions pour', feedItems.length, 'items');
+            logger.debug('FeedPage: Loading interactions', { itemsCount: feedItems.length });
             feedItems.forEach(item => {
                 loadInteractions(item.id);
             });
@@ -1319,122 +869,124 @@ const FeedPage = () => {
 
     // ===== RENDU =====
 
-    if (loading) return <LoadingSpinner />;
+    if (loading) {
+        return (
+            <div style={{
+                padding: '20px',
+                backgroundColor: '#0a0a0a',
+                minHeight: '100vh',
+                color: 'white'
+            }}>
+                <h2 style={{ fontSize: '28px', fontWeight: 'bold', marginBottom: '24px' }}>
+                    📱 Fil d'actualité
+                </h2>
+                <SkeletonCard count={3} />
+            </div>
+        );
+    }
+
+    if (error) {
+        return <ErrorFallback message={error} onRetry={loadFeed} />;
+    }
+
+    if (!loading && feedItems.length === 0) {
+        return (
+            <EmptyState 
+                title="Aucune activité"
+                message="Ajoutez des amis ou créez votre première soirée pour voir des activités ici"
+                actionLabel="Créer une soirée"
+                onAction={() => window.location.href = '/'}
+            />
+        );
+    }
 
     return (
-        <>
-            {/* Header */}
+        <div style={{
+            background: '#000',
+            minHeight: '100vh',
+            paddingBottom: '80px'
+        }}>
+            {/* Pull-to-refresh indicator */}
+            <div 
+                {...bind()}
+                style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    height: '4px',
+                    background: 'linear-gradient(90deg, #bf00ff, #ff00ff, #00ffff)',
+                    transform: `scaleX(${pullY / 100})`,
+                    transformOrigin: 'left',
+                    transition: pullY === 0 ? 'transform 0.3s ease' : 'none',
+                    zIndex: 9999,
+                    boxShadow: '0 0 10px rgba(191, 0, 255, 0.5)'
+                }}
+            />
+            
+            {/* Instagram-style Header */}
             <div style={{
-                background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%)',
-                backdropFilter: 'blur(10px)',
-                borderRadius: '24px',
-                border: '1px solid rgba(255, 255, 255, 0.2)',
-                padding: '20px 24px',
-                marginBottom: '32px',
-                width: '100%',
-                boxSizing: 'border-box',
-                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+                position: 'sticky',
+                top: 0,
+                zIndex: 100,
+                background: '#000',
+                borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+                padding: '12px 16px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between'
             }}>
-                <h2 style={{
-                    background: 'linear-gradient(135deg, #06b6d4 0%, #0891b2 50%, #0e7490 100%)',
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent',
-                    backgroundClip: 'text',
-                    fontSize: 'clamp(24px, 6vw, 30px)',
-                    fontWeight: '800',
-                    margin: 0,
-                    letterSpacing: '-0.02em'
+                <h1 style={{
+                    fontSize: '24px',
+                    fontWeight: '700',
+                    color: '#fff',
+                    fontFamily: 'Billabong, cursive, sans-serif',
+                    margin: 0
                 }}>
-                    📰 Fil d'actualité
-                </h2>
-                
-                <button 
-                    onClick={async () => {
-                        setRefreshing(true);
-                        await loadFeed();
-                        setRefreshing(false);
-                    }}
+                    DrinkWise
+                </h1>
+                <button
+                    onClick={loadFeed}
                     disabled={refreshing}
                     style={{
-                        padding: '12px 20px',
-                        background: refreshing 
-                            ? 'rgba(107, 114, 128, 0.7)'
-                            : 'linear-gradient(135deg, rgba(139, 69, 255, 0.9) 0%, rgba(124, 58, 237, 0.9) 100%)',
-                        backdropFilter: 'blur(8px)',
-                        border: refreshing 
-                            ? '1px solid rgba(107, 114, 128, 0.3)'
-                            : '1px solid rgba(139, 69, 255, 0.3)',
-                        borderRadius: '16px',
-                        color: 'white',
-                        fontSize: '14px',
-                        fontWeight: '600',
-                        cursor: refreshing ? 'not-allowed' : 'pointer',
+                        background: 'none',
+                        border: 'none',
+                        color: '#fff',
+                        cursor: 'pointer',
+                        padding: '8px',
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '8px',
-                        boxShadow: refreshing 
-                            ? 'none'
-                            : '0 4px 16px rgba(139, 69, 255, 0.3)',
-                        transition: 'all 0.3s ease',
-                        letterSpacing: '-0.01em'
+                        justifyContent: 'center',
+                        opacity: refreshing ? 0.5 : 1
                     }}
-                    aria-label="Actualiser le fil d'actualité"
                 >
-                    {refreshing ? <LoadingIcon /> : '🔄'}
-                    {refreshing ? 'Actualisation...' : 'Actualiser'}
+                    <RefreshCw 
+                        size={24} 
+                        style={{ 
+                            transition: 'transform 0.3s ease',
+                            transform: refreshing ? 'rotate(360deg)' : 'rotate(0deg)'
+                        }} 
+                    />
                 </button>
             </div>
 
-            {/* Contenu avec animations Phase 2C */}
-            <AnimatedList
-                items={feedItems}
-                animationType="slide"
-                staggerDirection="down"
-                delay={120}
-                className="max-h-[calc(100vh-200px)] overflow-y-auto w-full"
-                keyExtractor={(item) => item.id}
-                renderItem={(item, index) => (
-                    <AnimatedCard
-                        variant="glass"
-                        hoverEffect="lift"
-                        className="mb-6"
-                        delay={index * 80}
-                    >
-                        {item.type === 'party' && (
-                            <PartyItem 
-                                item={item} 
-                                onEditParty={handleEditParty} 
-                                onDeleteParty={handleDeleteParty} 
-                            />
-                        )}
-                    </AnimatedCard>
-                )}
-                emptyComponent={
-                    <AnimatedCard
-                        variant="glass"
-                        className="text-center py-12"
-                        animateOnMount={true}
-                        delay={300}
-                    >
-                        <div className="bg-gradient-to-br from-gray-400/20 to-gray-600/15 rounded-2xl p-5 mb-6 inline-flex items-center justify-center">
-                            <Calendar size={56} className="text-gray-400 drop-shadow-md" />
-                        </div>
-                        <h3 className="bg-gradient-to-br from-white to-gray-200 bg-clip-text text-transparent text-2xl font-bold mb-3 tracking-tight">
-                            Aucune activité récente
-                        </h3>
-                        <p className="text-white/70 text-lg font-medium">
-                            🎉 Aucune activité à afficher. Organisez une soirée ou ajoutez des amis !
-                        </p>
-                    </AnimatedCard>
-                }
-            />
+            {/* Feed content */}
+            <div style={{
+                maxWidth: '600px',
+                margin: '0 auto',
+                width: '100%'
+            }}>
+                <AnimatedList
+                    items={feedItems}
+                    renderItem={(item) => <PartyItem item={item} />}
+                    keyExtractor={(item) => `feed-item-${item.id}`}
+                />
+            </div>
 
-            {/* Modal photo en plein écran */}
+            {/* Photo modal */}
             {selectedPhoto && (
                 <div 
+                    onClick={() => setSelectedPhoto(null)}
                     style={{
                         position: 'fixed',
                         top: 0,
@@ -1445,47 +997,46 @@ const FeedPage = () => {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        zIndex: 10000,
+                        zIndex: 9999,
+                        cursor: 'pointer',
                         padding: '20px'
                     }}
-                    onClick={() => setSelectedPhoto(null)}
                 >
                     <div style={{
-                        position: 'relative',
-                        maxWidth: '100%',
-                        maxHeight: '100%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center'
+                        maxWidth: '90vw',
+                        maxHeight: '90vh',
+                        position: 'relative'
                     }}>
                         <img 
-                            src={selectedPhoto}
-                            alt="Photo en grand"
+                            src={selectedPhoto} 
+                            alt="Photo en grand" 
                             style={{
                                 maxWidth: '100%',
-                                maxHeight: '100%',
+                                maxHeight: '90vh',
                                 objectFit: 'contain',
                                 borderRadius: '8px'
                             }}
-                            onClick={(e) => e.stopPropagation()}
                         />
                         <button
-                            onClick={() => setSelectedPhoto(null)}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedPhoto(null);
+                            }}
                             style={{
                                 position: 'absolute',
-                                top: '10px',
-                                right: '10px',
-                                backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                                top: '-10px',
+                                right: '-10px',
+                                background: 'rgba(0, 0, 0, 0.8)',
                                 border: 'none',
-                                borderRadius: '50%',
+                                color: 'white',
                                 width: '40px',
                                 height: '40px',
-                                color: 'white',
+                                borderRadius: '50%',
                                 cursor: 'pointer',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                fontSize: '20px',
+                                fontSize: '24px',
                                 fontWeight: 'bold'
                             }}
                         >
@@ -1495,85 +1046,24 @@ const FeedPage = () => {
                 </div>
             )}
 
-            {/* Modal vidéo en plein écran */}
-            {selectedVideo && (
-                <div 
-                    style={{
-                        position: 'fixed',
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        backgroundColor: 'rgba(0, 0, 0, 0.95)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        zIndex: 10000,
-                        padding: '20px'
-                    }}
-                    onClick={() => setSelectedVideo(null)}
-                >
-                    <div style={{
-                        position: 'relative',
-                        maxWidth: '100%',
-                        maxHeight: '100%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center'
-                    }}>
-                        <video 
-                            src={selectedVideo}
-                            controls
-                            autoPlay
-                            muted
-                            playsInline
-                            style={{
-                                maxWidth: '100%',
-                                maxHeight: '100%',
-                                borderRadius: '8px'
-                            }}
-                            onClick={(e) => e.stopPropagation()}
-                        />
-                        <button
-                            onClick={() => setSelectedVideo(null)}
-                            style={{
-                                position: 'absolute',
-                                top: '10px',
-                                right: '10px',
-                                backgroundColor: 'rgba(0, 0, 0, 0.7)',
-                                border: 'none',
-                                borderRadius: '50%',
-                                width: '40px',
-                                height: '40px',
-                                color: 'white',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                fontSize: '20px',
-                                fontWeight: 'bold'
-                            }}
-                        >
-                            ×
-                        </button>
-                    </div>
-                </div>
-            )}
-
-            {/* Modal d'édition des soirées */}
-            {showEditModal && editingParty && (
+            {/* Edit Modal */}
+            {editingParty && showEditModal && (
                 <EditPartyModal
-                    partyData={editingParty}
+                    party={editingParty}
                     onClose={() => {
-                        setShowEditModal(false);
                         setEditingParty(null);
+                        setShowEditModal(false);
                     }}
-                    onPartyUpdated={handlePartyUpdated}
-                    onPartyDeleted={handlePartyDeleted}
+                    onSave={async (updatedParty) => {
+                        handlePartyUpdated(updatedParty);
+                        setEditingParty(null);
+                        setShowEditModal(false);
+                    }}
                 />
             )}
-        </>
+        </div>
     );
 };
 
 export default FeedPage;
+

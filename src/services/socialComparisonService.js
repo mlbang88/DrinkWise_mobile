@@ -1,6 +1,7 @@
 // src/services/socialComparisonService.js
 import { ExperienceService } from './experienceService';
 import { collection, query, where, getDocs, doc, getDoc, setDoc } from 'firebase/firestore';
+import { logger } from '../utils/logger';
 
 export class SocialComparisonService {
     
@@ -9,7 +10,7 @@ export class SocialComparisonService {
         try {
             // Vérifier que ExperienceService est disponible
             if (!ExperienceService || typeof ExperienceService.syncUserStats !== 'function') {
-                console.warn('⚠️ ExperienceService.syncUserStats non disponible');
+                logger.warn('socialComparisonService: ExperienceService.syncUserStats non disponible');
                 return;
             }
 
@@ -20,10 +21,10 @@ export class SocialComparisonService {
             
             // Synchroniser les stats via ExperienceService
             await ExperienceService.syncUserStats(db, appId, userId, userProfile);
-            console.log("✅ Stats utilisateur synchronisées pour leaderboard");
+            logger.info('socialComparisonService: Stats utilisateur synchronisées pour leaderboard');
             
         } catch (error) {
-            console.error('❌ Erreur sync stats utilisateur:', error);
+            logger.error('socialComparisonService: Erreur sync stats utilisateur', { error: error.message });
             throw error;
         }
     }
@@ -52,7 +53,7 @@ export class SocialComparisonService {
             return this.sortByCategory(allStats, category, userId);
             
         } catch (error) {
-            console.error('Erreur leaderboard amis:', error);
+            logger.error('socialComparisonService: Erreur leaderboard amis', { error: error.message });
             return [];
         }
     }
@@ -106,7 +107,7 @@ export class SocialComparisonService {
                 categories: this.generateComparisonCategories(userStats, friendStats)
             };
         } catch (error) {
-            console.error('Erreur comparaison 1v1:', error);
+            logger.error('socialComparisonService: Erreur comparaison 1v1', { error: error.message });
             return null;
         }
     }
@@ -217,7 +218,7 @@ export class SocialComparisonService {
             return this.sortByCategory(allStats, category);
             
         } catch (error) {
-            console.error('Erreur leaderboard groupe:', error);
+            logger.error('socialComparisonService: Erreur leaderboard groupe', { error: error.message });
             return [];
         }
     }

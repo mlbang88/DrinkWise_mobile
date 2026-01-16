@@ -25,7 +25,7 @@ const ProfilePhotoManager = ({ currentPhoto, onPhotoUpdate }) => {
             setMessageBox({ message: 'Photo de profil mise à jour !', type: 'success' });
             onPhotoUpdate(photoData);
         } catch (error) {
-            console.error('❌ Erreur upload photo:', error);
+            console.error('❌ Erreur upload photo:', error?.message || String(error));
             setMessageBox({ message: error.message || 'Erreur lors de l\'upload', type: 'error' });
         } finally {
             setUploading(false);
@@ -51,7 +51,7 @@ const ProfilePhotoManager = ({ currentPhoto, onPhotoUpdate }) => {
                 setMessageBox({ message: 'Photo de profil supprimée', type: 'info' });
                 onPhotoUpdate(null);
             } catch (error) {
-                console.error('❌ Erreur suppression photo:', error);
+                console.error('❌ Erreur suppression photo:', error?.message || String(error));
                 setMessageBox({ message: 'Erreur lors de la suppression', type: 'error' });
             } finally {
                 setUploading(false);

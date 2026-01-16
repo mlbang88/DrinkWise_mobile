@@ -9,7 +9,9 @@ import DrinkAnalyzer from './DrinkAnalyzer';
 import UserAvatar from './UserAvatar';
 import { logger } from '../utils/logger.js';
 import VenueSearchModal from './VenueSearchModal';
+import PartySuggestions from './PartySuggestions';
 import { updateVenueControl } from '../services/venueService';
+import { StreakService } from '../services/streakService';
 
 const BasicPartyModal = ({ onClose, onPartySaved }) => {
     const { db, storage, user, appId, userProfile, setMessageBox, functions } = useContext(FirebaseContext);
@@ -79,7 +81,7 @@ const BasicPartyModal = ({ onClose, onPartySaved }) => {
 
     // Fonction pour gérer la détection automatique de boisson
     const handleDrinkDetected = (drinkType, detectedBrand) => {
-        console.log('🤖 Boisson détectée:', { drinkType, detectedBrand });
+        logger.info('BasicPartyModal: Boisson détectée', { drinkType, detectedBrand });
         
         const newDrinks = [...drinks];
         if (newDrinks.length === 0) {
@@ -198,7 +200,7 @@ const BasicPartyModal = ({ onClose, onPartySaved }) => {
                     logger.error('Erreur chargement groupes', { error: error.message });
                 }
             } catch (error) {
-                console.error('Erreur chargement compagnons:', error);
+                logger.error('Erreur chargement compagnons', { error: error.message });
             } finally {
                 setLoadingCompanions(false);
             }
@@ -376,7 +378,7 @@ RÉPONDS UNIQUEMENT AVEC LES 3 PHRASES, SANS PRÉAMBULE NI EXPLICATION.`;
                     });
 
                     if (territoryResult.success) {
-                        console.log(`🗺️ Contrôle territorial: +${territoryResult.pointsEarned} points (${territoryResult.level.name})`);
+                        logger.info('Contrôle territorial mis à jour', { pointsEarned: territoryResult.pointsEarned, level: territoryResult.level.name });
                         
                         // Afficher notification si takeover ou nouveau contrôle
                         if (territoryResult.isTakeover) {
@@ -392,7 +394,7 @@ RÉPONDS UNIQUEMENT AVEC LES 3 PHRASES, SANS PRÉAMBULE NI EXPLICATION.`;
                         }
                     }
                 } catch (territoryError) {
-                    console.error("Erreur mise à jour contrôle territorial:", territoryError);
+                    logger.error('Erreur mise à jour contrôle territorial', { error: territoryError.message });
                 }
             }
             
@@ -417,7 +419,7 @@ RÉPONDS UNIQUEMENT AVEC LES 3 PHRASES, SANS PRÉAMBULE NI EXPLICATION.`;
                         photosCount: photoURLs.length 
                     });
                 } catch (photoError) {
-                    console.error("Erreur upload photos:", photoError);
+                    logger.error('Erreur upload photos', { error: photoError.message });
                 } finally {
                     setUploadingPhotos(false);
                 }
@@ -444,13 +446,22 @@ RÉPONDS UNIQUEMENT AVEC LES 3 PHRASES, SANS PRÉAMBULE NI EXPLICATION.`;
                         videosCount: videoURLs.length 
                     });
                 } catch (videoError) {
-                    console.error("Erreur upload vidéos:", videoError);
+                    logger.error('Erreur upload vidéos', { error: videoError.message });
                 } finally {
                     setUploadingVideos(false);
                 }
             }
 
             setMessageBox({ message: "Soirée enregistrée avec succès !", type: "success" });
+            
+            // Mettre à jour le streak
+            const streakResult = await StreakService.updateStreak(db, user.uid, appId);
+            if (streakResult.streakUpdated && streakResult.streakIncreased) {
+                setMessageBox({ 
+                    message: `🔥 Série de ${streakResult.currentStreak} jours !`, 
+                    type: "success" 
+                });
+            }
             
             // Générer le résumé de la soirée EN ARRIÈRE-PLAN aussi
             generatePartySummary(partyData, docRef.id);
@@ -462,7 +473,7 @@ RÉPONDS UNIQUEMENT AVEC LES 3 PHRASES, SANS PRÉAMBULE NI EXPLICATION.`;
             onClose();
             
         } catch (error) {
-            console.error("Erreur sauvegarde:", error);
+            logger.error('Erreur sauvegarde soirée', { error: error.message });
             setMessageBox({ message: "Erreur lors de la sauvegarde", type: "error" });
         }
     };
@@ -522,6 +533,17 @@ RÉPONDS UNIQUEMENT AVEC LES 3 PHRASES, SANS PRÉAMBULE NI EXPLICATION.`;
                         <X size={20} />
                     </button>
                 </div>
+
+                {/* Suggestions contextuelles */}
+                <PartySuggestions 
+                    partyData={{
+                        drinks,
+                        venue,
+                        companions,
+                        battleMode: 'balanced'
+                    }}
+                    userProfile={userProfile}
+                />
 
                 <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                     {/* Date */}
@@ -1356,7 +1378,7 @@ RÉPONDS UNIQUEMENT AVEC LES 3 PHRASES, SANS PRÉAMBULE NI EXPLICATION.`;
                                     }}>
                                         <img
                                             src={URL.createObjectURL(file)}
-                                            alt={`Preview ${index + 1}`}
+                                            alt={`Aperçu photo ${index + 1}`}
                                             style={{
                                                 width: '100%',
                                                 height: '100%',

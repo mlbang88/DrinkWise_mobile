@@ -14,13 +14,14 @@ const GlobalLeaderboard = ({ db, appId, userId, onClose }) => {
     const [lastDoc, setLastDoc] = useState(null);
     const [currentUserRank, setCurrentUserRank] = useState(null);
     const [filter, setFilter] = useState('global'); // 'global', 'city', 'country'
+    const [sortBy, setSortBy] = useState('territories'); // 'territories', 'drinks', 'level', 'parties'
     
     const loaderRef = useRef(null);
     const PAGE_SIZE = 20;
 
     useEffect(() => {
         loadLeaderboard(true);
-    }, [filter]);
+    }, [filter, sortBy]);
 
     // Infinite scroll observer
     useEffect(() => {
@@ -45,16 +46,27 @@ const GlobalLeaderboard = ({ db, appId, userId, onClose }) => {
         
         setIsLoading(true);
         try {
-            const controlsRef = collection(db, `artifacts/${appId}/venueControls`);
+            // Déterminer le champ de tri selon sortBy
+            const sortFields = {
+                territories: 'totalVenues', // Nombre de territoires contrôlés
+                drinks: 'totalDrinks',
+                level: 'level',
+                parties: 'totalParties'
+            };
+            
+            const sortField = sortFields[sortBy] || 'totalVenues';
+            
+            // Charger depuis public_user_stats pour avoir toutes les stats
+            const statsRef = collection(db, `artifacts/${appId}/public_user_stats`);
             
             let q = query(
-                controlsRef,
-                orderBy('totalPoints', 'desc'),
+                statsRef,
+                orderBy(sortField, 'desc'),
                 limit(PAGE_SIZE)
             );
 
             if (!reset && lastDoc) {
-                q = query(q, startAfter(lastDoc));
+                q = query(statsRef, orderBy(sortField, 'desc'), startAfter(lastDoc), limit(PAGE_SIZE));
             }
 
             const snapshot = await getDocs(q);
@@ -65,30 +77,22 @@ const GlobalLeaderboard = ({ db, appId, userId, onClose }) => {
                 return;
             }
 
-            // Grouper par utilisateur et sommer les points
-            const userMap = new Map();
-            snapshot.docs.forEach(doc => {
+            const newLeaders = snapshot.docs.map(doc => {
                 const data = doc.data();
-                const uid = data.userId;
-                
-                if (!userMap.has(uid)) {
-                    userMap.set(uid, {
-                        userId: uid,
-                        username: data.username || 'Anonyme',
-                        totalPoints: 0,
-                        venuesCount: 0,
-                        city: data.venueAddress?.split(',').pop()?.trim() || 'Unknown',
-                        country: 'France' // TODO: extraire du venueAddress
-                    });
-                }
-                
-                const user = userMap.get(uid);
-                user.totalPoints += data.totalPoints || 0;
-                user.venuesCount += 1;
+                return {
+                    userId: doc.id,
+                    username: data.username || data.displayName || 'Anonyme',
+                    displayName: data.displayName || data.username || 'Anonyme',
+                    photoURL: data.photoURL,
+                    totalPoints: data.totalPoints || 0,
+                    totalVenues: data.totalVenues || 0,
+                    totalDrinks: data.totalDrinks || 0,
+                    totalParties: data.totalParties || 0,
+                    level: data.level || 1,
+                    city: data.city || 'Unknown',
+                    country: data.country || 'France'
+                };
             });
-
-            const newLeaders = Array.from(userMap.values())
-                .sort((a, b) => b.totalPoints - a.totalPoints);
 
             if (reset) {
                 setLeaders(newLeaders);
@@ -105,7 +109,7 @@ const GlobalLeaderboard = ({ db, appId, userId, onClose }) => {
                 setCurrentUserRank(userIndex + 1 + (reset ? 0 : leaders.length));
             }
 
-            logger.info('✅ Leaderboard chargé', { count: newLeaders.length });
+            logger.info('✅ Leaderboard chargé', { count: newLeaders.length, sortBy });
 
         } catch (error) {
             logger.error('❌ Erreur chargement leaderboard', error);
@@ -222,27 +226,63 @@ const GlobalLeaderboard = ({ db, appId, userId, onClose }) => {
                     padding: '16px 24px',
                     borderBottom: '1px solid rgba(139, 92, 246, 0.2)',
                     display: 'flex',
-                    gap: '8px'
+                    flexDirection: 'column',
+                    gap: '12px'
                 }}>
-                    {['global', 'city', 'country'].map(f => (
-                        <button
-                            key={f}
-                            onClick={() => setFilter(f)}
-                            style={{
-                                padding: '8px 16px',
-                                backgroundColor: filter === f ? '#8b5cf6' : '#1f2937',
-                                color: filter === f ? 'white' : '#9ca3af',
-                                border: 'none',
-                                borderRadius: '8px',
-                                cursor: 'pointer',
-                                fontSize: '13px',
-                                fontWeight: '600',
-                                textTransform: 'capitalize'
-                            }}
-                        >
-                            {f}
-                        </button>
-                    ))}
+                    {/* Filtre localisation */}
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                        {['global', 'city', 'country'].map(f => (
+                            <button
+                                key={f}
+                                onClick={() => setFilter(f)}
+                                style={{
+                                    padding: '8px 16px',
+                                    backgroundColor: filter === f ? '#8b5cf6' : '#1f2937',
+                                    color: filter === f ? 'white' : '#9ca3af',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    cursor: 'pointer',
+                                    fontSize: '13px',
+                                    fontWeight: '600',
+                                    textTransform: 'capitalize'
+                                }}
+                            >
+                                {f}
+                            </button>
+                        ))}
+                    </div>
+                    
+                    {/* Tri par */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        <span style={{ color: '#9ca3af', fontSize: '12px', fontWeight: '600' }}>Trier par:</span>
+                        {[
+                            { value: 'territories', label: '🏯 Territoires', icon: '🏯' },
+                            { value: 'drinks', label: '🍺 Verres', icon: '🍺' },
+                            { value: 'level', label: '⭐ Niveau', icon: '⭐' },
+                            { value: 'parties', label: '🎉 Soirées', icon: '🎉' }
+                        ].map(option => (
+                            <button
+                                key={option.value}
+                                onClick={() => setSortBy(option.value)}
+                                style={{
+                                    padding: '6px 12px',
+                                    backgroundColor: sortBy === option.value ? 'rgba(139, 92, 246, 0.3)' : 'rgba(31, 41, 55, 0.5)',
+                                    color: sortBy === option.value ? '#c4b5fd' : '#6b7280',
+                                    border: sortBy === option.value ? '1px solid #8b5cf6' : '1px solid transparent',
+                                    borderRadius: '6px',
+                                    cursor: 'pointer',
+                                    fontSize: '12px',
+                                    fontWeight: '600',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                    transition: 'all 0.2s ease'
+                                }}
+                            >
+                                {option.label}
+                            </button>
+                        ))}
+                    </div>
                 </div>
 
                 {/* Liste */}
@@ -339,11 +379,11 @@ const GlobalLeaderboard = ({ db, appId, userId, onClose }) => {
                                         marginTop: '2px'
                                     }}>
                                         <MapPin size={12} style={{ display: 'inline', marginRight: '4px' }} />
-                                        {leader.venuesCount} lieu{leader.venuesCount > 1 ? 'x' : ''}
+                                        {leader.totalVenues || 0} lieu{(leader.totalVenues || 0) > 1 ? 'x' : ''}
                                     </div>
                                 </div>
 
-                                {/* Points */}
+                                {/* Stat principale selon le tri */}
                                 <div style={{
                                     textAlign: 'right'
                                 }}>
@@ -352,13 +392,19 @@ const GlobalLeaderboard = ({ db, appId, userId, onClose }) => {
                                         fontSize: '18px',
                                         fontWeight: '700'
                                     }}>
-                                        {leader.totalPoints.toLocaleString()}
+                                        {sortBy === 'territories' && (leader.totalVenues || 0).toLocaleString()}
+                                        {sortBy === 'drinks' && (leader.totalDrinks || 0).toLocaleString()}
+                                        {sortBy === 'level' && `Niv. ${leader.level || 1}`}
+                                        {sortBy === 'parties' && (leader.totalParties || 0).toLocaleString()}
                                     </div>
                                     <div style={{
                                         color: '#9ca3af',
                                         fontSize: '12px'
                                     }}>
-                                        points
+                                        {sortBy === 'territories' && 'territoires'}
+                                        {sortBy === 'drinks' && 'verres'}
+                                        {sortBy === 'level' && 'niveau'}
+                                        {sortBy === 'parties' && 'soirées'}
                                     </div>
                                 </div>
                             </div>

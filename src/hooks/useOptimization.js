@@ -34,7 +34,7 @@ export const useCache = (key, fetchFunction, dependencies = [], ttl = 5 * 60 * 1
         setData(result);
       } catch (err) {
         setError(err);
-        console.error(`Erreur lors du fetch pour ${key}:`, err);
+        console.error(`Erreur lors du fetch pour ${key}:`, err?.message || String(err));
       } finally {
         setLoading(false);
       }

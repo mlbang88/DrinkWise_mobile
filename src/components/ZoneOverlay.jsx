@@ -33,6 +33,7 @@ const ZoneOverlay = ({ map, zones, userVenues, isVisible = true }) => {
 
     const createZoneOverlays = () => {
         if (!map || !window.google) return;
+        if (!userVenues || userVenues.length === 0) return;
 
         // Créer des cercles autour de chaque venue pour simuler le contrôle de zone
         userVenues.forEach((venue, index) => {

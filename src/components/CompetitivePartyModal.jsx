@@ -11,7 +11,9 @@ import DrinkAnalyzer from './DrinkAnalyzer';
 import UserAvatar from './UserAvatar';
 import BattlePointsNotification from './BattlePointsNotification';
 import VenueSearchModal from './VenueSearchModal';
+import PartySuggestions from './PartySuggestions';
 import { updateVenueControl } from '../services/venueService';
+import { logger } from '../utils/logger';
 
 const CompetitivePartyModal = ({ onClose, onPartySaved, draftData = null }) => {
     const { db, storage, user, appId, userProfile, setMessageBox, functions } = useContext(FirebaseContext);
@@ -123,12 +125,12 @@ const CompetitivePartyModal = ({ onClose, onPartySaved, draftData = null }) => {
     // Fonction pour générer le résumé de soirée
     const generatePartySummary = useCallback(async (partyDetails, docId) => {
         if (!functions) {
-            console.warn('⚠️ Fonctions Firebase indisponibles, résumé non généré');
+            logger.warn('CompetitivePartyModal: Fonctions Firebase indisponibles, résumé non généré');
             return;
         }
 
         if (!partyDetails || !docId) {
-            console.warn('⚠️ Données insuffisantes pour générer le résumé', { partyDetails, docId });
+            logger.warn('CompetitivePartyModal: Données insuffisantes pour générer le résumé', { hasPartyDetails: !!partyDetails, hasDocId: !!docId });
             return;
         }
 
@@ -145,10 +147,10 @@ const CompetitivePartyModal = ({ onClose, onPartySaved, draftData = null }) => {
             const prompt = `Génère un résumé de soirée amusant et mémorable (max 3 phrases) basé sur: ${JSON.stringify(safeDetails)}. Sois créatif et humoristique.`;
             const callGeminiAPI = httpsCallable(functions, 'callGeminiAPI');
 
-            console.log("🤖 Génération du résumé de soirée...", { docId });
+            logger.info('CompetitivePartyModal: Génération du résumé de soirée', { docId });
             const result = await callGeminiAPI({ prompt, partyId: docId });
             
-            console.log("📦 Résultat Cloud Function:", JSON.stringify(result, null, 2));
+            logger.debug('CompetitivePartyModal: Résultat Cloud Function reçu');
             const aiSummary = (result?.data?.text || result?.data?.summary || '').trim();
             const partyRef = doc(db, `artifacts/${appId}/users/${user.uid}/parties`, docId);
 
@@ -158,7 +160,7 @@ const CompetitivePartyModal = ({ onClose, onPartySaved, draftData = null }) => {
                     summarySource: 'gemini',
                     summaryGeneratedAt: new Date()
                 });
-                console.log("✅ Résumé IA généré et sauvegardé:", aiSummary);
+                logger.info('CompetitivePartyModal: Résumé IA généré et sauvegardé');
             } else {
                 const fallbackSummary = buildFallbackSummary(safeDetails);
                 await updateDoc(partyRef, {
@@ -166,14 +168,14 @@ const CompetitivePartyModal = ({ onClose, onPartySaved, draftData = null }) => {
                     summarySource: 'fallback-empty-response',
                     summaryGeneratedAt: new Date()
                 });
-                console.warn('⚠️ Résultat inattendu de callGeminiAPI, fallback appliqué', result);
+                logger.warn('CompetitivePartyModal: Résultat inattendu de callGeminiAPI, fallback appliqué');
                 setMessageBox({
                     message: "⚠️ Résumé IA indisponible, un résumé simplifié a été créé.",
                     type: 'warning'
                 });
             }
         } catch (error) {
-            console.error("❌ Erreur génération résumé via Cloud Function:", error);
+            logger.error('CompetitivePartyModal: Erreur génération résumé via Cloud Function', { error: error.message });
 
             try {
                 const fallbackSummary = buildFallbackSummary(partyDetails);
@@ -183,13 +185,13 @@ const CompetitivePartyModal = ({ onClose, onPartySaved, draftData = null }) => {
                     summarySource: 'fallback-error',
                     summaryGeneratedAt: new Date()
                 });
-                console.log("🛟 Résumé fallback sauvegardé après erreur IA:", fallbackSummary);
+                logger.info('CompetitivePartyModal: Fallback summary saved after AI error', { docId });
                 setMessageBox({
                     message: "🛟 L'IA était occupée, on a généré un résumé manuel.",
                     type: 'info'
                 });
             } catch (fallbackError) {
-                console.error('❌ Impossible de sauvegarder le résumé fallback:', fallbackError);
+                logger.error('CompetitivePartyModal: Impossible de sauvegarder le résumé fallback', { error: fallbackError.message });
                 setMessageBox({
                     message: "❌ Résumé indisponible pour cette soirée.",
                     type: 'error'
@@ -201,7 +203,7 @@ const CompetitivePartyModal = ({ onClose, onPartySaved, draftData = null }) => {
     }, [appId, buildFallbackSummary, db, functions, setMessageBox, user]);
 
     const handleQuizComplete = (partyData) => {
-        console.log("🎯 Quiz complété avec données:", partyData);
+        logger.info('CompetitivePartyModal: Quiz complété', { hasPartyData: !!partyData });
         setShowQuiz(false);
         
         const fallbackPartyId = partyData?.partyId || lastPartyId;
@@ -209,10 +211,10 @@ const CompetitivePartyModal = ({ onClose, onPartySaved, draftData = null }) => {
 
         // Générer le résumé de la soirée si nous avons l'ID
         if (fallbackPartyData && fallbackPartyId) {
-            console.log("🤖 Déclenchement génération résumé pour soirée:", fallbackPartyId);
+            logger.info('CompetitivePartyModal: Déclenchement génération résumé', { partyId: fallbackPartyId });
             generatePartySummary(fallbackPartyData, fallbackPartyId);
         } else {
-            console.warn("⚠️ Pas d'ID de soirée pour générer le résumé", { fallbackPartyId, fallbackPartyData });
+            logger.warn('CompetitivePartyModal: Pas d\'ID de soirée pour générer le résumé', { hasFallbackPartyId: !!fallbackPartyId, hasFallbackPartyData: !!fallbackPartyData });
         }
         
         // Déclencher les événements de sauvegarde et rafraîchissement
@@ -221,7 +223,7 @@ const CompetitivePartyModal = ({ onClose, onPartySaved, draftData = null }) => {
         
         // S'assurer que les données avec détection IA sont bien préservées
         if ((fallbackPartyData && fallbackPartyData.drinks)) {
-            console.log("✅ Données de boissons préservées:", fallbackPartyData.drinks);
+            logger.debug('CompetitivePartyModal: Données de boissons préservées', { drinksCount: fallbackPartyData.drinks.length });
         }
         
         onClose();
@@ -329,7 +331,7 @@ const CompetitivePartyModal = ({ onClose, onPartySaved, draftData = null }) => {
 
     // Fonction pour gérer la détection automatique de boisson
     const handleDrinkDetected = (drinkType, detectedBrand) => {
-        console.log('🤖 Boisson détectée:', { drinkType, detectedBrand });
+        logger.info('CompetitivePartyModal: Boisson détectée', { drinkType, detectedBrand });
         
         // Ajouter la boisson détectée
         const newDrink = { 
@@ -390,13 +392,13 @@ const CompetitivePartyModal = ({ onClose, onPartySaved, draftData = null }) => {
             await updateDoc(draftRef, draftData);
             setMessageBox({ message: "Brouillon sauvegardé !", type: "success" });
         } catch (error) {
-            console.error("Erreur mise à jour brouillon:", error);
+            logger.error('CompetitivePartyModal: Erreur mise à jour brouillon', { error: error.message });
             // Si le document n'existe pas, le créer
             try {
                 await addDoc(collection(db, `artifacts/${appId}/users/${user.uid}/draft`), draftData);
                 setMessageBox({ message: "Brouillon sauvegardé !", type: "success" });
             } catch (createError) {
-                console.error("Erreur sauvegarde brouillon:", createError);
+                logger.error('CompetitivePartyModal: Erreur sauvegarde brouillon', { error: createError.message });
                 setMessageBox({ message: "Erreur sauvegarde brouillon", type: "error" });
             }
         }
@@ -453,14 +455,14 @@ const CompetitivePartyModal = ({ onClose, onPartySaved, draftData = null }) => {
                     
                     await processPartyForTournaments(partyData, selectedBattleMode, additionalData);
                 } catch (battleError) {
-                    console.error("Erreur calcul points Battle Royale:", battleError);
+                    logger.error('CompetitivePartyModal: Erreur calcul points Battle Royale', { error: battleError.message });
                 }
             }
 
             // Mettre à jour le contrôle territorial si un lieu est sélectionné
             if (venue) {
                 try {
-                    console.log('🗺️ Venue sélectionné:', venue);
+                    logger.info('CompetitivePartyModal: Venue sélectionné', { venueName: venue.name });
                     const territoryResult = await updateVenueControl(db, appId, {
                         venue,
                         userId: user.uid,
@@ -470,7 +472,7 @@ const CompetitivePartyModal = ({ onClose, onPartySaved, draftData = null }) => {
                     });
 
                     if (territoryResult.success) {
-                        console.log(`🗺️ Contrôle territorial: +${territoryResult.pointsEarned} points (${territoryResult.level.name})`);
+                        logger.info('CompetitivePartyModal: Contrôle territorial', { pointsEarned: territoryResult.pointsEarned, level: territoryResult.level.name });
                         
                         // Afficher notification si takeover ou nouveau contrôle
                         if (territoryResult.isTakeover) {
@@ -486,10 +488,10 @@ const CompetitivePartyModal = ({ onClose, onPartySaved, draftData = null }) => {
                         }
                     }
                 } catch (territoryError) {
-                    console.error("Erreur mise à jour contrôle territorial:", territoryError);
+                    logger.error('CompetitivePartyModal: Erreur mise à jour contrôle territorial', { error: territoryError.message });
                 }
             } else {
-                console.warn('⚠️ Aucun lieu sélectionné, contrôle territorial ignoré');
+                logger.debug('CompetitivePartyModal: Aucun lieu sélectionné, contrôle territorial ignoré');
             }
             
             // Préparer et lancer le quiz
@@ -517,7 +519,7 @@ const CompetitivePartyModal = ({ onClose, onPartySaved, draftData = null }) => {
                         photosCount: photoURLs.length 
                     });
                 } catch (photoError) {
-                    console.error("Erreur upload photos:", photoError);
+                    logger.error('CompetitivePartyModal: Photo upload error', { error: photoError.message });
                 } finally {
                     setUploadingPhotos(false);
                 }
@@ -544,14 +546,14 @@ const CompetitivePartyModal = ({ onClose, onPartySaved, draftData = null }) => {
                         videosCount: videoURLs.length 
                     });
                 } catch (videoError) {
-                    console.error("Erreur upload vidéos:", videoError);
+                    logger.error('CompetitivePartyModal: Video upload error', { error: videoError.message });
                 } finally {
                     setUploadingVideos(false);
                 }
             }
             
         } catch (error) {
-            console.error("Erreur sauvegarde:", error);
+            logger.error('CompetitivePartyModal: Save error', { error: error.message });
             setMessageBox({ message: "Erreur lors de la sauvegarde", type: "error" });
         }
     };
@@ -582,7 +584,7 @@ const CompetitivePartyModal = ({ onClose, onPartySaved, draftData = null }) => {
                                 });
                             }
                         } catch (error) {
-                            console.error('Erreur chargement ami:', error);
+                            logger.error('CompetitivePartyModal: Load friend error', { error: error.message, friendId });
                         }
                     }
                     setFriendsList(friendsData);
@@ -607,13 +609,13 @@ const CompetitivePartyModal = ({ onClose, onPartySaved, draftData = null }) => {
                                 });
                             }
                         } catch (error) {
-                            console.error('Erreur chargement groupe:', error);
+                            logger.error('CompetitivePartyModal: Load group error', { error: error.message, groupId });
                         }
                     }
                     setGroupsList(groupsData);
                 }
             } catch (error) {
-                console.error('Erreur chargement compagnons:', error);
+                logger.error('CompetitivePartyModal: Load companions error', { error: error.message });
             } finally {
                 setLoadingCompanions(false);
             }
@@ -679,6 +681,7 @@ const CompetitivePartyModal = ({ onClose, onPartySaved, draftData = null }) => {
                     <div style={{ display: 'flex', gap: '8px' }}>
                         <button
                             onClick={saveDraft}
+                            aria-label="Sauvegarder le brouillon"
                             style={{
                                 background: 'rgba(34, 197, 94, 0.2)',
                                 border: '1px solid rgba(34, 197, 94, 0.3)',
@@ -693,6 +696,7 @@ const CompetitivePartyModal = ({ onClose, onPartySaved, draftData = null }) => {
                         </button>
                         <button
                             onClick={onClose}
+                            aria-label="Fermer la modale"
                             style={{
                                 background: 'rgba(255, 255, 255, 0.1)',
                                 border: 'none',
@@ -706,6 +710,17 @@ const CompetitivePartyModal = ({ onClose, onPartySaved, draftData = null }) => {
                         </button>
                     </div>
                 </div>
+
+                {/* Suggestions contextuelles */}
+                <PartySuggestions 
+                    partyData={{
+                        drinks,
+                        venue,
+                        companions,
+                        battleMode: selectedBattleMode
+                    }}
+                    userProfile={userProfile}
+                />
 
                 <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                     {/* Contrôle de soirée temps réel */}
@@ -1277,7 +1292,7 @@ const CompetitivePartyModal = ({ onClose, onPartySaved, draftData = null }) => {
                                 >
                                     <img
                                         src={URL.createObjectURL(file)}
-                                        alt={`Photo ${index + 1}`}
+                                        alt={`Aperçu photo ${index + 1} de la soirée`}
                                         style={{
                                             width: '100%',
                                             height: '100%',

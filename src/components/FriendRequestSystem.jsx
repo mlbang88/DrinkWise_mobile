@@ -92,7 +92,7 @@ const FriendRequestSystem = () => {
 
             setMessageBox({ message: "Demande d'amitié envoyée !", type: "success" });
         } catch (error) {
-            console.error("Erreur envoi demande:", error);
+            console.error("Erreur envoi demande:", error?.message || String(error));
             setMessageBox({ message: "Erreur lors de l'envoi.", type: "error" });
         }
     };
@@ -129,7 +129,7 @@ const FriendRequestSystem = () => {
                 type: "success" 
             });
         } catch (error) {
-            console.error("❌ Erreur acceptation demande:", error);
+            console.error("❌ Erreur acceptation demande:", error?.message || String(error));
             setMessageBox({ message: "Erreur lors de l'acceptation.", type: "error" });
         }
     };
@@ -150,7 +150,7 @@ const FriendRequestSystem = () => {
 
             setMessageBox({ message: "Demande refusée.", type: "info" });
         } catch (error) {
-            console.error("Erreur refus demande:", error);
+            console.error("Erreur refus demande:", error?.message || String(error));
             setMessageBox({ message: "Erreur lors du refus.", type: "error" });
         }
     };
@@ -161,7 +161,7 @@ const FriendRequestSystem = () => {
             await deleteDoc(doc(db, `artifacts/${appId}/friend_requests`, requestId));
             setMessageBox({ message: "Demande annulée.", type: "info" });
         } catch (error) {
-            console.error("Erreur annulation demande:", error);
+            console.error("Erreur annulation demande:", error?.message || String(error));
             setMessageBox({ message: "Erreur lors de l'annulation.", type: "error" });
         }
     };

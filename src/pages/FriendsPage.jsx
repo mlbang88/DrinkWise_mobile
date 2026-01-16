@@ -45,7 +45,7 @@ const FriendsPage = ({ setCurrentPage, setSelectedFriendId }) => {
             console.log("✅ Résultats filtrés:", results);
             setSearchResults(results);
         } catch (error) {
-            console.error("Erreur recherche amis:", error);
+            console.error("Erreur recherche amis:", error?.message || String(error));
             setMessageBox({ message: "Erreur lors de la recherche.", type: "error" });
         } finally {
             setLoadingSearch(false);
@@ -120,7 +120,7 @@ const FriendsPage = ({ setCurrentPage, setSelectedFriendId }) => {
             setFriendIdInput('');
             
         } catch (error) {
-            console.error("❌ Erreur envoi demande ami:", error);
+            console.error("❌ Erreur envoi demande ami:", error?.message || String(error));
             setMessageBox({ message: "Erreur lors de l'envoi de la demande.", type: "error" });
         } finally {
             setLoadingAddById(false);
@@ -173,7 +173,7 @@ const FriendsPage = ({ setCurrentPage, setSelectedFriendId }) => {
             console.log("✅ Demande d'ami envoyée avec succès");
             setMessageBox({ message: "Demande d'ami envoyée !", type: "success" });
         } catch (error) {
-            console.error("❌ Erreur envoi demande ami:", error);
+            console.error("❌ Erreur envoi demande ami:", error?.message || String(error));
             setMessageBox({ message: "Erreur envoi demande ami.", type: "error" });
         }
     };
@@ -194,7 +194,7 @@ const FriendsPage = ({ setCurrentPage, setSelectedFriendId }) => {
                 setMessageBox({ message: "Erreur lors de la suppression.", type: "error" });
             }
         } catch (error) {
-            console.error("❌ Erreur suppression ami:", error);
+            console.error("❌ Erreur suppression ami:", error?.message || String(error));
             setMessageBox({ message: "Erreur lors de la suppression.", type: "error" });
         }
     };

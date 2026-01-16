@@ -1,6 +1,7 @@
 /**
  * Utilitaire pour s'assurer que les images ont des attributs alt appropriés
  */
+import { logger } from './logger';
 
 /**
  * Ajoute automatiquement des attributs alt manquants aux images
@@ -41,7 +42,7 @@ const addMissingAltAttributes = () => {
     }
     
     img.setAttribute('alt', altText);
-    console.log(`Alt automatique ajouté: "${altText}" pour image:`, img.src?.substring(0, 50) || 'source inconnue');
+    logger.debug('imageAccessibility: Alt text added', { altText, src: img.src?.substring(0, 50) || 'unknown' });
   });
 };
 

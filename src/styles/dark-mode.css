@@ -1,0 +1,235 @@
+/* Dark Mode Optimisé - True Black OLED + Contrastes WCAG AAA */
+
+:root[data-theme="dark"] {
+  /* === BACKGROUNDS === */
+  /* True blacks pour OLED (économie batterie + contraste maximal) */
+  --bg-primary: #000000;
+  --bg-secondary: #0a0a0a;
+  --bg-tertiary: #1a1a1a;
+  --bg-elevated: #212121;
+  
+  /* === TEXTES === */
+  /* Contrastes AAA (7:1 minimum) */
+  --text-primary: #ffffff;
+  --text-secondary: #b3b3b3;
+  --text-tertiary: #808080;
+  --text-disabled: #4d4d4d;
+  
+  /* === ACCENTS === */
+  /* Couleurs vibrants optimisées pour dark mode */
+  --accent-primary: #8b5cf6; /* Purple */
+  --accent-primary-hover: #9d6ff8;
+  --accent-secondary: #10b981; /* Green */
+  --accent-secondary-hover: #12c98a;
+  --accent-danger: #ef4444; /* Red */
+  --accent-danger-hover: #f87171;
+  --accent-warning: #f59e0b; /* Orange */
+  --accent-info: #3b82f6; /* Blue */
+  
+  /* === BORDERS === */
+  /* Borders subtiles pour ne pas surcharger */
+  --border-primary: rgba(255, 255, 255, 0.1);
+  --border-secondary: rgba(255, 255, 255, 0.05);
+  --border-focus: rgba(139, 92, 246, 0.6);
+  
+  /* === GLASSMORPHISM === */
+  /* Effets de verre pour cards modernes */
+  --glass-bg: rgba(255, 255, 255, 0.05);
+  --glass-bg-hover: rgba(255, 255, 255, 0.08);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-blur: blur(20px);
+  
+  /* === SHADOWS === */
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
+  --shadow-xl: 0 12px 48px rgba(0, 0, 0, 0.6);
+  
+  /* === OVERLAYS === */
+  --overlay-light: rgba(0, 0, 0, 0.5);
+  --overlay-medium: rgba(0, 0, 0, 0.7);
+  --overlay-heavy: rgba(0, 0, 0, 0.9);
+  
+  /* === GRADIENTS === */
+  --gradient-primary: linear-gradient(135deg, #8b5cf6, #10b981);
+  --gradient-secondary: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  --gradient-danger: linear-gradient(135deg, #ef4444, #f59e0b);
+  
+  /* === SPACING === */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
+  
+  /* === BORDER RADIUS === */
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-full: 9999px;
+  
+  /* === TRANSITIONS === */
+  --transition-fast: 0.15s ease;
+  --transition-base: 0.2s ease;
+  --transition-slow: 0.3s ease;
+}
+
+/* === LIGHT MODE (Optional) === */
+:root[data-theme="light"] {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f5f5f5;
+  --bg-tertiary: #e5e5e5;
+  --bg-elevated: #ffffff;
+  
+  --text-primary: #000000;
+  --text-secondary: #4d4d4d;
+  --text-tertiary: #808080;
+  --text-disabled: #b3b3b3;
+  
+  --accent-primary: #7c3aed;
+  --accent-primary-hover: #6d28d9;
+  --accent-secondary: #059669;
+  --accent-secondary-hover: #047857;
+  --accent-danger: #dc2626;
+  --accent-danger-hover: #b91c1c;
+  --accent-warning: #d97706;
+  --accent-info: #2563eb;
+  
+  --border-primary: rgba(0, 0, 0, 0.1);
+  --border-secondary: rgba(0, 0, 0, 0.05);
+  --border-focus: rgba(124, 58, 237, 0.6);
+  
+  --glass-bg: rgba(255, 255, 255, 0.8);
+  --glass-bg-hover: rgba(255, 255, 255, 0.9);
+  --glass-border: rgba(0, 0, 0, 0.1);
+  --glass-blur: blur(20px);
+  
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.15);
+  --shadow-xl: 0 12px 48px rgba(0, 0, 0, 0.2);
+  
+  --overlay-light: rgba(0, 0, 0, 0.3);
+  --overlay-medium: rgba(0, 0, 0, 0.5);
+  --overlay-heavy: rgba(0, 0, 0, 0.7);
+  
+  --gradient-primary: linear-gradient(135deg, #7c3aed, #059669);
+  --gradient-secondary: linear-gradient(135deg, #2563eb, #7c3aed);
+  --gradient-danger: linear-gradient(135deg, #dc2626, #d97706);
+}
+
+/* === UTILITY CLASSES === */
+
+/* Cards modernes avec glassmorphism */
+.card-modern {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  transition: all var(--transition-base);
+}
+
+.card-modern:hover {
+  background: var(--glass-bg-hover);
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-2px);
+}
+
+/* Buttons */
+.btn-primary {
+  background: var(--gradient-primary);
+  color: var(--text-primary);
+  border: none;
+  border-radius: var(--radius-md);
+  padding: var(--space-md) var(--space-lg);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-base);
+  box-shadow: var(--shadow-md);
+}
+
+.btn-primary:hover {
+  transform: scale(1.05);
+  box-shadow: var(--shadow-lg);
+}
+
+.btn-primary:active {
+  transform: scale(0.98);
+}
+
+/* Text utilities */
+.text-primary {
+  color: var(--text-primary);
+}
+
+.text-secondary {
+  color: var(--text-secondary);
+}
+
+.text-tertiary {
+  color: var(--text-tertiary);
+}
+
+/* Background utilities */
+.bg-primary {
+  background: var(--bg-primary);
+}
+
+.bg-secondary {
+  background: var(--bg-secondary);
+}
+
+.bg-glass {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+}
+
+/* === ACCESSIBILITY === */
+
+/* Focus visible pour tous les éléments interactifs */
+*:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  :root[data-theme="dark"] {
+    --text-primary: #ffffff;
+    --text-secondary: #e5e5e5;
+    --border-primary: rgba(255, 255, 255, 0.3);
+  }
+}
+
+/* === RESPONSIVE === */
+
+/* Mobile-first spacing */
+@media (max-width: 480px) {
+  :root {
+    --space-md: 12px;
+    --space-lg: 20px;
+    --space-xl: 28px;
+  }
+}
+
+/* Tablet adjustments */
+@media (min-width: 768px) and (max-width: 1024px) {
+  :root {
+    --space-lg: 28px;
+    --space-xl: 36px;
+  }
+}

@@ -66,7 +66,7 @@ const QuizModal = ({ onQuizComplete, onClose, uploadingPhotos = false, photosCou
                 await onQuizComplete(Object.values(answers));
             }
         } catch (error) {
-            console.error("❌ Erreur lors de la finalisation du quiz:", error);
+            console.error("❌ Erreur lors de la finalisation du quiz:", error?.message || String(error));
         } finally {
             setIsProcessing(false);
             // Fermer le modal après traitement

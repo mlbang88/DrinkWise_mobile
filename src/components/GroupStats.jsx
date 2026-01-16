@@ -36,7 +36,7 @@ export default function GroupStats({ groupId }) {
             }
             setLoading(false);
         }, (error) => {
-            console.error('❌ Erreur chargement groupe:', error);
+            console.error('❌ Erreur chargement groupe:', error?.message || String(error));
             setMessageBox({ message: 'Erreur lors du chargement du groupe.', type: 'error' });
             setLoading(false);
         });
@@ -56,7 +56,7 @@ export default function GroupStats({ groupId }) {
             }
             setMemberDetails(details);
         } catch (error) {
-            console.error('❌ Erreur chargement membres:', error);
+            console.error('❌ Erreur chargement membres:', error?.message || String(error));
         }
     };
 

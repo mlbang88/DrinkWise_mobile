@@ -5,11 +5,17 @@ import { useTheme } from '../styles/ThemeContext.jsx';
 import ThemedText from '../styles/ThemedText.jsx';
 import { badgeService } from '../services/badgeService';
 import { ExperienceService } from '../services/experienceService';
+import { StreakService } from '../services/streakService';
 import { badgeList, gameplayConfig } from '../utils/data';
 import PartyModeSelector from '../components/PartyModeSelector';
 import LoadingIcon from '../components/LoadingIcon';
 import RewardNotification from '../components/RewardNotification';
 import GlassButton from '../components/GlassButton';
+import ErrorFallback, { EmptyState } from '../components/ErrorFallback';
+import ModernHeader from '../components/ModernHeader';
+import StatCard from '../components/StatCard';
+import FloatingParticles from '../components/FloatingParticles';
+import AnimatedCounter from '../components/AnimatedCounter';
 import { PlusCircle } from 'lucide-react';
 import { DrinkWiseImages } from '../assets/DrinkWiseImages';
 import { logger } from '../utils/logger';
@@ -22,8 +28,10 @@ const HomePage = () => {
     const [weeklyStats, setWeeklyStats] = useState(null);
     const [lastBadge, setLastBadge] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
     const [showRewardNotification, setShowRewardNotification] = useState(false);
     const [rewardData, setRewardData] = useState({ xpGained: 0, newBadges: [] });
+    const [streakData, setStreakData] = useState({ currentStreak: 0, longestStreak: 0 });
 
     // Écouter les récompenses
     useEffect(() => {
@@ -36,9 +44,23 @@ const HomePage = () => {
         return () => window.removeEventListener('showRewardNotification', handleRewardNotification);
     }, []);
 
+    // Charger le streak au montage
+    useEffect(() => {
+        if (!user || !db) return;
+        
+        const loadStreak = async () => {
+            const streak = await StreakService.getStreak(db, user.uid, appId);
+            setStreakData(streak);
+        };
+        
+        loadStreak();
+    }, [user, db, appId]);
+
     // Charger les stats et badges
     useEffect(() => {
-        if (!user || !db) {
+        // Vérifier que db, appId et user.uid sont disponibles AVANT tout
+        if (!db || !appId || !user?.uid) {
+            logger.warn('HomePage: contexte Firebase incomplet');
             setLoading(false);
             return;
         }
@@ -72,6 +94,7 @@ const HomePage = () => {
             setLoading(false);
             }, (error) => {
                 logger.error('HOMEPAGE', 'Erreur lecture soirées pour le tableau de bord', error);
+                setError(error.message || 'Erreur lors du chargement des données');
                 setLoading(false);
             });
         }, 100);
@@ -82,7 +105,7 @@ const HomePage = () => {
                 try {
                     unsubscribe();
                 } catch (error) {
-                    console.warn('⚠️ Erreur nettoyage listener homepage:', error);
+                    logger.warn('HomePage: Listener cleanup error', { error: error.message });
                 }
             }
         };
@@ -94,8 +117,24 @@ const HomePage = () => {
         borderRadius: '0.75rem'
     };
 
+    const retryLoadData = () => {
+        setError(null);
+        setLoading(true);
+        // Force re-render, useEffect will re-run
+        const loadStreak = async () => {
+            if (!user || !db) return;
+            const streak = await StreakService.getStreak(db, user.uid, appId);
+            setStreakData(streak);
+        };
+        loadStreak();
+    };
+
     if (loading) {
         return <div className="flex justify-center mt-10"><LoadingIcon /></div>;
+    }
+
+    if (error) {
+        return <ErrorFallback message={error} onRetry={retryLoadData} />;
     }
 
     // Calcul du niveau depuis publicStats (source unique de vérité)
@@ -125,113 +164,134 @@ const HomePage = () => {
 
     // Interface normale uniquement
     return (
-        <div className="w-full h-full animate-fade-in space-y-4">
-            <div className="text-center mb-6">
-                <ThemedText style={{ fontSize: '1.75rem', fontWeight: 'bold', display: 'block', marginTop: '20px' }}>
-                    Bienvenue, {userProfile?.username || 'Fêtard'} !
-                </ThemedText>
-                <ThemedText style={{ fontSize: '1rem', color: '#d1d5db', display: 'block', marginTop: '8px', marginBottom: '20px' }}>
-                    Prêt à faire la fête ?
-                </ThemedText>
+        <div className="page-modern">
+            {/* Floating Particles Background */}
+            <FloatingParticles count={15} />
+            
+            {/* Modern Header */}
+            <ModernHeader 
+                username={userProfile?.username || 'Fêtard'} 
+                level={userLevel}
+                streak={streakData.currentStreak}
+            />
+
+            {/* Hero Action Button */}
+            <div className="hero-action">
+                <button className="btn-hero" onClick={() => setShowPartyModeSelector(true)}>
+                    <div className="btn-hero-icon">
+                        <PlusCircle size={32} />
+                    </div>
+                    <div className="btn-hero-content">
+                        <span className="btn-hero-title">Nouvelle Soirée</span>
+                        <span className="btn-hero-subtitle">Commencer à tracker</span>
+                    </div>
+                </button>
             </div>
 
-            {/* Bouton Nouvelle Soirée */}
-            <div className="mobile-card">
-                <GlassButton
-                    onClick={() => setShowPartyModeSelector(true)}
-                    variant="primary"
-                    size="large"
-                    style={{ 
-                        width: '100%',
-                        minHeight: '44px'
-                    }}
-                >
-                    <PlusCircle size={24} className="flex-shrink-0" /> 
-                    <span className="flex-grow text-center">Nouvelle Soirée</span>
-                </GlassButton>
+            {/* Quick Stats Grid */}
+            <div className="stats-grid">
+                <StatCard 
+                    icon="🔥" 
+                    label="Série Actuelle" 
+                    value={<AnimatedCounter value={streakData.currentStreak} />}
+                    accent="warning"
+                />
+                <StatCard 
+                    icon="🍻" 
+                    label="Soirées" 
+                    value={<AnimatedCounter value={weeklyStats?.totalParties || 0} />}
+                    accent="primary"
+                />
+                <StatCard 
+                    icon="🏆" 
+                    label="Badges" 
+                    value={<AnimatedCounter value={userProfile?.unlockedBadges?.length || 0} />}
+                    accent="success"
+                />
+                <StatCard 
+                    icon="⚡" 
+                    label="XP Total" 
+                    value={<AnimatedCounter value={userProfile?.xp ? Math.floor(userProfile.xp) : 0} />}
+                    accent="info"
+                />
             </div>
 
-            {/* Stats et Badges */}
-            <div className="mobile-grid">
-                <div className={`mobile-card p-6 ${containerClassName}`} style={{ ...containerStyle, border: '2px solid rgba(255, 255, 255, 0.2)' }}>
-                    <ThemedText style={{ 
-                        fontSize: 'clamp(16px, 4.5vw, 20px)', 
-                        fontWeight: 'bold', 
-                        marginBottom: '16px', 
-                        textAlign: 'center' 
-                    }}>
-                        📊 Semaine
-                    </ThemedText>
-                    {weeklyStats && weeklyStats.totalParties > 0 ? (
-                        <div className="space-y-3">
-                            <ThemedText style={{ 
-                                display: 'flex', 
-                                justifyContent: 'space-between', 
-                                fontSize: 'clamp(13px, 3.5vw, 15px)' 
-                            }}>
-                                <span>🎉 Soirées :</span> <span style={{ fontWeight: 'bold' }}>{weeklyStats.totalParties}</span>
-                            </ThemedText>
-                            <ThemedText style={{ 
-                                display: 'flex', 
-                                justifyContent: 'space-between', 
-                                fontSize: 'clamp(13px, 3.5vw, 15px)' 
-                            }}>
-                                <span>🍻 Verres :</span> <span style={{ fontWeight: 'bold' }}>{weeklyStats.totalDrinks}</span>
-                            </ThemedText>
-                            <ThemedText style={{ 
-                                display: 'flex', 
-                                justifyContent: 'space-between', 
-                                fontSize: 'clamp(13px, 3.5vw, 15px)' 
-                            }}>
-                                <span>🍺 Volume :</span> <span style={{ fontWeight: 'bold' }}>{weeklyStats.totalVolume ? `${(weeklyStats.totalVolume / 100).toFixed(1)}L` : '0L'}</span>
-                            </ThemedText>
-                            <ThemedText style={{ 
-                                display: 'flex', 
-                                justifyContent: 'space-between', 
-                                fontSize: 'clamp(13px, 3.5vw, 15px)' 
-                            }}>
-                                <span>🥊 Bagarres :</span> <span style={{ fontWeight: 'bold' }}>{weeklyStats.totalFights}</span>
-                            </ThemedText>
-                            <ThemedText style={{ 
-                                display: 'flex', 
-                                justifyContent: 'space-between', 
-                                fontSize: 'clamp(13px, 3.5vw, 15px)' 
-                            }}>
-                                <span>🤢 Vomis :</span> <span style={{ fontWeight: 'bold' }}>{weeklyStats.totalVomi}</span>
-                            </ThemedText>
+            {/* Stats Hebdomadaires */}
+            {weeklyStats && weeklyStats.totalParties > 0 && (
+                <div className="card-elevated animate-slide-up" style={{ margin: '0 20px 24px' }}>
+                    <h2 className="heading-2 mb-4">📊 Cette Semaine</h2>
+                    <div className="neon-divider" style={{ margin: '12px 0 16px' }} />
+                    <div className="space-y-3">
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-base)' }}>
+                            <span className="text-secondary">🎉 Soirées</span>
+                            <span style={{ fontWeight: 'var(--font-bold)', color: 'var(--text-primary)' }}>
+                                {weeklyStats.totalParties}
+                            </span>
                         </div>
-                    ) : (
-                        <ThemedText className="mobile-text-sm" style={{ color: '#9ca3af', textAlign: 'center' }}>
-                            Aucune soirée cette semaine
-                        </ThemedText>
-                    )}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-base)' }}>
+                            <span className="text-secondary">🍻 Verres</span>
+                            <span style={{ fontWeight: 'var(--font-bold)', color: 'var(--text-primary)' }}>
+                                {weeklyStats.totalDrinks}
+                            </span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-base)' }}>
+                            <span className="text-secondary">🍺 Volume</span>
+                            <span style={{ fontWeight: 'var(--font-bold)', color: 'var(--text-primary)' }}>
+                                {weeklyStats.totalVolume ? `${(weeklyStats.totalVolume / 100).toFixed(1)}L` : '0L'}
+                            </span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-base)' }}>
+                            <span className="text-secondary">🥊 Bagarres</span>
+                            <span style={{ fontWeight: 'var(--font-bold)', color: 'var(--text-primary)' }}>
+                                {weeklyStats.totalFights}
+                            </span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-base)' }}>
+                            <span className="text-secondary">🤢 Vomis</span>
+                            <span style={{ fontWeight: 'var(--font-bold)', color: 'var(--text-primary)' }}>
+                                {weeklyStats.totalVomi}
+                            </span>
+                        </div>
+                    </div>
                 </div>
+            )}
 
-                <div className={`mobile-card p-6 ${containerClassName}`} style={{ ...containerStyle, border: '2px solid rgba(255, 255, 255, 0.2)' }}>
-                    <ThemedText style={{ fontSize: '1.25rem', fontWeight: 'bold', marginBottom: '16px', textAlign: 'center' }}>
-                        🏆 Dernier Exploit
-                    </ThemedText>
-                    {lastBadge ? (
-                        <div className="flex items-center space-x-3">
-                            <div className="p-2 rounded-full flex-shrink-0 badge-container-gold">
-                                {React.cloneElement(lastBadge.icon, { size: 28, className: 'badge-gold' })}
+            {/* Dernier Badge */}
+            {lastBadge && (
+                <div className="card-elevated" style={{ margin: '0 20px 24px' }}>
+                    <h2 className="heading-2 mb-4">🏆 Dernier Exploit</h2>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                        <div style={{ 
+                            padding: '12px', 
+                            borderRadius: '16px', 
+                            background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.2) 0%, rgba(236, 72, 153, 0.2) 100%)',
+                            border: '2px solid rgba(139, 92, 246, 0.3)',
+                            flexShrink: 0
+                        }}>
+                            {React.cloneElement(lastBadge.icon, { size: 32, style: { color: '#8b5cf6' } })}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                            <div className="body-large" style={{ fontWeight: 'var(--font-bold)', marginBottom: '4px' }}>
+                                {lastBadge.name}
                             </div>
-                            <div className="flex-1 min-w-0">
-                                <ThemedText className="mobile-text-base break-words" style={{ fontWeight: 'bold' }}>
-                                    {lastBadge.name}
-                                </ThemedText>
-                                <ThemedText className="mobile-text-sm break-words" style={{ color: '#d1d5db' }}>
-                                    {lastBadge.description}
-                                </ThemedText>
+                            <div className="caption">
+                                {lastBadge.description}
                             </div>
                         </div>
-                    ) : (
-                        <ThemedText className="mobile-text-sm" style={{ color: '#9ca3af', textAlign: 'center' }}>
-                            Pas encore d'exploits
-                        </ThemedText>
-                    )}
+                    </div>
                 </div>
-            </div>
+            )}
+
+            {/* Empty State si pas de stats */}
+            {weeklyStats && weeklyStats.totalParties === 0 && (
+                <div style={{ padding: '0 20px' }}>
+                    <div className="card-glass" style={{ textAlign: 'center', padding: '40px 20px' }}>
+                        <div style={{ fontSize: '48px', marginBottom: '16px' }}>🎉</div>
+                        <h3 className="heading-2" style={{ marginBottom: '8px' }}>Prêt à commencer ?</h3>
+                        <p className="caption">Crée ta première soirée et commence à tracker tes moments !</p>
+                    </div>
+                </div>
+            )}
 
             {/* Modales */}
             {showPartyModeSelector && (

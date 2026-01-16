@@ -280,7 +280,7 @@ export const getImage = (category, type, seed = 0) => {
     }
     return DrinkWiseImages[category]?.[type] || DrinkWiseImages.illustrations.emptyState;
   } catch (error) {
-    console.error('Erreur récupération image:', error);
+    console.error('Erreur récupération image:', error?.message || String(error));
     return DrinkWiseImages.illustrations.emptyState;
   }
 };

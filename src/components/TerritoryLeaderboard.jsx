@@ -115,7 +115,7 @@ const TerritoryLeaderboard = ({ leaderboard, userVenues = [], controlledZones, c
                         <div className="flex items-center gap-3">
                             <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #8b5cf6, #6d28d9)' }}>
                                 {currentUserData.avatar ? (
-                                    <img src={currentUserData.avatar} alt="Avatar" className="w-full h-full rounded-full object-cover" />
+                                    <img src={currentUserData.avatar} alt={`Avatar de ${currentUserData.username}`} className="w-full h-full rounded-full object-cover" />
                                 ) : (
                                     <span className="text-xl font-bold" style={{ color: '#ffffff' }}>
                                         {currentUserData.username?.charAt(0).toUpperCase() || '?'}
@@ -228,7 +228,7 @@ const TerritoryLeaderboard = ({ leaderboard, userVenues = [], controlledZones, c
                                     {/* Avatar */}
                                     <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: rank <= 3 ? 'linear-gradient(135deg, #8b5cf6, #6d28d9)' : '#374151' }}>
                                         {user.avatar ? (
-                                            <img src={user.avatar} alt={user.username} className="w-full h-full rounded-full object-cover" />
+                                            <img src={user.avatar} alt={`Avatar de ${user.username}`} className="w-full h-full rounded-full object-cover" />
                                         ) : (
                                             <span className="text-lg font-bold" style={{ color: '#ffffff' }}>
                                                 {user.username?.charAt(0).toUpperCase() || '?'}

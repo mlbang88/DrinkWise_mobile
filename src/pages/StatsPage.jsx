@@ -11,7 +11,8 @@ import { drinkImageLibrary } from '../utils/data';
 import { PieChart, Pie, Cell, BarChart as ReBarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import LoadingSpinner from '../components/LoadingSpinner';
 import LoadingIcon from '../components/LoadingIcon';
-import { Flame, Trophy, Lightbulb, GitBranch, Rocket, Sparkles, Camera, Calendar, BarChart3 } from 'lucide-react';
+import ErrorFallback, { EmptyState } from '../components/ErrorFallback';
+import { Flame, Trophy, Lightbulb, GitBranch, Rocket, Sparkles, Camera, Calendar, BarChart3, TrendingUp } from 'lucide-react';
 import { logger } from '../utils/logger.js';
 import EditPartyModal from '../components/EditPartyModal';
 import { DrinkWiseImages } from '../assets/DrinkWiseImages';
@@ -21,11 +22,106 @@ import AnimatedCard from '../components/AnimatedCard';
 import AnimatedChart from '../components/AnimatedChart';
 import AnimatedList from '../components/AnimatedList';
 
+// Composant de barre de comparaison
+const ComparisonBar = ({ label, userValue, avgValue, unit, color }) => {
+    const userNum = parseFloat(userValue);
+    const avgNum = parseFloat(avgValue);
+    const maxValue = Math.max(userNum, avgNum) * 1.2;
+    const userPercent = (userNum / maxValue) * 100;
+    const avgPercent = (avgNum / maxValue) * 100;
+    const isAboveAvg = userNum >= avgNum;
+
+    return (
+        <div style={{
+            background: 'rgba(255, 255, 255, 0.05)',
+            borderRadius: '12px',
+            padding: '16px',
+            border: '1px solid rgba(255, 255, 255, 0.1)'
+        }}>
+            <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                marginBottom: '12px',
+                alignItems: 'center'
+            }}>
+                <span style={{
+                    color: 'white',
+                    fontSize: '14px',
+                    fontWeight: '600'
+                }}>{label}</span>
+                <span style={{
+                    color: isAboveAvg ? '#10b981' : '#ef4444',
+                    fontSize: '12px',
+                    fontWeight: '600',
+                    padding: '4px 8px',
+                    borderRadius: '6px',
+                    background: isAboveAvg ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)'
+                }}>
+                    {isAboveAvg ? '↑' : '↓'} {Math.abs(((userNum - avgNum) / avgNum) * 100).toFixed(0)}%
+                </span>
+            </div>
+            
+            {/* Barre de l'utilisateur */}
+            <div style={{ marginBottom: '8px' }}>
+                <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    marginBottom: '4px'
+                }}>
+                    <span style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '12px' }}>Vous</span>
+                    <span style={{ color: color, fontSize: '13px', fontWeight: '600' }}>{userNum} {unit}</span>
+                </div>
+                <div style={{
+                    height: '8px',
+                    background: 'rgba(255, 255, 255, 0.1)',
+                    borderRadius: '4px',
+                    overflow: 'hidden'
+                }}>
+                    <div style={{
+                        height: '100%',
+                        width: `${userPercent}%`,
+                        background: color,
+                        transition: 'width 0.5s ease',
+                        borderRadius: '4px'
+                    }} />
+                </div>
+            </div>
+            
+            {/* Barre de la moyenne */}
+            <div>
+                <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    marginBottom: '4px'
+                }}>
+                    <span style={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: '12px' }}>Moyenne</span>
+                    <span style={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: '13px', fontWeight: '600' }}>{avgNum} {unit}</span>
+                </div>
+                <div style={{
+                    height: '8px',
+                    background: 'rgba(255, 255, 255, 0.1)',
+                    borderRadius: '4px',
+                    overflow: 'hidden'
+                }}>
+                    <div style={{
+                        height: '100%',
+                        width: `${avgPercent}%`,
+                        background: 'rgba(255, 255, 255, 0.3)',
+                        transition: 'width 0.5s ease',
+                        borderRadius: '4px'
+                    }} />
+                </div>
+            </div>
+        </div>
+    );
+};
+
 const StatsPage = () => {
     const { db, user, appId, setMessageBox, functions, userProfile } = useContext(FirebaseContext);
     const { theme } = useTheme();
     const [myParties, setMyParties] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
     const [timeFilter, setTimeFilter] = useState('all'); // 'all', 'week', 'month', 'year'
     const [filteredParties, setFilteredParties] = useState([]);
     const [displayStats, setDisplayStats] = useState(null);
@@ -72,6 +168,7 @@ const StatsPage = () => {
                 setLoading(false);
             }, (error) => {
                 logger.error("Erreur lecture soirées", { error: error.message });
+                setError(error.message || "Erreur chargement de vos soirées");
                 setMessageBox({ message: "Erreur chargement de vos soirées.", type: "error" });
                 setLoading(false);
             });
@@ -83,7 +180,7 @@ const StatsPage = () => {
                 try {
                     unsubscribe();
                 } catch (error) {
-                    console.warn('⚠️ Erreur nettoyage listener stats:', error);
+                    logger.warn('StatsPage: Listener cleanup error', { error: error.message });
                 }
             }
         };
@@ -310,16 +407,34 @@ const StatsPage = () => {
     const activeFilterClass = "bg-purple-600 text-white";
     const inactiveFilterClass = "bg-gray-500/50 hover:bg-gray-500/80";
 
+    const retryLoadData = () => {
+        setError(null);
+        setLoading(true);
+        // useEffect will re-run
+    };
+
     if (loading) return <LoadingSpinner />;
+    
+    if (error) {
+        return <ErrorFallback message={error} onRetry={retryLoadData} />;
+    }
+
+    if (!loading && myParties.length === 0) {
+        return (
+            <EmptyState
+                title="Aucune soirée enregistrée"
+                message="Créez votre première soirée pour voir vos statistiques"
+                actionLabel="Créer une soirée"
+                onAction={() => window.location.href = '/'}
+            />
+        );
+    }
 
     return (
-        <div style={{
-            minHeight: '100vh',
-            background: 'linear-gradient(135deg, rgba(139, 69, 255, 0.15) 0%, rgba(59, 130, 246, 0.15) 25%, rgba(16, 185, 129, 0.15) 75%, rgba(251, 191, 36, 0.15) 100%), linear-gradient(rgba(0,0,0,0.8), rgba(0,0,0,0.6)), url("https://images.unsplash.com/photo-1543007629-5c4e8a83ba4c?q=80&w=1171&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D") center/cover',
+        <div className="page-modern" style={{
             padding: 'clamp(16px, 4vw, 24px)',
             display: 'flex',
-            flexDirection: 'column',
-            backdropFilter: 'blur(10px)'
+            flexDirection: 'column'
         }}>
 
             {/* Titre principal */}
@@ -1139,6 +1254,111 @@ const StatsPage = () => {
                                     </div>
                                 </div>
                             )}
+                        </div>
+                    )}
+
+                    {/* Comparaison Communautaire */}
+                    {displayStats && (
+                        <div style={{
+                            background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(109, 40, 217, 0.1) 100%)',
+                            backdropFilter: 'blur(4px)',
+                            borderRadius: '24px',
+                            border: '1px solid rgba(139, 92, 246, 0.3)',
+                            padding: '28px',
+                            marginBottom: '24px',
+                            boxShadow: '0 8px 32px rgba(139, 92, 246, 0.1)'
+                        }}>
+                            <h3 style={{
+                                background: 'linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)',
+                                WebkitBackgroundClip: 'text',
+                                WebkitTextFillColor: 'transparent',
+                                backgroundClip: 'text',
+                                fontSize: 'clamp(18px, 5vw, 22px)',
+                                fontWeight: '700',
+                                margin: '0 0 24px 0',
+                                display: 'flex',
+                                alignItems: 'center',
+                                letterSpacing: '-0.02em'
+                            }}>
+                                <TrendingUp size={24} style={{ marginRight: '12px', color: '#8b5cf6', filter: 'drop-shadow(0 2px 4px rgba(139, 92, 246, 0.3))' }} />
+                                Comparaison avec la Communauté
+                            </h3>
+                            
+                            <p style={{
+                                color: 'rgba(255, 255, 255, 0.7)',
+                                fontSize: '14px',
+                                marginBottom: '24px',
+                                lineHeight: '1.5'
+                            }}>
+                                Voici comment vos stats se comparent à la moyenne des utilisateurs DrinkWise
+                            </p>
+
+                            {/* Grille de comparaison */}
+                            <div style={{
+                                display: 'grid',
+                                gridTemplateColumns: '1fr',
+                                gap: '16px'
+                            }}>
+                                {/* Soirées */}
+                                <ComparisonBar
+                                    label="Soirées par mois"
+                                    userValue={displayStats.totalParties}
+                                    avgValue={8.5}
+                                    unit="soirées"
+                                    color="#10b981"
+                                />
+                                
+                                {/* Boissons */}
+                                <ComparisonBar
+                                    label="Verres par soirée"
+                                    userValue={(displayStats.totalDrinks / (displayStats.totalParties || 1)).toFixed(1)}
+                                    avgValue={6.2}
+                                    unit="verres"
+                                    color="#3b82f6"
+                                />
+                                
+                                {/* Volume */}
+                                <ComparisonBar
+                                    label="Volume par soirée"
+                                    userValue={((displayStats.totalVolumeML / 100) / (displayStats.totalParties || 1)).toFixed(1)}
+                                    avgValue={1.8}
+                                    unit="L"
+                                    color="#f59e0b"
+                                />
+                                
+                                {/* Alcool pur */}
+                                <ComparisonBar
+                                    label="Alcool pur par soirée"
+                                    userValue={((displayStats.totalRecal / 10) / (displayStats.totalParties || 1)).toFixed(1)}
+                                    avgValue={3.5}
+                                    unit="cl"
+                                    color="#ef4444"
+                                />
+                            </div>
+
+                            {/* Message personnalisé */}
+                            <div style={{
+                                marginTop: '24px',
+                                padding: '16px',
+                                background: 'rgba(139, 92, 246, 0.1)',
+                                borderRadius: '12px',
+                                border: '1px solid rgba(139, 92, 246, 0.2)',
+                                textAlign: 'center'
+                            }}>
+                                <p style={{
+                                    color: '#c4b5fd',
+                                    fontSize: '14px',
+                                    fontWeight: '600',
+                                    margin: 0,
+                                    lineHeight: '1.5'
+                                }}>
+                                    {displayStats.totalParties > 10 
+                                        ? "🎉 Vous êtes un vrai fêtard! Continue comme ça!"
+                                        : displayStats.totalParties > 5
+                                        ? "👍 Bon rythme! La communauté t'attend pour plus de soirées!"
+                                        : "💪 Allez, encore quelques soirées pour atteindre la moyenne!"}
+                                </p>
+                            </div>
                         </div>
                     )}
 

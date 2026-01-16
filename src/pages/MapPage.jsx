@@ -1,15 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, MapPin, Users, Trophy, Filter, Target, Navigation2, History } from 'lucide-react';
+import { ArrowLeft, MapPin, Users, Trophy, Filter, Target, Navigation2, History, Globe, Swords } from 'lucide-react';
 import { MarkerClusterer, GridAlgorithm } from '@googlemaps/markerclusterer';
 import { auth, appId, db } from '../firebase';
 import googleMapsService from '../services/googleMapsService';
 import { getUserControlledVenues, getRivalControlledVenues, getVenueLeaderboard, getUserControlledZones } from '../services/venueService';
 import { logger } from '../utils/logger';
+import { createUserMarker, createVenueMarker } from '../utils/advancedMarkerHelper';
 import TerritoryLeaderboard from '../components/TerritoryLeaderboard';
 import VenueInfoWindow from '../components/VenueInfoWindow';
 import MapFilters from '../components/MapFilters';
 import ZoneOverlay from '../components/ZoneOverlay';
 import TerritoryHistory from '../components/TerritoryHistory';
+import GlobalLeaderboard from '../components/GlobalLeaderboard';
+import BattleArena from '../components/BattleArena';
 
 /**
  * MapPage - Carte interactive des territoires conquis
@@ -34,17 +37,21 @@ const MapPage = ({ setCurrentPage }) => {
     const [venueLeaderboard, setVenueLeaderboard] = useState([]);
     const [showLeaderboard, setShowLeaderboard] = useState(false);
     const [showHistory, setShowHistory] = useState(false);
+    const [showGlobalLeaderboard, setShowGlobalLeaderboard] = useState(false);
+    const [showBattleArena, setShowBattleArena] = useState(false);
+    const [battleVenue, setBattleVenue] = useState(null);
+    const [showFilters, setShowFilters] = useState(false);
+    const [showZones, setShowZones] = useState(false); // Zones cachées par défaut
     const [mapFilter, setMapFilter] = useState({
         distance: 10000,
         showUserVenues: true,
         showRivalVenues: true
     });
-    const [showZones, setShowZones] = useState(true); // Afficher les zones par défaut
 
     // Écouter les changements d'authentification
     useEffect(() => {
         const unsubscribe = auth.onAuthStateChanged((user) => {
-            console.log('🔐 Auth state changed:', user ? user.uid : 'null');
+            logger.debug('MapPage: Auth state changed', { userId: user?.uid || 'null' });
             setCurrentUser(user);
         });
 
@@ -80,7 +87,8 @@ const MapPage = ({ setCurrentPage }) => {
                     center: userLocation,
                     zoom: 14,
                     mapTypeId: 'roadmap',
-                    styles: getDarkMapStyles(),
+                    mapId: 'DRINKWISE_MAP_ID', // Requis pour AdvancedMarkerElement
+                    // Note: styles ne peut pas être utilisé avec mapId (géré via Cloud Console)
                     disableDefaultUI: false,
                     zoomControl: true,
                     mapTypeControl: false,
@@ -90,26 +98,13 @@ const MapPage = ({ setCurrentPage }) => {
 
                 mapInstanceRef.current = map;
                 
-                // Marqueur position utilisateur
-                new window.google.maps.Marker({
-                    position: userLocation,
-                    map: map,
-                    icon: {
-                        path: window.google.maps.SymbolPath.CIRCLE,
-                        scale: 10,
-                        fillColor: '#8b5cf6',
-                        fillOpacity: 1,
-                        strokeColor: '#ffffff',
-                        strokeWeight: 3,
-                    },
-                    title: 'Votre position',
-                    zIndex: 1000,
-                });
+                // Marqueur position utilisateur (AdvancedMarkerElement)
+                createUserMarker(userLocation, map);
 
-                logger.info('✅ Carte initialisée');
+                logger.info('✅ Carte initialisée avec AdvancedMarkerElement');''
                 setIsLoading(false);
                 setMapReady(true);
-                console.log('✅ Carte prête pour affichage des marqueurs');
+                logger.debug('MapPage: Map ready for markers');
 
             } catch (error) {
                 logger.error('❌ Erreur initialisation carte', error);
@@ -123,19 +118,19 @@ const MapPage = ({ setCurrentPage }) => {
     // Charger les données utilisateur et leaderboard
     useEffect(() => {
         if (!currentUser) {
-            console.log('⚠️ Pas d\'utilisateur connecté');
+            logger.debug('MapPage: No user connected');
             return;
         }
 
         const loadData = async () => {
             try {
-                console.log('🔄 Chargement des données...', { userId: currentUser.uid, appId });
+                logger.debug('MapPage: Loading data', { userId: currentUser.uid, appId });
                 const db = (await import('../firebase')).db;
 
                 // Charger les lieux de l'utilisateur
                 logger.info('🏰 Chargement lieux contrôlés', { userId: currentUser.uid });
                 const userVenuesData = await getUserControlledVenues(db, appId, currentUser.uid);
-                console.log('✅ Lieux récupérés:', userVenuesData);
+                logger.debug('MapPage: Venues received', { count: userVenuesData.length });
                 setUserVenues(userVenuesData);
 
                 // Charger le leaderboard global (tous les lieux)
@@ -153,8 +148,7 @@ const MapPage = ({ setCurrentPage }) => {
                 });
 
             } catch (error) {
-                console.error('❌ Erreur chargement:', error);
-                logger.error('❌ Erreur chargement données', error);
+                logger.error('MapPage: Data loading error', { error: error.message });
             }
         };
 
@@ -163,15 +157,18 @@ const MapPage = ({ setCurrentPage }) => {
 
     // Afficher les markers sur la carte
     useEffect(() => {
-        console.log('🗺️ useEffect markers:', { 
+        logger.debug('MapPage: Markers effect triggered', { 
             mapReady,
             hasMap: !!mapInstanceRef.current, 
-            venuesCount: userVenues.length,
-            venues: userVenues 
+            venuesCount: userVenues.length
         });
 
         if (!mapReady || !mapInstanceRef.current || !userVenues.length) {
-            console.log('⏭️ Attente: mapReady=' + mapReady + ', hasMap=' + !!mapInstanceRef.current + ', venues=' + userVenues.length);
+            logger.debug('MapPage: Waiting for conditions', { 
+                mapReady, 
+                hasMap: !!mapInstanceRef.current, 
+                venuesCount: userVenues.length 
+            });
             return;
         }
 
@@ -182,60 +179,35 @@ const MapPage = ({ setCurrentPage }) => {
         // Créer les nouveaux markers
         userVenues.forEach(venue => {
             if (!venue.coordinates) {
-                console.warn('⚠️ Lieu sans coordonnées:', venue.name);
+                logger.warn('MapPage: Venue without coordinates', { name: venue.name });
                 return;
             }
 
-            console.log('📍 Création marqueur pour:', venue.name, venue.coordinates);
-            const marker = createVenueMarker(venue);
+            logger.debug('MapPage: Creating marker', { name: venue.name, coordinates: venue.coordinates });
+            const marker = createVenueMarker(venue, mapInstanceRef.current, handleVenueClick);
             markersRef.current.push(marker);
         });
 
-        console.log(`✅ ${markersRef.current.length} markers affichés`);
-        logger.info(`📍 ${markersRef.current.length} markers affichés`);
+        logger.info('MapPage: Markers displayed', { count: markersRef.current.length });
 
     }, [userVenues, mapFilter, mapReady]);
 
-    // Créer un marker pour un lieu
-    const createVenueMarker = (venue) => {
-        // Pour les venues retournées par getUserControlledVenues, ce sont forcément celles de l'utilisateur
-        const markerColor = '#22c55e'; // Vert pour les lieux contrôlés
-
-        const marker = new window.google.maps.Marker({
-            position: venue.coordinates,
-            map: mapInstanceRef.current,
-            title: venue.name,
-            icon: {
-                path: window.google.maps.SymbolPath.CIRCLE,
-                scale: 20, // Augmenté de 12 à 20 pour meilleure visibilité
-                fillColor: markerColor,
-                fillOpacity: 0.8,
-                strokeColor: '#ffffff',
-                strokeWeight: 3, // Augmenté de 2 à 3
-            },
-            animation: window.google.maps.Animation.DROP,
-        });
-
-        // Click handler pour ouvrir la fenêtre d'info avec leaderboard
-        marker.addListener('click', async () => {
-            console.log('🖱️ Marqueur cliqué:', venue.name);
-            setSelectedVenue(venue);
-            // Charger le leaderboard pour ce lieu spécifique
-            try {
-                const { db } = await import('../firebase');
-                console.log('📊 Chargement leaderboard pour:', venue.placeId);
-                const venueLeaders = await getVenueLeaderboard(db, appId, venue.placeId, 5);
-                console.log('✅ Leaderboard reçu:', venueLeaders);
-                setVenueLeaderboard(venueLeaders);
-                logger.info('📊 Leaderboard lieu chargé', { placeId: venue.placeId, count: venueLeaders.length });
-            } catch (error) {
-                console.error('❌ Erreur leaderboard:', error);
-                logger.error('❌ Erreur chargement leaderboard lieu', error);
-                setVenueLeaderboard([]);
-            }
-        });
-
-        return marker;
+    // Créer un marker pour un lieu (AdvancedMarkerElement)
+    const handleVenueClick = async (venue) => {
+        logger.debug('MapPage: Marker clicked', { name: venue.name });
+        setSelectedVenue(venue);
+        // Charger le leaderboard pour ce lieu spécifique
+        try {
+            const { db } = await import('../firebase');
+            logger.debug('MapPage: Loading venue leaderboard', { placeId: venue.placeId });
+            const venueLeaders = await getVenueLeaderboard(db, appId, venue.placeId, 5);
+            logger.debug('MapPage: Leaderboard received', { count: venueLeaders.length });
+            setVenueLeaderboard(venueLeaders);
+            logger.info('📊 Leaderboard lieu chargé', { placeId: venue.placeId, count: venueLeaders.length });
+        } catch (error) {
+            logger.error('MapPage: Leaderboard error', { error: error.message });
+            setVenueLeaderboard([]);
+        }
     };
 
     // Styles de carte sombre
@@ -343,6 +315,30 @@ const MapPage = ({ setCurrentPage }) => {
 
                     <div className="flex gap-2">
                         <button
+                            onClick={() => setShowFilters(!showFilters)}
+                            className="p-2 hover:bg-gray-700/50 rounded-lg transition-colors"
+                            title="Filtres de carte"
+                        >
+                            <Filter size={24} style={{ color: showFilters ? '#fbbf24' : '#9ca3af' }} />
+                        </button>
+
+                        <button
+                            onClick={() => setShowZones(!showZones)}
+                            className="p-2 hover:bg-gray-700/50 rounded-lg transition-colors"
+                            title="Zones de contrôle"
+                        >
+                            <Target size={24} style={{ color: showZones ? '#10b981' : '#9ca3af' }} />
+                        </button>
+
+                        <button
+                            onClick={() => setShowBattleArena(true)}
+                            className="p-2 hover:bg-gray-700/50 rounded-lg transition-colors"
+                            title="Battle Arena"
+                        >
+                            <Swords size={24} style={{ color: '#ef4444' }} />
+                        </button>
+
+                        <button
                             onClick={() => setShowHistory(true)}
                             className="p-2 hover:bg-gray-700/50 rounded-lg transition-colors"
                             title="Timeline des conquêtes"
@@ -351,8 +347,17 @@ const MapPage = ({ setCurrentPage }) => {
                         </button>
 
                         <button
+                            onClick={() => setShowGlobalLeaderboard(true)}
+                            className="p-2 hover:bg-gray-700/50 rounded-lg transition-colors"
+                            title="Classement mondial"
+                        >
+                            <Globe size={24} style={{ color: '#3b82f6' }} />
+                        </button>
+
+                        <button
                             onClick={() => setShowLeaderboard(!showLeaderboard)}
                             className="p-2 hover:bg-gray-700/50 rounded-lg transition-colors"
+                            title="Classement local"
                         >
                             <Trophy size={24} style={{ color: '#8b5cf6' }} />
                         </button>
@@ -429,6 +434,31 @@ const MapPage = ({ setCurrentPage }) => {
                 />
             )}
 
+            {/* Global Leaderboard Modal */}
+            {showGlobalLeaderboard && (
+                <GlobalLeaderboard
+                    db={db}
+                    appId={appId}
+                    currentUserId={currentUser?.uid}
+                    onClose={() => setShowGlobalLeaderboard(false)}
+                />
+            )}
+
+            {/* Battle Arena Modal */}
+            {showBattleArena && battleVenue && currentUser && (
+                <BattleArena
+                    db={db}
+                    appId={appId}
+                    currentUser={currentUser}
+                    placeId={battleVenue.placeId}
+                    venueName={battleVenue.name}
+                    onClose={() => {
+                        setShowBattleArena(false);
+                        setBattleVenue(null);
+                    }}
+                />
+            )}
+
             {/* Info Window du lieu sélectionné */}
             {selectedVenue && (
                 <VenueInfoWindow
@@ -438,6 +468,32 @@ const MapPage = ({ setCurrentPage }) => {
                         setSelectedVenue(null);
                         setVenueLeaderboard([]);
                     }}
+                    onStartBattle={() => {
+                        setBattleVenue(selectedVenue);
+                        setShowBattleArena(true);
+                        setSelectedVenue(null);
+                    }}
+                />
+            )}
+
+            {/* Map Filters */}
+            {showFilters && (
+                <MapFilters
+                    currentFilter={mapFilter}
+                    onFilterChange={(newFilter) => {
+                        setMapFilter(newFilter);
+                        setShowFilters(false);
+                    }}
+                />
+            )}
+
+            {/* Zone Overlay */}
+            {showZones && mapInstanceRef.current && controlledZones && (
+                <ZoneOverlay
+                    map={mapInstanceRef.current}
+                    zones={controlledZones}
+                    userVenues={userVenues}
+                    isVisible={showZones}
                 />
             )}
         </div>

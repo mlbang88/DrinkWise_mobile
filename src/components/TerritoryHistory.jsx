@@ -51,7 +51,7 @@ const TerritoryHistory = ({ db, appId, userId, onClose }) => {
     const loadHistory = async () => {
         setIsLoading(true);
         try {
-            console.log('🔍 TerritoryHistory: Chargement avec', { db: !!db, appId, userId, period });
+            logger.debug('TerritoryHistory: Loading history', { appId, userId, period });
             
             // Calculer la date de début selon la période
             const now = new Date();
@@ -72,7 +72,7 @@ const TerritoryHistory = ({ db, appId, userId, onClose }) => {
                     break;
             }
 
-            console.log('📅 Période sélectionnée:', period, 'depuis', startDate);
+            logger.debug('TerritoryHistory: Period selected', { period, startDate: startDate.toISOString() });
 
             // Récupérer tous les venueControls de l'utilisateur
             // Note: On ne fait pas orderBy ici pour éviter de nécessiter un index composite
@@ -81,9 +81,9 @@ const TerritoryHistory = ({ db, appId, userId, onClose }) => {
                 where('userId', '==', userId)
             );
 
-            console.log('🔍 Exécution requête Firestore...');
+            logger.debug('TerritoryHistory: Executing Firestore query');
             const snapshot = await getDocs(controlsQuery);
-            console.log('✅ Snapshot reçu:', snapshot.docs.length, 'documents');
+            logger.debug('TerritoryHistory: Snapshot received', { docsCount: snapshot.docs.length });
             
             const historyData = snapshot.docs.map(doc => {
                 const data = doc.data();

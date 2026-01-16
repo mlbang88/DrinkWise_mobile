@@ -146,7 +146,7 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
                     logger.error('Erreur chargement groupes', { error: error.message });
                 }
             } catch (error) {
-                console.error('Erreur chargement compagnons:', error);
+                console.error('Erreur chargement compagnons:', error?.message || String(error));
             } finally {
                 setLoadingCompanions(false);
             }
@@ -380,7 +380,7 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
                     await processPartyForTournaments(partyData, selectedBattleMode, additionalData);
                     console.log("✅ Points Battle Royale calculés et attribués !");
                 } catch (battleError) {
-                    console.error("❌ Erreur calcul points Battle Royale:", battleError);
+                    console.error("❌ Erreur calcul points Battle Royale:", battleError?.message || String(battleError));
                     // Ne pas bloquer le flux principal en cas d'erreur
                 }
             }
@@ -431,11 +431,10 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
                         
                         console.log("🎉 Toutes les photos uploadées et référencées en arrière-plan !");
                     } catch (photoError) {
-                        console.error("❌ Erreur upload photos en arrière-plan:", photoError);
+                        console.error("❌ Erreur upload photos en arrière-plan:", photoError?.message || String(photoError));
                         console.error("❌ Détails de l'erreur:", {
-                            code: photoError.code,
-                            message: photoError.message,
-                            stack: photoError.stack
+                            code: photoError?.code,
+                            message: photoError?.message
                         });
                     } finally {
                         setUploadingPhotos(false);
@@ -493,11 +492,10 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
                         console.log("📡 Déclenchement de l'événement de rafraîchissement global du feed");
                         window.dispatchEvent(new CustomEvent('refreshFeed'));
                     } catch (videoError) {
-                        console.error("❌ Erreur upload vidéos en arrière-plan:", videoError);
+                        console.error("❌ Erreur upload vidéos en arrière-plan:", videoError?.message || String(videoError));
                         console.error("❌ Détails de l'erreur:", {
-                            code: videoError.code,
-                            message: videoError.message,
-                            stack: videoError.stack
+                            code: videoError?.code,
+                            message: videoError?.message
                         });
                     } finally {
                         setUploadingVideos(false);
@@ -509,7 +507,7 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
             generatePartySummary(partyData, docRef.id);
             
         } catch (error) {
-            console.error("❌ Erreur enregistrement soirée:", error);
+            console.error("❌ Erreur enregistrement soirée:", error?.message || String(error));
             setMessageBox({ message: "Erreur lors de l'enregistrement.", type: "error" });
         }
     };
@@ -587,14 +585,14 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
                     summarySource: 'fallback-empty-response',
                     summaryGeneratedAt: new Date()
                 });
-                console.warn('⚠️ Résultat inattendu de callGeminiAPI, fallback utilisé', result);
+                console.warn('⚠️ Résultat inattendu de callGeminiAPI, fallback utilisé', JSON.stringify(result));
                 setMessageBox({
                     message: "⚠️ Résumé IA indisponible, on a généré une version manuelle.",
                     type: 'warning'
                 });
             }
         } catch (error) {
-            console.error("❌ Erreur génération résumé via Cloud Function:", error);
+            console.error("❌ Erreur génération résumé via Cloud Function:", error?.message || String(error));
 
             try {
                 const fallbackSummary = buildFallbackSummary(partyDetails);
@@ -610,7 +608,7 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
                     type: 'info'
                 });
             } catch (fallbackError) {
-                console.error('❌ Impossible de sauvegarder le résumé fallback:', fallbackError);
+                console.error('❌ Impossible de sauvegarder le résumé fallback:', fallbackError?.message || String(fallbackError));
                 setMessageBox({
                     message: "❌ Résumé indisponible pour cette soirée.",
                     type: 'error'

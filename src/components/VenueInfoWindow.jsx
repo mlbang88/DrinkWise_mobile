@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
-import { X, MapPin, Trophy, TrendingUp, Calendar, Users } from 'lucide-react';
+import { X, MapPin, Trophy, TrendingUp, Calendar, Users, Swords } from 'lucide-react';
 import { getControlLevel } from '../services/venueService';
 
 /**
  * VenueInfoWindow - Fenêtre d'information premium pour un lieu
  */
-export default function VenueInfoWindow({ venue, onClose, leaderboard = [] }) {
+export default function VenueInfoWindow({ venue, onClose, leaderboard = [], onStartBattle }) {
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
@@ -287,6 +287,46 @@ export default function VenueInfoWindow({ venue, onClose, leaderboard = [] }) {
                   </span>
                 </p>
               </div>
+            </div>
+          )}
+
+          {/* Battle Button */}
+          {onStartBattle && (
+            <div style={{ padding: '0 24px 24px' }}>
+              <button
+                onClick={() => {
+                  onStartBattle();
+                  handleClose();
+                }}
+                style={{
+                  width: '100%',
+                  padding: '16px',
+                  borderRadius: '16px',
+                  background: 'linear-gradient(135deg, #f97316 0%, #dc2626 100%)',
+                  border: '2px solid rgba(249, 115, 22, 0.5)',
+                  color: '#fff',
+                  fontWeight: 'bold',
+                  fontSize: '16px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '12px',
+                  transition: 'all 0.3s',
+                  boxShadow: '0 10px 30px rgba(249, 115, 22, 0.4)'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                  e.currentTarget.style.boxShadow = '0 15px 40px rgba(249, 115, 22, 0.6)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = '0 10px 30px rgba(249, 115, 22, 0.4)';
+                }}
+              >
+                <Swords className="w-5 h-5" />
+                <span>Lancer une bataille</span>
+              </button>
             </div>
           )}
         </div>

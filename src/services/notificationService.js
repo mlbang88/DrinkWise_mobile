@@ -3,6 +3,7 @@ import { httpsCallable } from 'firebase/functions';
 import { collection, onSnapshot, query, where, orderBy, limit, doc, updateDoc, getDocs } from 'firebase/firestore';
 import { PushNotifications } from '@capacitor/push-notifications';
 import { Capacitor } from '@capacitor/core';
+import { logger } from '../utils/logger';
 
 export class NotificationService {
     constructor() {
@@ -48,15 +49,15 @@ export class NotificationService {
             
             await getDocs(q);
             this.indexReady = true;
-            console.log('✅ Notifications index available');
+            logger.info('notificationService: Index available');
             return true;
         } catch (error) {
             if (error.code === 'failed-precondition') {
-                console.log('⏳ Notifications index being created...');
+                logger.debug('notificationService: Index being created');
                 this.indexReady = false;
                 return false;
             }
-            console.error('❌ Index check error:', error);
+            logger.error('notificationService: Index check error', { error: error.message });
             return false;
         }
     }
@@ -81,7 +82,7 @@ export class NotificationService {
                 orderBy('timestamp', 'desc'),
                 limit(20)
             );
-            console.log('🔔 Using optimized query with index');
+            logger.debug('notificationService: Using optimized query with index');
         } else {
             // Fallback: get all notifications and filter client-side
             q = query(
@@ -89,7 +90,7 @@ export class NotificationService {
                 orderBy('timestamp', 'desc'),
                 limit(20)
             );
-            console.log('🔔 Using fallback without index');
+            logger.debug('notificationService: Using fallback without index');
         }
 
         this.unsubscribe = onSnapshot(q, (snapshot) => {
@@ -107,7 +108,7 @@ export class NotificationService {
             });
         });
 
-        console.log('🔔 Notification service started');
+        logger.info('notificationService: Service started');
     }
 
     stopListening() {
@@ -118,7 +119,7 @@ export class NotificationService {
     }
 
     async handleNewNotification(notification, db, appId, userId) {
-        console.log('🔔 Nouvelle notification:', notification);
+        logger.debug('notificationService: New notification', { type: notification.type, id: notification.id });
 
         // Afficher la notification native si possible
         if (this.isSupported && Notification.permission === 'granted') {
@@ -136,7 +137,7 @@ export class NotificationService {
                     displayedAt: new Date()
                 });
             } catch (error) {
-                console.error('Erreur mise à jour notification:', error);
+                logger.error('notificationService: Update notification error', { error: error.message, notificationId: notification.id });
             }
         }, 1000);
     }
@@ -219,7 +220,7 @@ export class NotificationService {
             try {
                 callback(notification);
             } catch (error) {
-                console.error('Erreur lors de la notification du listener:', error);
+                logger.error('notificationService: Listener notification error', { error: error.message });
             }
         });
     }
@@ -232,7 +233,7 @@ export class NotificationService {
                 readAt: new Date()
             });
         } catch (error) {
-            console.error('Erreur lors du marquage comme lu:', error);
+            logger.error('notificationService: Mark as read error', { error: error.message, notificationId });
         }
     }
 
@@ -241,9 +242,9 @@ export class NotificationService {
         try {
             const markAllRead = httpsCallable(functions, 'markAllNotificationsAsRead');
             await markAllRead({ userId });
-            console.log('✅ Toutes les notifications marquées comme lues');
+            logger.info('notificationService: All notifications marked as read');
         } catch (error) {
-            console.error('Erreur lors du marquage global:', error);
+            logger.error('notificationService: Mark all as read error', { error: error.message });
         }
     }
 
@@ -291,12 +292,12 @@ export class NotificationService {
      */
     async initializePushNotifications(userId, appId) {
         if (!Capacitor.isNativePlatform()) {
-            console.log('📱 Notifications push natives non disponibles (web)');
+            logger.debug('notificationService: Push notifications not available on web');
             return;
         }
 
         if (this.isPushInitialized) {
-            console.log('⚠️ Push notifications déjà initialisées');
+            logger.debug('notificationService: Push notifications already initialized');
             return;
         }
 
@@ -305,7 +306,7 @@ export class NotificationService {
             const permission = await PushNotifications.requestPermissions();
             
             if (permission.receive !== 'granted') {
-                console.warn('⚠️ Permission notifications push refusée');
+                logger.warn('notificationService: Push notification permission denied');
                 return;
             }
 
@@ -314,7 +315,7 @@ export class NotificationService {
 
             // Écouter le token FCM
             PushNotifications.addListener('registration', async (token) => {
-                console.log('✅ FCM Token reçu:', token.value);
+                logger.info('notificationService: FCM Token received', { tokenLength: token.value.length });
                 this.fcmToken = token.value;
                 
                 // Sauvegarder le token en Firestore
@@ -323,26 +324,26 @@ export class NotificationService {
 
             // Écouter les erreurs d'enregistrement
             PushNotifications.addListener('registrationError', (error) => {
-                console.error('❌ Erreur enregistrement push:', error);
+                logger.error('notificationService: Push registration error', { error: error.message });
             });
 
             // Écouter les notifications reçues (app ouverte)
             PushNotifications.addListener('pushNotificationReceived', (notification) => {
-                console.log('📬 Push notification reçue (app ouverte):', notification);
+                logger.debug('notificationService: Push received (app open)', { id: notification.id });
                 this.handlePushNotificationReceived(notification);
             });
 
             // Écouter les actions sur les notifications (app fermée/background)
             PushNotifications.addListener('pushNotificationActionPerformed', (notification) => {
-                console.log('👆 Action sur push notification:', notification);
+                logger.debug('notificationService: Push action performed', { actionId: notification.actionId });
                 this.handlePushNotificationAction(notification);
             });
 
             this.isPushInitialized = true;
-            console.log('✅ Push notifications initialisées');
+            logger.info('notificationService: Push notifications initialized');
 
         } catch (error) {
-            console.error('❌ Erreur initialisation push notifications:', error);
+            logger.error('notificationService: Push initialization error', { error: error.message });
         }
     }
 
@@ -361,9 +362,9 @@ export class NotificationService {
                 pushNotificationsEnabled: true,
                 platform: Capacitor.getPlatform()
             });
-            console.log('✅ Token FCM sauvegardé');
+            logger.info('notificationService: FCM token saved');
         } catch (error) {
-            console.error('❌ Erreur sauvegarde FCM token:', error);
+            logger.error('notificationService: FCM token save error', { error: error.message });
         }
     }
 
@@ -430,7 +431,7 @@ export class NotificationService {
                 break;
             
             default:
-                console.warn('⚠️ Type de push notification inconnu:', data.type);
+                logger.warn('notificationService: Unknown push type', { type: data.type });
         }
     }
 
@@ -452,9 +453,9 @@ export class NotificationService {
             });
 
             this.isPushInitialized = false;
-            console.log('✅ Push notifications désactivées');
+            logger.info('notificationService: Push notifications disabled');
         } catch (error) {
-            console.error('❌ Erreur désactivation push:', error);
+            logger.error('notificationService: Disable push error', { error: error.message });
         }
     }
 

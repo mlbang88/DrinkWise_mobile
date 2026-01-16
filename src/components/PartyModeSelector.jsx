@@ -5,6 +5,7 @@ import { Trophy, Edit3, Clock, Zap, X } from 'lucide-react';
 import BasicPartyModal from './BasicPartyModal';
 import CompetitivePartyModal from './CompetitivePartyModal';
 import useBattleRoyale from '../hooks/useBattleRoyale.js';
+import { logger } from '../utils/logger';
 
 const PartyModeSelector = ({ onClose, onPartySaved }) => {
     const { db, user, appId } = useContext(FirebaseContext);
@@ -36,7 +37,10 @@ const PartyModeSelector = ({ onClose, onPartySaved }) => {
                     }
                 }
             } catch (error) {
-                console.error("Erreur vérification brouillon:", error);
+                logger.error('PartyModeSelector: Draft check error', { 
+                    error: error.message,
+                    userId: user.uid 
+                });
             }
         };
         

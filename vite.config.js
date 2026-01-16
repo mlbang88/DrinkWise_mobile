@@ -10,7 +10,17 @@ export default defineConfig({
     sourcemap: false,
     rollupOptions: {
       output: {
-        manualChunks: undefined,
+        manualChunks: {
+          // Séparer les dépendances lourdes en chunks distincts
+          'charts': ['chart.js', 'react-chartjs-2'],
+          'maps': ['@googlemaps/markerclusterer'],
+          'firebase-core': ['firebase/app'],
+          'firebase-auth': ['firebase/auth'],
+          'firebase-firestore': ['firebase/firestore'],
+          'firebase-storage': ['firebase/storage'],
+          'ui-icons': ['lucide-react'],
+          'react-vendor': ['react', 'react-dom']
+        }
       }
     }
   },

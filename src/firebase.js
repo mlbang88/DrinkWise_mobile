@@ -28,7 +28,7 @@ try {
   
   console.log('✅ Firebase initialisé avec succès');
 } catch (error) {
-  console.error('❌ Erreur initialisation Firebase:', error);
+  console.error('❌ Erreur initialisation Firebase:', error?.message || String(error));
   throw error;
 }
 

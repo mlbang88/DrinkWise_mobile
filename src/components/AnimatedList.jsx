@@ -35,38 +35,36 @@ const AnimatedList = ({
     }
 
     return (
-        <div className={`animated-list ${className}`}>
+        <div className={`animated-list ${className}`} style={{ position: 'relative' }}>
             {items.map((item, index) => {
                 const key = keyExtractor(item, index);
                 
                 return (
                     <div
                         key={key}
-                        style={getItemStyle(index)}
+                        style={{
+                            ...getItemStyle(index),
+                            willChange: 'transform, opacity',
+                            backfaceVisibility: 'hidden',
+                            WebkitFontSmoothing: 'antialiased'
+                        }}
                         className={`animated-list-item ${onItemClick ? 'cursor-pointer' : ''}`}
                         onClick={() => onItemClick && onItemClick(item, index)}
+                        onMouseEnter={(e) => {
+                            const currentTransform = e.currentTarget.style.transform;
+                            e.currentTarget.style.transform = currentTransform.includes('translateY') 
+                                ? currentTransform.replace(/translateY\([^)]*\)/, 'translateY(-2px)')
+                                : `${currentTransform} translateY(-2px)`;
+                        }}
+                        onMouseLeave={(e) => {
+                            const currentTransform = e.currentTarget.style.transform;
+                            e.currentTarget.style.transform = currentTransform.replace(/translateY\([^)]*\)/, 'translateY(0)');
+                        }}
                     >
                         {renderItem(item, index)}
                     </div>
                 );
             })}
-            
-            <style jsx>{`
-                .animated-list {
-                    position: relative;
-                }
-                
-                .animated-list-item {
-                    will-change: transform, opacity;
-                    backface-visibility: hidden;
-                    -webkit-font-smoothing: antialiased;
-                }
-                
-                .animated-list-item:hover {
-                    transform: translateY(-2px) translateZ(0) !important;
-                    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) !important;
-                }
-            `}</style>
         </div>
     );
 };

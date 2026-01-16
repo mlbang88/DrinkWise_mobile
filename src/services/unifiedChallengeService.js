@@ -1,6 +1,7 @@
 // src/services/unifiedChallengeService.js
 import { ExperienceService } from './experienceService';
 import { collection, doc, addDoc, updateDoc, query, where, getDocs, onSnapshot } from 'firebase/firestore';
+import { logger } from '../utils/logger';
 
 export class UnifiedChallengeService {
     
@@ -101,7 +102,7 @@ export class UnifiedChallengeService {
 
             return challengeRef.id;
         } catch (error) {
-            console.error('Erreur création duel ami:', error);
+            logger.error('unifiedChallengeService: Erreur création duel ami', { error: error.message });
             throw error;
         }
     }
@@ -136,7 +137,7 @@ export class UnifiedChallengeService {
 
             return challengeRef.id;
         } catch (error) {
-            console.error('Erreur création challenge groupe:', error);
+            logger.error('unifiedChallengeService: Erreur création challenge groupe', { error: error.message });
             throw error;
         }
     }
@@ -204,7 +205,7 @@ export class UnifiedChallengeService {
 
             return completedChallenges;
         } catch (error) {
-            console.error('Erreur vérification challenges:', error);
+            logger.error('unifiedChallengeService: Erreur vérification challenges', { error: error.message });
             return [];
         }
     }

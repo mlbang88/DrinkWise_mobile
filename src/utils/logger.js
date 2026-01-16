@@ -71,7 +71,24 @@ class Logger {
   log(level, context, message, ...args) {
     if (!this.shouldLog(level)) return;
 
-    const logData = this.formatMessage(level, context, message, ...args);
+    // Sanitize args to avoid "Cannot convert object to primitive value" errors
+    const sanitizedArgs = args.map(arg => {
+      if (arg instanceof Error) {
+        return { message: arg.message, stack: arg.stack, name: arg.name };
+      }
+      if (typeof arg === 'object' && arg !== null) {
+        try {
+          // Try to stringify, if it fails, return a safe version
+          JSON.stringify(arg);
+          return arg;
+        } catch {
+          return String(arg);
+        }
+      }
+      return arg;
+    });
+
+    const logData = this.formatMessage(level, context, message, ...sanitizedArgs);
     const levelName = logData.level;
     const color = LogColors[levelName] || '#000000';
 
@@ -81,8 +98,8 @@ class Logger {
       const prefix = `%c[${logData.timestamp.split('T')[1].split('.')[0]}] ${levelName} ${context}`;
       const style = `color: ${color}; font-weight: bold;`;
       
-      if (args.length > 0) {
-        console.log(prefix, style, message, ...args);
+      if (sanitizedArgs.length > 0) {
+        console.log(prefix, style, message, ...sanitizedArgs);
       } else {
         console.log(prefix, style, message);
       }

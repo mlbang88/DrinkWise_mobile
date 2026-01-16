@@ -41,7 +41,7 @@ const FriendsLeaderboard = ({ selectedCategory = 'level', title = "🏆 Classeme
                         console.warn('⚠️ SocialComparisonService.syncCurrentUserStats non disponible');
                     }
                 } catch (syncError) {
-                    console.warn('⚠️ Erreur sync stats, continuons sans:', syncError);
+                    console.warn('⚠️ Erreur sync stats, continuons sans:', syncError?.message || String(syncError));
                 }
                 setHasLoaded(true);
             }
@@ -51,7 +51,7 @@ const FriendsLeaderboard = ({ selectedCategory = 'level', title = "🏆 Classeme
             );
             setLeaderboard(data);
         } catch (error) {
-            console.error('Erreur chargement leaderboard:', error);
+            console.error('Erreur chargement leaderboard:', error?.message || String(error));
             setLeaderboard([]);
             setHasLoaded(false); // Réinitialiser en cas d'erreur
         } finally {

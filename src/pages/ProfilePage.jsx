@@ -8,10 +8,15 @@ import { gameplayConfig } from '../utils/data';
 import { validateUsername, isUsernameAvailable } from '../utils/usernameUtils';
 import LoadingIcon from '../components/LoadingIcon';
 import ProfilePhotoManager from '../components/ProfilePhotoManager';
+import NeonBorder from '../components/NeonBorder';
+import ProgressRing from '../components/ProgressRing';
+import AnimatedCounter from '../components/AnimatedCounter';
 import { DrinkWiseImages } from '../assets/DrinkWiseImages';
 import { logger } from '../utils/logger.js';
+import { useUserLevel } from '../hooks/useUserLevel';
+import { BarChart, Award } from 'lucide-react';
 
-const ProfilePage = () => {
+const ProfilePage = ({ setCurrentPage }) => {
     const { auth, user, userProfile, db, appId, setMessageBox } = useContext(FirebaseContext);
     
     // États du composant
@@ -23,26 +28,17 @@ const ProfilePage = () => {
 
 
 
-    // Calcul des stats depuis publicStats (source unique de vérité)
-    const stats = useMemo(() => {
-        const publicStats = userProfile?.publicStats || {};
-        return {
-            totalParties: publicStats.totalParties || 0,
-            totalDrinks: publicStats.totalDrinks || 0,
-            totalChallenges: publicStats.challengesCompleted || 0,
-            totalBadges: publicStats.unlockedBadges?.length || 0,
-            totalQuizQuestions: publicStats.totalQuizQuestions || 0
-        };
-    }, [userProfile?.publicStats]);
-
-    // Calcul XP et niveau
-    const currentXp = ExperienceService?.calculateTotalXP ? ExperienceService.calculateTotalXP(stats) : 0;
-    const currentLevel = ExperienceService?.calculateLevel ? ExperienceService.calculateLevel(currentXp) : 1;
-    const currentLevelName = ExperienceService?.getLevelName ? ExperienceService.getLevelName(currentLevel) : "Novice";
+    // ✅ SOURCE UNIQUE DE VÉRITÉ - Hook centralisé
+    const { 
+        level: currentLevel, 
+        levelName: currentLevelName, 
+        xp: currentXp, 
+        xpForNextLevel, 
+        progress, 
+        stats 
+    } = useUserLevel(userProfile);
     
     const xpForCurrentLevel = ExperienceService?.getXpForLevel ? ExperienceService.getXpForLevel(currentLevel) : 0;
-    const xpForNextLevel = ExperienceService?.getXpForLevel ? ExperienceService.getXpForLevel(currentLevel + 1) : 100;
-    const progress = xpForNextLevel > xpForCurrentLevel ? ((currentXp - xpForCurrentLevel) / (xpForNextLevel - xpForCurrentLevel)) * 100 : 0;
 
     // Validation en temps réel du username
     const handleUsernameChange = async (value) => {
@@ -147,23 +143,15 @@ const ProfilePage = () => {
     const handleSignOut = () => signOut(auth).catch(e => setMessageBox({ message: "Erreur déconnexion.", type: "error" }));
 
     return (
-        <div style={{
+        <div className="page-modern" style={{
             minHeight: '100vh',
-            background: 'linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.8)), url("https://images.unsplash.com/photo-1511367461989-f85a21fda167?q=80&w=1331&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D")',
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
             color: 'white',
             padding: '20px'
         }}>
-            <div style={{
-                background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.08) 100%)',
-                backdropFilter: 'blur(20px)',
-                borderRadius: '28px',
-                border: '1px solid rgba(255, 255, 255, 0.2)',
-                padding: '36px',
+            <div className="card-elevated" style={{
                 maxWidth: '440px',
                 margin: '20px auto',
-                boxShadow: '0 12px 40px rgba(0, 0, 0, 0.2)'
+                padding: '36px'
             }}>
                 <h1 style={{
                     background: 'linear-gradient(135deg, #a855f7 0%, #8b5cf6 50%, #7c3aed 100%)',
@@ -187,10 +175,12 @@ const ProfilePage = () => {
                     justifyContent: 'center', 
                     marginBottom: '30px' 
                 }}>
-                    <ProfilePhotoManager
-                        currentPhoto={currentProfilePhoto}
-                        onPhotoUpdate={handlePhotoUpdate}
-                    />
+                    <NeonBorder color="#bf00ff" animate={true}>
+                        <ProfilePhotoManager
+                            currentPhoto={currentProfilePhoto}
+                            onPhotoUpdate={handlePhotoUpdate}
+                        />
+                    </NeonBorder>
                 </div>
 
                 {/* Section XP et niveau */}
@@ -204,17 +194,33 @@ const ProfilePage = () => {
                         marginBottom: '32px',
                         boxShadow: '0 8px 32px rgba(168, 85, 247, 0.1)'
                     }}>
+                        {/* Progress Ring pour visualiser le niveau */}
+                        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
+                            <ProgressRing 
+                                progress={progress} 
+                                size={140} 
+                                strokeWidth={10}
+                                color="#bf00ff"
+                                glowColor="rgba(191, 0, 255, 0.6)"
+                            >
+                                <div style={{ textAlign: 'center' }}>
+                                    <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#fff', marginBottom: '4px' }}>
+                                        {currentLevel}
+                                    </div>
+                                    <div style={{ fontSize: '12px', color: '#e0e0e0' }}>
+                                        Niveau
+                                    </div>
+                                </div>
+                            </ProgressRing>
+                        </div>
+
                         <div style={{
                             display: 'flex',
                             justifyContent: 'space-between',
                             alignItems: 'center',
                             marginBottom: '16px'
                         }}>
-                            <span style={{
-                                background: 'linear-gradient(135deg, #a855f7 0%, #8b5cf6 100%)',
-                                WebkitBackgroundClip: 'text',
-                                WebkitTextFillColor: 'transparent',
-                                backgroundClip: 'text',
+                            <span className="gradient-text" style={{
                                 fontSize: '18px',
                                 fontWeight: '700',
                                 letterSpacing: '-0.01em'
@@ -231,7 +237,7 @@ const ProfilePage = () => {
                                 color: 'white',
                                 fontWeight: '600'
                             }}>
-                                {currentXp} XP
+                                <AnimatedCounter value={currentXp} suffix=" XP" />
                             </span>
                         </div>
                         {/* Affichage du niveau */}
@@ -536,6 +542,66 @@ const ProfilePage = () => {
                 >
                     {loading ? <LoadingIcon /> : "💾 Sauvegarder"}
                 </button>
+
+                {/* Boutons de navigation rapide */}
+                <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 1fr',
+                    gap: '12px',
+                    marginBottom: '20px'
+                }}>
+                    <button
+                        onClick={() => setCurrentPage && setCurrentPage('stats')}
+                        style={{
+                            padding: '16px 20px',
+                            background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.9) 0%, rgba(5, 150, 105, 0.9) 100%)',
+                            backdropFilter: 'blur(8px)',
+                            color: 'white',
+                            fontSize: '15px',
+                            fontWeight: '700',
+                            border: '1px solid rgba(16, 185, 129, 0.3)',
+                            borderRadius: '16px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '8px',
+                            boxShadow: '0 4px 16px rgba(16, 185, 129, 0.3)',
+                            transition: 'all 0.3s ease',
+                            letterSpacing: '-0.01em'
+                        }}
+                        aria-label="Voir mes statistiques"
+                    >
+                        <BarChart size={18} />
+                        <span>Stats</span>
+                    </button>
+                    
+                    <button
+                        onClick={() => setCurrentPage && setCurrentPage('badges')}
+                        style={{
+                            padding: '16px 20px',
+                            background: 'linear-gradient(135deg, rgba(251, 191, 36, 0.9) 0%, rgba(245, 158, 11, 0.9) 100%)',
+                            backdropFilter: 'blur(8px)',
+                            color: 'white',
+                            fontSize: '15px',
+                            fontWeight: '700',
+                            border: '1px solid rgba(251, 191, 36, 0.3)',
+                            borderRadius: '16px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '8px',
+                            boxShadow: '0 4px 16px rgba(251, 191, 36, 0.3)',
+                            transition: 'all 0.3s ease',
+                            letterSpacing: '-0.01em'
+                        }}
+                        aria-label="Voir mes badges"
+                    >
+                        <Award size={18} />
+                        <span>Badges</span>
+                    </button>
+                </div>
 
                 {/* Bouton Déconnexion */}
                 <button

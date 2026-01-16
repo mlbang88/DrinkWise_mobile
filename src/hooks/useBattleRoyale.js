@@ -3,6 +3,7 @@ import { useState, useEffect, useContext } from 'react';
 import { FirebaseContext } from '../contexts/FirebaseContext';
 import BattleRoyaleService from '../services/battleRoyaleService';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { logger } from '../utils/logger';
 
 export const useBattleRoyale = () => {
     const { db, user, appId, setMessageBox } = useContext(FirebaseContext);
@@ -39,7 +40,10 @@ export const useBattleRoyale = () => {
                 setUserTournaments(userTourneys);
             },
             (error) => {
-                console.error('❌ Firestore Battle Royale listener error:', error);
+                logger.error('useBattleRoyale: Firestore listener error', { 
+                    error: error.message,
+                    code: error?.code 
+                });
 
                 if (error?.code === 'permission-denied') {
                     setMessageBox({
@@ -100,7 +104,11 @@ export const useBattleRoyale = () => {
                 // });
 
             } catch (error) {
-                console.error('Erreur traitement tournoi:', error);
+                logger.error('useBattleRoyale: Tournament processing error', { 
+                    error: error.message,
+                    tournamentId: tournament.id,
+                    mode: selectedMode 
+                });
             }
         }
 

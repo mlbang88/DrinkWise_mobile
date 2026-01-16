@@ -1,3 +1,9 @@
+/* Import dark mode optimized theme */
+@import './styles/dark-mode.css';
+
+/* Import modern visual system */
+@import './styles/visual-system.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -35,6 +41,11 @@ body {
   padding-bottom: env(safe-area-inset-bottom);
   padding-left: env(safe-area-inset-left);
   padding-right: env(safe-area-inset-right);
+  /* Variables CSS pour accessibilité */
+  --text-primary: #ffffff;
+  --text-secondary: #d1d5db;
+  --text-muted: #9ca3af;
+  --focus-color: #667eea;
 }
 
 #root {
@@ -44,6 +55,18 @@ body {
   min-height: 100vh;
   overflow-x: hidden;
   position: relative;
+}
+
+/* Focus visible pour accessibilité clavier */
+*:focus-visible {
+  outline: 3px solid var(--focus-color, #667eea);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Désactiver outline seulement sur clic souris */
+*:focus:not(:focus-visible) {
+  outline: none;
 }
 
 /* Container principal mobile-optimisé universel */
@@ -227,6 +250,19 @@ body {
   font-size: 0.75rem; /* 12px */
   line-height: 1.2;
   text-align: center;
+}
+
+/* Classe pour cacher visuellement mais garder accessible aux lecteurs d'écran */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
 }
 
 /* Media queries pour adaptation universelle */

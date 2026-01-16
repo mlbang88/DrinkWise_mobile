@@ -341,7 +341,7 @@ export class BattleRoyaleService {
             
             return modePoints;
         } catch (error) {
-            console.error('Erreur mise à jour score tournoi:', error);
+            console.error('Erreur mise à jour score tournoi:', error?.message || String(error));
             throw error;
         }
     }
@@ -376,7 +376,7 @@ export class BattleRoyaleService {
             
             return { success: true, message: 'Inscrit avec succès' };
         } catch (error) {
-            console.error('Erreur rejoindre tournoi:', error);
+            console.error('Erreur rejoindre tournoi:', error?.message || String(error));
             return { success: false, message: 'Erreur lors de l\'inscription' };
         }
     }
@@ -401,7 +401,7 @@ export class BattleRoyaleService {
             
             return leaderboard;
         } catch (error) {
-            console.error('Erreur récupération classement:', error);
+            console.error('Erreur récupération classement:', error?.message || String(error));
             return [];
         }
     }
@@ -421,7 +421,7 @@ export class BattleRoyaleService {
             const docRef = await addDoc(collection(this.db, `artifacts/${this.appId}/flashChallenges`), challenge);
             return docRef.id;
         } catch (error) {
-            console.error('Erreur création défi flash:', error);
+            console.error('Erreur création défi flash:', error?.message || String(error));
             throw error;
         }
     }

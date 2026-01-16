@@ -1483,6 +1483,259 @@ exports.sendZoneControlledNotification = onCall(async (request) => {
   }
 });
 
+/**
+ * ========================================
+ * BATTLE NOTIFICATIONS
+ * ========================================
+ */
+
+/**
+ * Notification : Bataille démarrée
+ * Envoie une notification à tous les participants quand une bataille commence
+ */
+exports.onBattleStarted = onDocumentCreated('artifacts/{appId}/battles/{battleId}', async (event) => {
+  try {
+    const battleData = event.data.data();
+    const { participants, venueName, battleId } = battleData;
+
+    logger.info(`⚔️ Bataille démarrée: ${battleId} au ${venueName}`);
+
+    // Envoyer notification à chaque participant
+    const notificationPromises = participants.map(async (participant) => {
+      try {
+        // Récupérer le FCM token de l'utilisateur
+        const userDoc = await db.collection('users').doc(participant.userId).get();
+        const fcmToken = userDoc.data()?.fcmToken;
+
+        if (!fcmToken) {
+          logger.warn(`⚠️ Pas de FCM token pour ${participant.userId}`);
+          return null;
+        }
+
+        await admin.messaging().send({
+          token: fcmToken,
+          notification: {
+            title: '⚔️ Bataille commencée !',
+            body: `Affrontez vos rivaux au ${venueName}`
+          },
+          data: {
+            type: 'battle_started',
+            battleId,
+            venueName,
+            participantCount: participants.length.toString()
+          },
+          android: {
+            priority: 'high',
+            notification: {
+              sound: 'default',
+              channelId: 'battles'
+            }
+          },
+          apns: {
+            payload: {
+              aps: {
+                sound: 'default',
+                badge: 1
+              }
+            }
+          }
+        });
+
+        logger.info(`✅ Notification bataille envoyée à ${participant.username}`);
+        return true;
+
+      } catch (error) {
+        logger.error(`❌ Erreur notification pour ${participant.userId}:`, error);
+        return null;
+      }
+    });
+
+    await Promise.all(notificationPromises);
+
+    logger.info(`✅ Notifications de bataille envoyées à ${participants.length} participants`);
+
+  } catch (error) {
+    logger.error('❌ Erreur onBattleStarted:', error);
+  }
+});
+
+/**
+ * Notification : Bataille terminée
+ * Notifie tous les participants des résultats quand une bataille se termine
+ */
+exports.onBattleEnded = onDocumentUpdated('artifacts/{appId}/battles/{battleId}', async (event) => {
+  try {
+    const beforeData = event.data.before.data();
+    const afterData = event.data.after.data();
+
+    // Ne traiter que si le statut passe de 'active' à 'completed'
+    if (beforeData.status !== 'active' || afterData.status !== 'completed') {
+      return;
+    }
+
+    const { participants, scores, winner, venueName, battleId } = afterData;
+
+    logger.info(`🏆 Bataille terminée: ${battleId} au ${venueName}`);
+
+    // Calculer le classement
+    const rankings = Object.entries(scores)
+      .map(([userId, scoreData]) => ({
+        userId,
+        username: participants.find(p => p.userId === userId)?.username,
+        score: scoreData.score,
+        drinks: scoreData.drinks
+      }))
+      .sort((a, b) => b.score - a.score);
+
+    // Envoyer notification à chaque participant
+    const notificationPromises = participants.map(async (participant, index) => {
+      try {
+        const userDoc = await db.collection('users').doc(participant.userId).get();
+        const fcmToken = userDoc.data()?.fcmToken;
+
+        if (!fcmToken) {
+          logger.warn(`⚠️ Pas de FCM token pour ${participant.userId}`);
+          return null;
+        }
+
+        const isWinner = participant.userId === winner;
+        const userRanking = rankings.findIndex(r => r.userId === participant.userId) + 1;
+        const userScore = scores[participant.userId]?.score || 0;
+
+        const title = isWinner ? '🏆 Victoire !' : '⚔️ Bataille terminée';
+        const body = isWinner
+          ? `Vous avez gagné la bataille au ${venueName} ! 🎉`
+          : `Classement: #${userRanking} avec ${userScore} points`;
+
+        await admin.messaging().send({
+          token: fcmToken,
+          notification: {
+            title,
+            body
+          },
+          data: {
+            type: 'battle_ended',
+            battleId,
+            venueName,
+            isWinner: isWinner.toString(),
+            rank: userRanking.toString(),
+            score: userScore.toString()
+          },
+          android: {
+            priority: 'high',
+            notification: {
+              sound: 'default',
+              channelId: 'battles'
+            }
+          },
+          apns: {
+            payload: {
+              aps: {
+                sound: 'default',
+                badge: 1
+              }
+            }
+          }
+        });
+
+        logger.info(`✅ Notification résultat envoyée à ${participant.username} (rank: ${userRanking})`);
+        return true;
+
+      } catch (error) {
+        logger.error(`❌ Erreur notification pour ${participant.userId}:`, error);
+        return null;
+      }
+    });
+
+    await Promise.all(notificationPromises);
+
+    logger.info(`✅ Notifications de résultats envoyées à ${participants.length} participants`);
+
+  } catch (error) {
+    logger.error('❌ Erreur onBattleEnded:', error);
+  }
+});
+
+/**
+ * Notification : Score de bataille mis à jour
+ * Envoie une notification quand un joueur prend la tête
+ */
+exports.onBattleScoreUpdate = onDocumentUpdated('artifacts/{appId}/battles/{battleId}', async (event) => {
+  try {
+    const beforeData = event.data.before.data();
+    const afterData = event.data.after.data();
+
+    // Ne traiter que les batailles actives
+    if (afterData.status !== 'active') {
+      return;
+    }
+
+    const { participants, scores, venueName } = afterData;
+
+    // Déterminer l'ancien et le nouveau leader
+    const getLeader = (scoresObj) => {
+      const entries = Object.entries(scoresObj);
+      if (entries.length === 0) return null;
+      return entries.reduce((max, curr) => curr[1].score > max[1].score ? curr : max)[0];
+    };
+
+    const oldLeader = getLeader(beforeData.scores);
+    const newLeader = getLeader(scores);
+
+    // Si changement de leader
+    if (oldLeader && newLeader && oldLeader !== newLeader) {
+      logger.info(`👑 Nouveau leader: ${newLeader} (était ${oldLeader})`);
+
+      const newLeaderData = participants.find(p => p.userId === newLeader);
+      const newLeaderScore = scores[newLeader]?.score || 0;
+
+      // Notifier tous les autres participants
+      const notificationPromises = participants
+        .filter(p => p.userId !== newLeader)
+        .map(async (participant) => {
+          try {
+            const userDoc = await db.collection('users').doc(participant.userId).get();
+            const fcmToken = userDoc.data()?.fcmToken;
+
+            if (!fcmToken) return null;
+
+            await admin.messaging().send({
+              token: fcmToken,
+              notification: {
+                title: '👑 Nouveau leader !',
+                body: `${newLeaderData.username} prend la tête avec ${newLeaderScore} points`
+              },
+              data: {
+                type: 'battle_leader_change',
+                battleId: afterData.battleId,
+                newLeader: newLeader,
+                newLeaderScore: newLeaderScore.toString()
+              },
+              android: {
+                priority: 'default',
+                notification: {
+                  sound: 'default',
+                  channelId: 'battles'
+                }
+              }
+            });
+
+            return true;
+
+          } catch (error) {
+            logger.error(`❌ Erreur notification leader pour ${participant.userId}:`, error);
+            return null;
+          }
+        });
+
+      await Promise.all(notificationPromises);
+    }
+
+  } catch (error) {
+    logger.error('❌ Erreur onBattleScoreUpdate:', error);
+  }
+});
+
 // functions should each use functions.runWith({ maxInstances: 10 }) instead.
 // In the v1 API, each function can only serve one request per container, so
 // this will be the maximum concurrent request count.

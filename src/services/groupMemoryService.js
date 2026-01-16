@@ -19,7 +19,7 @@ export const sharePartyToGroup = async (db, appId, userId, groupId, partyData) =
         console.log('✅ Soirée partagée dans les souvenirs du groupe');
         return memoryRef.id;
     } catch (error) {
-        console.error('❌ Erreur partage souvenir:', error);
+        console.error('❌ Erreur partage souvenir:', error?.message || String(error));
         throw error;
     }
 };
@@ -42,7 +42,7 @@ export const shareAchievementToGroup = async (db, appId, userId, groupId, achiev
         console.log('✅ Achievement partagé dans les souvenirs du groupe');
         return memoryRef.id;
     } catch (error) {
-        console.error('❌ Erreur partage achievement:', error);
+        console.error('❌ Erreur partage achievement:', error?.message || String(error));
         throw error;
     }
 };

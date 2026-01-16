@@ -164,7 +164,7 @@ const BattleRoyale = ({ setCurrentPage }) => {
             
             setLeaderboard(topPlayers);
         } catch (error) {
-            console.error('Erreur chargement leaderboard:', error);
+            logger.error('Erreur chargement leaderboard', { error: error.message });
             setMessageBox({ 
                 message: 'Erreur lors du chargement du classement', 
                 type: 'error' 
@@ -207,7 +207,7 @@ const BattleRoyale = ({ setCurrentPage }) => {
                 setMessageBox({ message: '🏆 Tournoi créé avec succès !', type: 'success' });
                 setShowCreateTournament(false);
             } catch (error) {
-                console.error('Erreur création tournoi:', error);
+                logger.error('Erreur création tournoi', { error: error.message });
                 setMessageBox({ message: 'Erreur lors de la création', type: 'error' });
             }
         };
@@ -246,7 +246,13 @@ const BattleRoyale = ({ setCurrentPage }) => {
                             type="text"
                             value={tournamentName}
                             onChange={(e) => setTournamentName(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                    handleCreateTournament();
+                                }
+                            }}
                             placeholder="Battle des Champions"
+                            aria-label="Nom du tournoi"
                             style={{
                                 width: '100%',
                                 padding: '12px',
@@ -459,11 +465,14 @@ const BattleRoyale = ({ setCurrentPage }) => {
                     </p>
                 </div>
 
-                {/* Bouton Carte Territoriale */}
+                {/* Boutons Carte Territoriale et Défis */}
                 <div style={{ 
                     display: 'flex', 
-                    justifyContent: 'center', 
-                    marginBottom: '30px'
+                    justifyContent: 'center',
+                    gap: '16px',
+                    marginBottom: '30px',
+                    flexWrap: 'wrap',
+                    padding: '0 10px'
                 }}>
                     <button
                         onClick={() => setCurrentPage('map')}
@@ -495,6 +504,36 @@ const BattleRoyale = ({ setCurrentPage }) => {
                         <span>Carte Territoriale</span>
                         <span style={{ fontSize: '14px', opacity: 0.9 }}>Nouveau !</span>
                     </button>
+                    
+                    <button
+                        onClick={() => setCurrentPage('challenges')}
+                        style={{
+                            padding: '16px 32px',
+                            borderRadius: '16px',
+                            background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                            border: 'none',
+                            color: '#fff',
+                            fontSize: '16px',
+                            fontWeight: 'bold',
+                            cursor: 'pointer',
+                            transition: 'all 0.3s ease',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '12px',
+                            boxShadow: '0 4px 15px rgba(245, 158, 11, 0.4)'
+                        }}
+                        onMouseEnter={(e) => {
+                            e.currentTarget.style.transform = 'translateY(-2px)';
+                            e.currentTarget.style.boxShadow = '0 6px 20px rgba(245, 158, 11, 0.6)';
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.transform = 'translateY(0)';
+                            e.currentTarget.style.boxShadow = '0 4px 15px rgba(245, 158, 11, 0.4)';
+                        }}
+                    >
+                        <span style={{ fontSize: '20px' }}>🎯</span>
+                        <span>Défis</span>
+                    </button>
                 </div>
 
                 {/* Système d'onglets */}
@@ -515,6 +554,9 @@ const BattleRoyale = ({ setCurrentPage }) => {
                         <button
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id)}
+                            role="tab"
+                            aria-selected={activeTab === tab.id}
+                            aria-label={`Onglet ${tab.label}`}
                             style={{
                                 padding: '12px 20px',
                                 borderRadius: '12px',
@@ -730,7 +772,7 @@ const BattleRoyale = ({ setCurrentPage }) => {
                                     {userTournaments.map(tournament => {
                                         const isCreator = tournament.createdBy === user.uid;
                                         const participants = tournament.participants?.length || 0;
-                                        const myScore = tournament.scores?.[user.uid] || 0;
+                                        const myScore = tournament.scores?.[user.uid]?.totalPoints || 0;
                                         
                                         return (
                                             <div

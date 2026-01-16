@@ -38,7 +38,7 @@ export default function GroupManager({ onSelectGroup, selectedGroupId }) {
             const updatedGroups = await groupService.getUserGroups(db, appId, user.uid);
             setGroups(updatedGroups);
         } catch (error) {
-            console.error('❌ Erreur chargement groupes:', error);
+            console.error('❌ Erreur chargement groupes:', error?.message || String(error));
             setMessageBox({ message: 'Erreur lors du chargement des groupes.', type: 'error' });
         } finally {
             setLoading(false);
@@ -64,7 +64,7 @@ export default function GroupManager({ onSelectGroup, selectedGroupId }) {
             setShowCreateForm(false);
             loadUserGroups();
         } catch (error) {
-            console.error('❌ Erreur création groupe:', error);
+            console.error('❌ Erreur création groupe:', error?.message || String(error));
             setMessageBox({ message: 'Erreur lors de la création du groupe.', type: 'error' });
         } finally {
             setCreating(false);
@@ -110,7 +110,7 @@ export default function GroupManager({ onSelectGroup, selectedGroupId }) {
             setShowInviteForm(null);
             loadUserGroups();
         } catch (error) {
-            console.error('❌ Erreur invitation membre:', error);
+            console.error('❌ Erreur invitation membre:', error?.message || String(error));
             setMessageBox({ message: 'Erreur lors de l\'invitation.', type: 'error' });
         } finally {
             setInviting(false);

@@ -314,11 +314,10 @@ export const updateVenueControl = async (db, appId, params) => {
         });
         
         // 🔍 LOG DEBUG: Vérifier si le document est bien créé
-        console.log('🔍 DEBUG venueControl créé:', {
+        logger.debug('venueService: venueControl créé', {
             docId: `${userId}_${venue.placeId}`,
             userId: controlUpdate.userId,
             placeId: controlUpdate.placeId,
-            coordinates: controlUpdate.coordinates,
             totalPoints: controlUpdate.totalPoints
         });
 
@@ -463,12 +462,9 @@ export const getUserControlledVenues = async (db, appId, userId) => {
 
         const snapshot = await getDocs(controlsQuery);
         
-        console.log('🔍 DEBUG getUserControlledVenues:', {
+        logger.debug('venueService: getUserControlledVenues', {
             userId,
-            appId,
-            collectionPath: `artifacts/${appId}/venueControls`,
-            docsCount: snapshot.docs.length,
-            docsIds: snapshot.docs.map(d => d.id)
+            docsCount: snapshot.docs.length
         });
         
         const venues = snapshot.docs.map(doc => {

@@ -40,7 +40,7 @@ export default function GroupGoals({ groupId, groupData, onGoalCreated }) {
             
             if (onGoalCreated) onGoalCreated();
         } catch (error) {
-            console.error('❌ Erreur création objectif:', error);
+            console.error('❌ Erreur création objectif:', error?.message || String(error));
         } finally {
             setCreating(false);
         }

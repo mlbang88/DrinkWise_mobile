@@ -43,7 +43,7 @@ const TournamentDashboard = ({ tournamentId, onClose }) => {
                 }
             },
             (error) => {
-                console.error('❌ Firestore Tournament listener error:', error);
+                console.error('❌ Firestore Tournament listener error:', error?.message || String(error));
 
                 if (error?.code === 'permission-denied') {
                     setMessageBox({
@@ -103,7 +103,7 @@ const TournamentDashboard = ({ tournamentId, onClose }) => {
                 }
             });
         } catch (error) {
-            console.error('Erreur rejoindre tournoi:', error);
+            console.error('Erreur rejoindre tournoi:', error?.message || String(error));
         }
     };
 

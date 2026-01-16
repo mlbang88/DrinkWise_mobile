@@ -6,6 +6,8 @@ import { ExperienceService } from '../services/experienceService';
 import { getWeekId, getMonthId } from '../utils/helpers';
 import { challengeList } from '../utils/data';
 import LoadingSpinner from '../components/LoadingSpinner';
+import ProgressRing from '../components/ProgressRing';
+import AnimatedCounter from '../components/AnimatedCounter';
 import { DrinkWiseImages } from '../assets/DrinkWiseImages';
 import { logger } from '../utils/logger.js';
 
@@ -38,7 +40,7 @@ const ChallengesPage = () => {
                 try {
                     unsubscribe();
                 } catch (error) {
-                    console.warn('⚠️ Erreur nettoyage listener challenges:', error);
+                    console.warn('⚠️ Erreur nettoyage listener challenges:', error?.message || String(error));
                 }
             }
         };
@@ -225,25 +227,19 @@ const ChallengesPage = () => {
                     alignItems: 'flex-start',
                     gap: '16px'
                 }}>
-                    {/* Icône */}
-                    <div style={{
-                        fontSize: '36px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        width: '60px',
-                        height: '60px',
-                        background: challenge.completed 
-                            ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.3) 0%, rgba(5, 150, 105, 0.2) 100%)'
-                            : 'linear-gradient(135deg, rgba(139, 69, 255, 0.3) 0%, rgba(124, 58, 237, 0.2) 100%)',
-                        backdropFilter: 'blur(8px)',
-                        border: challenge.completed ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid rgba(139, 69, 255, 0.4)',
-                        borderRadius: '16px',
-                        boxShadow: challenge.completed 
-                            ? '0 4px 16px rgba(16, 185, 129, 0.2)'
-                            : '0 4px 16px rgba(139, 69, 255, 0.2)'
-                    }}>
-                        {challenge.icon}
+                    {/* Progress Ring */}
+                    <div>
+                        <ProgressRing 
+                            progress={progress}
+                            size={80}
+                            strokeWidth={6}
+                            color={challenge.completed ? '#10b981' : '#bf00ff'}
+                            glowColor={challenge.completed ? 'rgba(16, 185, 129, 0.5)' : 'rgba(191, 0, 255, 0.5)'}
+                        >
+                            <div style={{ textAlign: 'center', fontSize: '24px' }}>
+                                {challenge.icon}
+                            </div>
+                        </ProgressRing>
                     </div>
 
                     {/* Contenu */}
@@ -357,14 +353,13 @@ const ChallengesPage = () => {
 
     const backgroundStyle = {
         minHeight: '100vh',
-        background: 'linear-gradient(rgba(0,0,0,0.8), rgba(0,0,0,0.8)), url("https://images.unsplash.com/photo-1543007629-5c4e8a83ba4c") center/cover',
         padding: '20px',
         fontFamily: 'Arial, sans-serif',
         color: 'white'
     };
 
     return (
-        <div style={backgroundStyle}>
+        <div className="page-modern" style={backgroundStyle}>
             {/* Défis de la Semaine */}
             <div style={{
                 background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.015) 0%, rgba(255, 255, 255, 0.008) 100%)',

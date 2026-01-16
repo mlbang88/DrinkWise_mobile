@@ -1,9 +1,10 @@
 // Utilitaire pour vérifier le statut des index Firestore
 import { enableNetwork, disableNetwork } from 'firebase/firestore';
+import { logger } from '../utils/logger';
 
 export class IndexChecker {
     static async checkNotificationIndex(db, appId, userId) {
-        console.log('🔍 Vérification de l\'index notifications...');
+        logger.debug('indexChecker: Checking notification index', { userId });
         
         try {
             // Tenter la requête avec l'index
@@ -18,26 +19,26 @@ export class IndexChecker {
             );
             
             await getDocs(q);
-            console.log('✅ Index notifications disponible');
+            logger.info('indexChecker: Notification index available');
             return true;
             
         } catch (error) {
             if (error.code === 'failed-precondition') {
-                console.log('⏳ Index notifications en cours de création...');
+                logger.debug('indexChecker: Index being created');
                 return false;
             }
-            console.error('❌ Erreur vérification index:', error);
+            logger.error('indexChecker: Index check error', { error: error.message });
             return false;
         }
     }
     
     static async waitForIndex(db, appId, userId, maxAttempts = 10) {
         for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-            console.log(`🔄 Tentative ${attempt}/${maxAttempts} de vérification de l'index...`);
+            logger.debug('indexChecker: Checking index attempt', { attempt, maxAttempts });
             
             const isReady = await this.checkNotificationIndex(db, appId, userId);
             if (isReady) {
-                console.log('✅ Index prêt !');
+                logger.info('indexChecker: Index ready');
                 return true;
             }
             
@@ -45,7 +46,7 @@ export class IndexChecker {
             await new Promise(resolve => setTimeout(resolve, 10000));
         }
         
-        console.log('⚠️ Index toujours pas prêt après 10 tentatives');
+        logger.warn('indexChecker: Index not ready after max attempts', { maxAttempts });
         return false;
     }
 }

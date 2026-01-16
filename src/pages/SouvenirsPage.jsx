@@ -32,7 +32,7 @@ const SouvenirsPage = () => {
             }
             setLoading(false);
         }, (error) => {
-            console.error("Erreur lecture soirées pour souvenirs:", error);
+            console.error("Erreur lecture soirées pour souvenirs:", error?.message || String(error));
             setLoading(false);
         });
         return () => unsubscribe();

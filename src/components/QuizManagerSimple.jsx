@@ -5,6 +5,7 @@ import { gameplayConfig } from '../utils/data';
 import { badgeService } from '../services/badgeService';
 import { challengeService } from '../services/challengeService';
 import { ExperienceService } from '../services/experienceService';
+import { logger } from '../utils/logger';
 import QuizModal from './QuizModalSimple';
 
 const QuizManagerSimple = ({ partyData, partyId, onQuizComplete, uploadingPhotos = false, photosCount = 0 }) => {
@@ -12,19 +13,18 @@ const QuizManagerSimple = ({ partyData, partyId, onQuizComplete, uploadingPhotos
     const [hasCompletedQuiz, setHasCompletedQuiz] = useState(false);
     const { db, user, appId, setMessageBox, userProfile } = useContext(FirebaseContext);
 
-    console.log("🎯 QuizManagerSimple - Quiz simple démarré pour la soirée:", partyId);
-    console.log("📊 Données reçues:", { partyData, partyId });
+    logger.info('QuizManagerSimple: Quiz simple démarré', { partyId, hasPartyData: !!partyData });
 
     // Fonction pour finaliser le quiz et attribuer les récompenses
     const handleQuizComplete = async (responses) => {
         if (!partyData || !partyId || !user || isProcessing) {
-            console.error("❌ Données manquantes pour finaliser le quiz ou traitement en cours");
+            logger.error('QuizManagerSimple: Données manquantes', { hasDb: !!db, hasUser: !!user, hasUserProfile: !!userProfile, isProcessing });
             return;
         }
 
         // Vérification du userProfile dès le début
         if (!userProfile) {
-            console.error('❌ userProfile est undefined dans handleQuizComplete');
+            logger.error('QuizManagerSimple: userProfile undefined dans handleQuizComplete');
             setMessageBox?.({ 
                 message: "Erreur: profil utilisateur non chargé", 
                 type: 'error' 
@@ -34,7 +34,7 @@ const QuizManagerSimple = ({ partyData, partyId, onQuizComplete, uploadingPhotos
 
         // Vérification et validation des réponses
         if (!responses || !Array.isArray(responses)) {
-            console.error('❌ responses est undefined ou invalide:', responses);
+            logger.error('QuizManagerSimple: responses invalid', { responses });
             setMessageBox?.({ 
                 message: "Erreur: réponses du quiz invalides", 
                 type: 'error' 
@@ -43,7 +43,7 @@ const QuizManagerSimple = ({ partyData, partyId, onQuizComplete, uploadingPhotos
         }
 
         setIsProcessing(true); // Bloquer les nouvelles exécutions
-        console.log("🎯 Finalisation du quiz avec les réponses:", responses);
+        logger.info('QuizManagerSimple: Finalisation du quiz', { responsesCount: Object.keys(responses).length });
 
         try {
             // 1. Sauvegarder la soirée avec les réponses du quiz
@@ -55,9 +55,9 @@ const QuizManagerSimple = ({ partyData, partyId, onQuizComplete, uploadingPhotos
                 status: 'completed'
             };
 
-            console.log("💾 Données de la soirée à sauvegarder:", finalPartyData);
+            logger.info('QuizManagerSimple: Sauvegarde party data', { partyId, hasQuizResponses: !!responses });
             await updateDoc(partyDoc, finalPartyData);
-            console.log("✅ Soirée sauvegardée avec les réponses du quiz");
+            logger.info('QuizManagerSimple: Party data sauvegardée avec succès');
 
             // Petite pause pour s'assurer que la sauvegarde est complète
             await new Promise(resolve => setTimeout(resolve, 100));
@@ -96,19 +96,18 @@ const QuizManagerSimple = ({ partyData, partyId, onQuizComplete, uploadingPhotos
                 
                 // Vérifier les challenges
                 const completedChallenges = userProfile.completedChallenges || {};
-                console.log("🎯 Vérification des challenges:", {
+                logger.debug('QuizManagerSimple: Vérification challenges', {
                     allPartiesCount: allPartiesWithNew.length,
-                    completedChallenges,
-                    newPartyData: finalPartyData
+                    completedChallengesCount: Object.keys(completedChallenges).length
                 });
                 
                 const newChallenges = challengeService.checkCompletedChallenges(allPartiesWithNew, completedChallenges);
-                console.log("✅ Challenges détectés:", newChallenges);
+                logger.info('QuizManagerSimple: Challenges détectés', { newChallengesCount: newChallenges.length });
                 
                 // XP pour les challenges complétés
                 if (newChallenges.length > 0) {
                     xpGained += newChallenges.length * gameplayConfig.xpPerChallenge;
-                    console.log("🎖️ XP pour challenges:", newChallenges.length * gameplayConfig.xpPerChallenge);
+                    logger.info('QuizManagerSimple: XP pour challenges', { xpAmount: newChallenges.length * gameplayConfig.xpPerChallenge });
                 }
                 
                 // Calculer le nouveau niveau
@@ -156,13 +155,13 @@ const QuizManagerSimple = ({ partyData, partyId, onQuizComplete, uploadingPhotos
                 // Si des badges ont été débloqués, les ajouter à la soirée pour le feed
                 if (newBadges && newBadges.length > 0) {
                     feedData.unlockedBadges = newBadges;
-                    console.log("🏆 Badges ajoutés à la soirée:", newBadges);
+                    logger.info('QuizManagerSimple: Badges ajoutés', { badgesCount: newBadges.length });
                 }
                 
                 // Si des challenges ont été complétés, les ajouter à la soirée pour le feed
                 if (newChallenges.length > 0) {
                     feedData.completedChallenges = newChallenges;
-                    console.log("🎯 Challenges complétés:", newChallenges);
+                    logger.info('QuizManagerSimple: Challenges complétés', { challengesCount: newChallenges.length });
                 }
                 
                 // Si montée de niveau, l'ajouter à la soirée pour le feed
@@ -173,22 +172,13 @@ const QuizManagerSimple = ({ partyData, partyId, onQuizComplete, uploadingPhotos
                         newLevelName: levelUpData.newLevelInfo.name,
                         levelsGained: levelUpData.levelsGained || 1
                     };
-                    console.log("⬆️ MONTÉE DE NIVEAU DÉTECTÉE:", {
+                    logger.info('QuizManagerSimple: MONTÉE DE NIVEAU', {
                         oldLevel: levelUpData.oldLevel,
                         newLevel: levelUpData.newLevel,
-                        levelsGained: levelUpData.levelsGained,
-                        oldXp,
-                        newXp,
-                        levelUpData
+                        levelsGained: levelUpData.levelsGained || 1
                     });
                 } else {
-                    console.log("🔍 Pas de montée de niveau:", {
-                        oldLevel,
-                        newLevel,
-                        oldXp,
-                        newXp,
-                        levelUpData
-                    });
+                    logger.debug('QuizManagerSimple: Pas de montée de niveau', { oldLevel, newLevel });
                 }
                 
                 // XP gagné pour affichage
@@ -199,12 +189,12 @@ const QuizManagerSimple = ({ partyData, partyId, onQuizComplete, uploadingPhotos
                     await updateDoc(partyDoc, feedData);
                 }
                 
-                console.log("🎖️ Récompenses et badges traités automatiquement");
+                logger.info('QuizManagerSimple: Récompenses et badges traités automatiquement');
             }
 
             // 3. Fermer le quiz et signaler la completion avec les données de la soirée (incluant l'ID)
             const completePartyData = { ...finalPartyData, partyId };
-            console.log("✅ Envoi des données complètes avec partyId:", completePartyData);
+            logger.info('QuizManagerSimple: Envoi données complètes', { partyId });
             setHasCompletedQuiz(true);
             onQuizComplete?.(completePartyData);
 
@@ -214,7 +204,7 @@ const QuizManagerSimple = ({ partyData, partyId, onQuizComplete, uploadingPhotos
             });
 
         } catch (error) {
-            console.error("❌ Erreur lors de la finalisation:", error);
+            logger.error('QuizManagerSimple: Erreur finalisation', { error: error.message });
             setMessageBox?.({ 
                 message: "Erreur lors de la sauvegarde du quiz", 
                 type: 'error' 
@@ -227,18 +217,18 @@ const QuizManagerSimple = ({ partyData, partyId, onQuizComplete, uploadingPhotos
     // Fonction pour fermer le quiz sans le compléter
     const handleQuizClose = () => {
         if (hasCompletedQuiz) {
-            console.log("✅ Fermeture du quiz après complétion");
+            logger.info('QuizManagerSimple: Fermeture du quiz après complétion');
             setHasCompletedQuiz(false);
             return;
         }
 
-        console.log("❌ Quiz fermé sans être complété");
+        logger.info('QuizManagerSimple: Quiz fermé sans être complété');
         // Ne pas appeler onQuizComplete si le quiz n'est pas terminé
         // Cela évite de déclencher la génération de résumé sans données
-        console.log("⚠️ Quiz annulé - pas de génération de résumé");
+        logger.info('QuizManagerSimple: Quiz annulé - pas de génération de résumé');
     };
 
-    console.log("✅ QuizManagerSimple - Affichage du quiz en cours...");
+    logger.debug('QuizManagerSimple: Affichage du quiz en cours');
 
     return (
         <QuizModal

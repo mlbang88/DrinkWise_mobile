@@ -112,7 +112,7 @@ export const createCachedFetch = (fetchFunction, cacheKey, ttl) => {
             cacheService.set(key, result, ttl);
             return result;
         } catch (error) {
-            console.error(`Erreur lors du fetch pour ${cacheKey}:`, error);
+            console.error(`Erreur lors du fetch pour ${cacheKey}:`, error?.message || String(error));
             throw error;
         }
     };

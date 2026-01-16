@@ -47,7 +47,7 @@ export const friendshipListenerService = {
                             console.error("❌ Échec synchronisation automatique:", result.data.error);
                         }
                     } catch (error) {
-                        console.error("❌ Erreur appel fonction synchronisation:", error);
+                        console.error("❌ Erreur appel fonction synchronisation:", error?.message || String(error));
                     }
                 }
             }
@@ -86,7 +86,7 @@ export const friendshipListenerService = {
                             console.error("❌ Échec synchronisation automatique:", result.data.error);
                         }
                     } catch (error) {
-                        console.error("❌ Erreur appel fonction synchronisation:", error);
+                        console.error("❌ Erreur appel fonction synchronisation:", error?.message || String(error));
                     }
                 }
             }
