@@ -262,21 +262,22 @@ const BasicPartyModal = ({ onClose, onPartySaved }) => {
             companions: partyDetails.companions || {}
         };
         
-        // Prompt ULTRA SIMPLIFIÉ - demande directe de continuer
-        const prompt = `Tu dois écrire un résumé de soirée LONG ET DÉTAILLÉ.
+        const totalDrinks = safeDetails.drinks?.reduce((sum, d) => sum + (d.quantity || 0), 0) || 0;
+        const companions = safeDetails.companions?.type === 'friends' 
+            ? safeDetails.companions.selectedNames?.join(', ') || 'seul(e)' 
+            : safeDetails.companions?.type === 'group' 
+            ? safeDetails.companions.selectedNames?.[0] || 'un groupe' 
+            : 'seul(e)';
+        
+        // Prompt simple - juste finir ses phrases
+        const prompt = `Raconte cette soirée en 2-3 phrases complètes et drôles:
 
-DONNÉES:
-📍 Lieu: ${safeDetails.location || 'lieu non précisé'}
-🍺 Boissons: ${safeDetails.drinks?.map(d => d.type).join(', ') || 'aucune'}
-👥 Avec: ${safeDetails.companions?.type === 'friends' ? safeDetails.companions.selectedNames?.join(', ') || 'seul' : safeDetails.companions?.type === 'group' ? safeDetails.companions.selectedNames?.[0] || 'un groupe' : 'seul'}
-📊 ${safeDetails.stats?.newNumbersGot || 0} rencontres, ${safeDetails.stats?.timeFightsStarted || 0} bagarres
+📍 ${safeDetails.location || 'lieu mystérieux'}
+🍺 ${totalDrinks} verre${totalDrinks > 1 ? 's' : ''} (${safeDetails.drinks?.map(d => `${d.quantity} ${d.type}`).join(', ') || 'rien'})
+👥 ${companions}
+💕 ${safeDetails.stats?.newNumbersGot || 0} num${(safeDetails.stats?.newNumbersGot || 0) > 1 ? 's' : ''}, 👊 ${safeDetails.stats?.timeFightsStarted || 0} bagarre${(safeDetails.stats?.timeFightsStarted || 0) > 1 ? 's' : ''}, 🤮 ${safeDetails.stats?.vomitCount || 0} vomi${(safeDetails.stats?.vomitCount || 0) > 1 ? 's' : ''}
 
-INSTRUCTIONS:
-Écris 3 phrases. CHAQUE phrase doit faire MINIMUM 30 mots.
-Ne t'arrête PAS avant d'avoir écrit 3 phrases COMPLÈTES de 30+ mots chacune.
-Total attendu: 90-120 mots minimum.
-
-COMMENCE MAINTENANT - Phrase 1 (30+ mots sur l'ambiance et le lieu):`;
+Comme un pote qui raconte. Mentionne le lieu, avec qui, les verres et les stats. TERMINE TOUTES TES PHRASES.`;
 
         try {
             logger.info('PARTY', 'Génération du résumé de soirée...');

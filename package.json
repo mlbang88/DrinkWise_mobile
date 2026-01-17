@@ -15,6 +15,7 @@
     "@capacitor/haptics": "^7.0.3",
     "@capacitor/ios": "^7.4.2",
     "@capacitor/push-notifications": "^7.0.3",
+    "@google/generative-ai": "^0.24.1",
     "@googlemaps/markerclusterer": "^2.6.2",
     "@use-gesture/react": "^10.3.1",
     "chart.js": "^4.5.0",

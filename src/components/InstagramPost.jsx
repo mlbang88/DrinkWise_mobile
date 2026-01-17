@@ -245,20 +245,6 @@ const InstagramPost = ({
                 </span>
               </div>
             )}
-            {/* Stats supplémentaires en colonnes de 2 */}
-            {post.summary && (
-              <div style={{
-                gridColumn: 'span 3',
-                padding: '12px',
-                background: 'rgba(0, 0, 0, 0.3)',
-                borderRadius: '12px',
-                border: '1px solid rgba(255, 255, 255, 0.05)'
-              }}>
-                <div style={{ color: '#fff', fontSize: '13px', textAlign: 'center', lineHeight: '1.4' }}>
-                  {post.summary}
-                </div>
-              </div>
-            )}
           </div>
         )}
 
