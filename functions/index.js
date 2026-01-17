@@ -212,13 +212,14 @@ async function callGeminiForText(prompt) {
         temperature: 0.7,
         topK: 20,
         topP: 0.8,
-        maxOutputTokens: 300
+        maxOutputTokens: 800,
+        candidateCount: 1
       },
       safetySettings: [
-        { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
-        { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
-        { category: HarmCategory.HARM_CATEGORY_SEXUAL, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
-        { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH }
+        { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_ONLY_HIGH" },
+        { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_ONLY_HIGH" },
+        { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_ONLY_HIGH" },
+        { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_ONLY_HIGH" }
       ]
     });
 
@@ -232,7 +233,10 @@ async function callGeminiForText(prompt) {
 
     const text = extractTextFromGeminiResponse(response);
 
-    logger.info('✅ Génération de texte réussie');
+    logger.info('✅ Génération de texte réussie', {
+      length: text.length,
+      preview: text.substring(0, 150) + (text.length > 150 ? '...' : '')
+    });
 
     return {
       success: true,

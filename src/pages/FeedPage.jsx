@@ -784,7 +784,17 @@ const FeedPage = () => {
                 ? party.companions.selectedNames.filter(name => typeof name === 'string' && name.trim() !== '')
                 : [],
             companionsType: party.companions?.type || 'none',
-            groupName: (typeof party.companions?.groupName === 'string' && party.companions.groupName) || '',
+            groupName: (() => {
+                // Accepter 'group' et 'groups' (anciennes données)
+                const isGroup = party.companions?.type === 'group' || party.companions?.type === 'groups';
+                const name = isGroup && party.companions?.selectedNames?.[0] 
+                    ? party.companions.selectedNames[0] 
+                    : '';
+                if (isGroup) {
+                    console.log('🏷️ Group name:', { name, companions: party.companions });
+                }
+                return name;
+            })(),
             badges: Array.isArray(party.badges) ? party.badges : [],
             comments: currentInteractions?.comments || []
         };

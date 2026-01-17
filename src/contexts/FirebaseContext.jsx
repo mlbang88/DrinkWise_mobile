@@ -1,6 +1,6 @@
 // src/contexts/FirebaseContext.js
 import { createContext, useState, useEffect, useContext } from 'react';
-import { auth, db, functions, appId } from '../firebase';
+import { auth, db, functions, storage, appId } from '../firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, setDoc, onSnapshot, updateDoc } from 'firebase/firestore';
 import { generateUniqueUsername } from '../utils/usernameUtils';
@@ -15,6 +15,7 @@ const defaultContextValue = {
     db: null,
     auth: null,
     functions: null,
+    storage: null,
     appId: null,
     setMessageBox: () => {},
     changeBackground: () => {},
@@ -320,6 +321,7 @@ export const FirebaseProvider = ({ children }) => {
         db,
         auth,
         functions,
+        storage,
         appId,
         setMessageBox,
         changeBackground,

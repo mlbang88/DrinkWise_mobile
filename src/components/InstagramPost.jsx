@@ -28,12 +28,17 @@ const InstagramPost = ({
         onDoubleTapLike();
       }
     },
-    onDrag: ({ movement: [mx], direction: [xDir], distance, cancel }) => {
-      if (distance > 100 && post.photoURLs && post.photoURLs.length > 1) {
-        if (xDir > 0 && currentPhotoIndex > 0) {
+    onDrag: ({ movement: [mx], direction: [xDir], cancel, last }) => {
+      const swipeDistance = Math.abs(mx);
+      if (last && swipeDistance > 50 && post.photoURLs && post.photoURLs.length > 1) {
+        // xDir > 0 = swipe RIGHT (show previous photo)
+        // xDir < 0 = swipe LEFT (show next photo)
+        if (mx > 50 && currentPhotoIndex > 0) {
+          console.log('⬅️ Swipe RIGHT - Previous photo');
           setCurrentPhotoIndex(prev => prev - 1);
           cancel();
-        } else if (xDir < 0 && currentPhotoIndex < post.photoURLs.length - 1) {
+        } else if (mx < -50 && currentPhotoIndex < post.photoURLs.length - 1) {
+          console.log('➡️ Swipe LEFT - Next photo');
           setCurrentPhotoIndex(prev => prev + 1);
           cancel();
         }
@@ -330,7 +335,7 @@ const InstagramPost = ({
       </div>
 
       {/* Companions juste en dessous de l'image */}
-      {(post.companions && post.companions.length > 0) || post.companionsType === 'group' ? (
+      {(post.companions && post.companions.length > 0) || post.companionsType === 'group' || post.companionsType === 'groups' ? (
         <div style={{
           padding: '12px 16px',
           background: 'rgba(0, 0, 0, 0.3)',
@@ -341,9 +346,9 @@ const InstagramPost = ({
           flexWrap: 'wrap'
         }}>
           <Users size={14} color="#bf00ff" />
-          {post.companionsType === 'group' ? (
+          {(post.companionsType === 'group' || post.companionsType === 'groups') ? (
             <span style={{ color: '#fff', fontSize: '12px', fontWeight: '500' }}>
-              {post.groupName ? `Groupe: ${post.groupName}` : 'En groupe'}
+              {post.groupName || 'En groupe'}
             </span>
           ) : post.companionsType === 'none' ? (
             <span style={{ color: '#a0a0a0', fontSize: '12px', fontStyle: 'italic' }}>

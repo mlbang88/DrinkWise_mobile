@@ -144,7 +144,31 @@ const CompetitivePartyModal = ({ onClose, onPartySaved, draftData = null }) => {
                 companions: partyDetails.companions || {}
             };
 
-            const prompt = `Génère un résumé de soirée amusant et mémorable (max 3 phrases) basé sur: ${JSON.stringify(safeDetails)}. Sois créatif et humoristique.`;
+            const prompt = `Tu es un rédacteur humoristique spécialisé dans les souvenirs de soirée. Génère un résumé amusant et mémorable en EXACTEMENT 3 phrases complètes.
+
+Données de la soirée:
+- Lieu: ${safeDetails.location || 'non spécifié'}
+- Catégorie: ${safeDetails.category || 'soirée classique'}
+- Nombre de boissons: ${safeDetails.drinks?.length || 0}
+- Types de boissons: ${safeDetails.drinks?.map(d => d.type).join(', ') || 'aucune'}
+- Compagnons: ${safeDetails.companions?.type === 'friends' ? safeDetails.companions.selectedNames?.join(', ') || 'seul(e)' : safeDetails.companions?.type === 'group' ? safeDetails.companions.selectedNames?.[0] || 'en groupe' : 'seul(e)'}
+- Rencontres: ${safeDetails.stats?.newNumbersGot || 0}
+- Bagarres: ${safeDetails.stats?.timeFightsStarted || 0}
+- Vomissements: ${safeDetails.stats?.vomitCount || 0}
+
+Format OBLIGATOIRE (3 phrases COMPLÈTES séparées par des points):
+1. Phrase d'introduction (contexte: lieu, type de soirée, ambiance)
+2. Highlight principal (moment fort, anecdote, statistique marquante sur les rencontres/bagarres/boissons)
+3. Conclusion humoristique avec point final (chute, réflexion amusante)
+
+IMPORTANT: 
+- Chaque phrase DOIT se terminer par un point
+- Longueur totale: 400-600 caractères (environ 80-120 mots)
+- Développe les détails: lieu, ambiance, interactions, anecdotes
+- Ton léger, amusant, mémorable, sans vulgarité
+- ÉCRIS LES 3 PHRASES COMPLÈTES ET DÉTAILLÉES, NE T'ARRÊTE PAS EN PLEIN MILIEU
+
+RÉPONDS UNIQUEMENT AVEC LES 3 PHRASES COMPLÈTES, SANS PRÉAMBULE NI EXPLICATION.`;
             const callGeminiAPI = httpsCallable(functions, 'callGeminiAPI');
 
             logger.info('CompetitivePartyModal: Génération du résumé de soirée', { docId });
@@ -503,6 +527,11 @@ const CompetitivePartyModal = ({ onClose, onPartySaved, draftData = null }) => {
             if (photoFiles.length > 0) {
                 setUploadingPhotos(true);
                 try {
+                    // Vérifier que storage est bien défini
+                    if (!storage) {
+                        throw new Error('Storage non disponible - vérifier FirebaseContext');
+                    }
+                    
                     const photoURLs = [];
                     
                     for (let i = 0; i < photoFiles.length; i++) {
@@ -519,7 +548,7 @@ const CompetitivePartyModal = ({ onClose, onPartySaved, draftData = null }) => {
                         photosCount: photoURLs.length 
                     });
                 } catch (photoError) {
-                    logger.error('CompetitivePartyModal: Photo upload error', { error: photoError.message });
+                    logger.error('CompetitivePartyModal: Photo upload error', { error: photoError.message, storageAvailable: !!storage });
                 } finally {
                     setUploadingPhotos(false);
                 }
@@ -1209,13 +1238,13 @@ const CompetitivePartyModal = ({ onClose, onPartySaved, draftData = null }) => {
                         )}
 
                         {/* Sélection rapide groupes */}
-                        {companions.type === 'groups' && (
+                        {companions.type === 'group' && (
                             <div style={{ maxHeight: '100px', overflowY: 'auto' }}>
                                 {groupsList.length > 0 ? (
                                     groupsList.slice(0, 2).map(group => (
                                         <div
                                             key={group.id}
-                                            onClick={() => toggleCompanionSelection('groups', group.id, group.name)}
+                                            onClick={() => toggleCompanionSelection('group', group.id, group.name)}
                                             style={{
                                                 display: 'flex', alignItems: 'center', gap: '8px', padding: '6px',
                                                 background: companions.selectedIds.includes(group.id) ? 'rgba(139, 69, 255, 0.3)' : 'transparent',

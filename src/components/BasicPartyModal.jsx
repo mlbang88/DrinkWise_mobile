@@ -262,31 +262,34 @@ const BasicPartyModal = ({ onClose, onPartySaved }) => {
             companions: partyDetails.companions || {}
         };
         
-        // Prompt amélioré avec instructions précises
-        const prompt = `Tu es un rédacteur humoristique spécialisé dans les souvenirs de soirée. Génère un résumé amusant et mémorable en EXACTEMENT 3 phrases courtes.
+        // Prompt ULTRA SIMPLIFIÉ - demande directe de continuer
+        const prompt = `Tu dois écrire un résumé de soirée LONG ET DÉTAILLÉ.
 
-Données de la soirée:
-- Lieu: ${safeDetails.location || 'non spécifié'}
-- Catégorie: ${safeDetails.category || 'soirée classique'}
-- Nombre de boissons: ${safeDetails.drinks?.length || 0}
-- Types de boissons: ${safeDetails.drinks?.map(d => d.type).join(', ') || 'aucune'}
-- Compagnons: ${safeDetails.companions?.type === 'friends' ? safeDetails.companions.selectedNames?.join(', ') || 'seul(e)' : safeDetails.companions?.type || 'seul(e)'}
-- Stats: ${JSON.stringify(safeDetails.stats)}
+DONNÉES:
+📍 Lieu: ${safeDetails.location || 'lieu non précisé'}
+🍺 Boissons: ${safeDetails.drinks?.map(d => d.type).join(', ') || 'aucune'}
+👥 Avec: ${safeDetails.companions?.type === 'friends' ? safeDetails.companions.selectedNames?.join(', ') || 'seul' : safeDetails.companions?.type === 'group' ? safeDetails.companions.selectedNames?.[0] || 'un groupe' : 'seul'}
+📊 ${safeDetails.stats?.newNumbersGot || 0} rencontres, ${safeDetails.stats?.timeFightsStarted || 0} bagarres
 
-Format OBLIGATOIRE (3 phrases séparées par des points):
-1. Phrase d'introduction (contexte: lieu, type de soirée, ambiance)
-2. Highlight principal (moment fort, anecdote, statistique marquante)
-3. Conclusion humoristique (chute, réflexion amusante)
+INSTRUCTIONS:
+Écris 3 phrases. CHAQUE phrase doit faire MINIMUM 30 mots.
+Ne t'arrête PAS avant d'avoir écrit 3 phrases COMPLÈTES de 30+ mots chacune.
+Total attendu: 90-120 mots minimum.
 
-Ton: Léger, amusant, mémorable, sans vulgarité.
-Longueur: Maximum 280 caractères au total.
-
-RÉPONDS UNIQUEMENT AVEC LES 3 PHRASES, SANS PRÉAMBULE NI EXPLICATION.`;
+COMMENCE MAINTENANT - Phrase 1 (30+ mots sur l'ambiance et le lieu):`;
 
         try {
             logger.info('PARTY', 'Génération du résumé de soirée...');
             const result = await callGeminiAPI({ prompt, partyId: docId });
+            logger.info('PARTY', 'Réponse brute callGeminiAPI', result);
+            
             const aiSummary = (result?.data?.text || result?.data?.summary || '').trim();
+            logger.info('PARTY', 'Résumé extrait', { 
+                length: aiSummary.length, 
+                text: aiSummary,
+                firstChars: aiSummary.substring(0, 100)
+            });
+            
             const partyRef = doc(db, `artifacts/${appId}/users/${user.uid}/parties`, docId);
 
             if (aiSummary) {
@@ -295,7 +298,10 @@ RÉPONDS UNIQUEMENT AVEC LES 3 PHRASES, SANS PRÉAMBULE NI EXPLICATION.`;
                     summarySource: 'gemini',
                     summaryGeneratedAt: new Date()
                 });
-                logger.info('PARTY', 'Résumé généré et sauvegardé', aiSummary);
+                logger.info('PARTY', 'Résumé sauvegardé en Firestore', { 
+                    length: aiSummary.length,
+                    preview: aiSummary.substring(0, 150) + (aiSummary.length > 150 ? '...' : '')
+                });
             } else {
                 const fallbackSummary = buildFallbackSummary(safeDetails);
                 await updateDoc(partyRef, {
@@ -402,6 +408,11 @@ RÉPONDS UNIQUEMENT AVEC LES 3 PHRASES, SANS PRÉAMBULE NI EXPLICATION.`;
             if (photoFiles.length > 0) {
                 setUploadingPhotos(true);
                 try {
+                    // Vérifier que storage est bien défini
+                    if (!storage) {
+                        throw new Error('Storage non disponible - vérifier FirebaseContext');
+                    }
+                    
                     const photoURLs = [];
                     
                     for (let i = 0; i < photoFiles.length; i++) {
@@ -419,7 +430,7 @@ RÉPONDS UNIQUEMENT AVEC LES 3 PHRASES, SANS PRÉAMBULE NI EXPLICATION.`;
                         photosCount: photoURLs.length 
                     });
                 } catch (photoError) {
-                    logger.error('Erreur upload photos', { error: photoError.message });
+                    logger.error('Erreur upload photos', { error: photoError.message, storageAvailable: !!storage });
                 } finally {
                     setUploadingPhotos(false);
                 }
@@ -1045,11 +1056,11 @@ RÉPONDS UNIQUEMENT AVEC LES 3 PHRASES, SANS PRÉAMBULE NI EXPLICATION.`;
                             </button>
                             <button
                                 type="button"
-                                onClick={() => setCompanions({ type: 'groups', selectedIds: [], selectedNames: [] })}
+                                onClick={() => setCompanions({ type: 'group', selectedIds: [], selectedNames: [] })}
                                 style={{
                                     flex: 1,
                                     padding: '10px',
-                                    background: companions.type === 'groups' ? '#8b45ff' : 'rgba(255, 255, 255, 0.1)',
+                                    background: companions.type === 'group' ? '#8b45ff' : 'rgba(255, 255, 255, 0.1)',
                                     border: 'none',
                                     borderRadius: '8px',
                                     color: 'white',
@@ -1112,7 +1123,7 @@ RÉPONDS UNIQUEMENT AVEC LES 3 PHRASES, SANS PRÉAMBULE NI EXPLICATION.`;
                         )}
 
                         {/* Liste des groupes */}
-                        {companions.type === 'groups' && groupsList.length > 0 && (
+                        {companions.type === 'group' && groupsList.length > 0 && (
                             <div style={{
                                 maxHeight: '150px',
                                 overflowY: 'auto',
@@ -1123,7 +1134,7 @@ RÉPONDS UNIQUEMENT AVEC LES 3 PHRASES, SANS PRÉAMBULE NI EXPLICATION.`;
                                 {groupsList.map(group => (
                                     <div
                                         key={group.id}
-                                        onClick={() => toggleCompanionSelection('groups', group.id, group.name)}
+                                        onClick={() => toggleCompanionSelection('group', group.id, group.name)}
                                         style={{
                                             display: 'flex',
                                             alignItems: 'center',
@@ -1192,7 +1203,7 @@ RÉPONDS UNIQUEMENT AVEC LES 3 PHRASES, SANS PRÉAMBULE NI EXPLICATION.`;
                             </div>
                         )}
 
-                        {companions.type === 'groups' && groupsList.length === 0 && !loadingCompanions && (
+                        {companions.type === 'group' && groupsList.length === 0 && !loadingCompanions && (
                             <div style={{
                                 padding: '12px',
                                 background: 'rgba(255, 255, 0, 0.1)',
