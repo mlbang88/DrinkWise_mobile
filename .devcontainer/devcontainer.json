@@ -1,0 +1,54 @@
+{
+  "name": "DrinkWise Mobile Dev",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:20",
+  
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "20"
+    },
+    "ghcr.io/devcontainers/features/git:1": {}
+  },
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "bradlc.vscode-tailwindcss",
+        "GitHub.copilot"
+      ],
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash"
+      }
+    }
+  },
+
+  "forwardPorts": [5173, 9199, 4000, 5001, 8080, 9099],
+  "portsAttributes": {
+    "5173": {
+      "label": "Vite Dev Server",
+      "onAutoForward": "notify"
+    },
+    "9199": {
+      "label": "Firebase Firestore Emulator"
+    },
+    "4000": {
+      "label": "Firebase Emulator Suite UI"
+    },
+    "5001": {
+      "label": "Firebase Functions Emulator"
+    },
+    "8080": {
+      "label": "Firebase Hosting Emulator"
+    },
+    "9099": {
+      "label": "Firebase Auth Emulator"
+    }
+  },
+
+  "postCreateCommand": "npm install",
+  
+  "postStartCommand": "echo '✅ Environnement prêt! Lancez: npm run dev'",
+
+  "remoteUser": "node"
+}
