@@ -51,6 +51,16 @@ export const badgeService = {
     updatePublicStats: async (db, user, appId, userProfile = null) => {
         if (!user) return;
 
+        // ✅ Throttle: Ne mettre à jour qu'une fois toutes les 5 minutes
+        const throttleKey = `publicStats_lastUpdate_${user.uid}`;
+        const lastUpdate = sessionStorage.getItem(throttleKey);
+        const now = Date.now();
+        
+        if (lastUpdate && (now - parseInt(lastUpdate)) < 5 * 60 * 1000) {
+            logger.debug('badgeService: updatePublicStats throttlé (dernière mise à jour < 5min)');
+            return;
+        }
+
         const userPartiesRef = collection(db, `artifacts/${appId}/users/${user.uid}/parties`);
         const userProfileRef = doc(db, `artifacts/${appId}/users/${user.uid}/profile`, 'data');
 
@@ -175,6 +185,9 @@ export const badgeService = {
 
                 logger.info('badgeService: Stats publiques mises à jour', { statsCount: Object.keys(cumulativeStats).length });
             }
+
+            // ✅ Marquer la dernière mise à jour pour le throttle
+            sessionStorage.setItem(throttleKey, now.toString());
 
             return cumulativeStats;
         } catch (error) {

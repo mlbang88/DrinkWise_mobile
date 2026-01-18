@@ -2,6 +2,7 @@ import React, { useState, useEffect, useContext, useCallback } from 'react';
 import { collection, query, where, getDocs, orderBy, limit, doc, getDoc, updateDoc, arrayUnion, setDoc } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { FirebaseContext } from '../contexts/FirebaseContext.jsx';
+import DOMPurify from 'dompurify';
 import { badgeService } from '../services/badgeService';
 import { challengeService } from '../services/challengeService';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -23,6 +24,16 @@ import { hapticFeedback } from '../utils/haptics';
 import { useGesture } from '@use-gesture/react';
 import { SkeletonCard } from '../components/SkeletonCard';
 import InstagramPost from '../components/InstagramPost';
+import PartyItem from '../components/PartyItem';
+import { useFeedRateLimit } from '../hooks/useRateLimit';
+import { 
+    logFeedView, 
+    logFeedInteraction, 
+    logFeedComment, 
+    logFeedShare, 
+    logFeedRefresh,
+    logFeedError 
+} from '../utils/analytics';
 
 // Types de réactions disponibles (défini en dehors pour être accessible partout)
 const REACTIONS = [
@@ -36,6 +47,9 @@ const REACTIONS = [
 
 const FeedPage = () => {
     const { db, user, appId, userProfile, setMessageBox, functions } = useContext(FirebaseContext);
+    
+    // Rate limiting pour les interactions
+    const { limitInteraction, limitComment } = useFeedRateLimit();
     
     // États principaux
     const [feedItems, setFeedItems] = useState([]);
@@ -72,12 +86,144 @@ const FeedPage = () => {
     const handleFeedInteraction = httpsCallable(functions, 'handleFeedInteraction');
     const getFeedInteractions = httpsCallable(functions, 'getFeedInteractions');
 
-    logger.info('FeedPage initialisé', { userId: user?.uid, username: userProfile?.username });
+    // ===== GÉRER LES INTERACTIONS =====
+    
+    // Gérer une interaction (like, comment, etc.) avec mise à jour optimiste
+    const handleInteraction = useCallback(async (itemId, type, data = null) => {
+        if (isLoadingInteraction[itemId]) return;
+
+        // ✅ Vérifier le rate limiting manuellement
+        const rateLimitCheck = limitInteraction(() => {})();
+        try {
+            await rateLimitCheck;
+        } catch (error) {
+            if (error.message.includes('Trop de requêtes')) {
+                toast.error(error.message);
+                return;
+            }
+        }
+
+        try {
+            logger.debug('Interaction', { type, itemId });
+
+            // Trouver le propriétaire de l'item seulement pour l'appel Firebase
+            const item = feedItems.find(i => i.id === itemId);
+            if (!item) {
+                logger.error('Item non trouvé', { itemId });
+                return;
+            }
+
+            // ⚡ MISE À JOUR OPTIMISTE : Met à jour l'UI instantanément
+            if (['like', 'love', 'haha', 'wow', 'sad', 'angry'].includes(type)) {
+                    const currentInteractions = interactions[itemId] || { likes: [], comments: [], congratulations: [], reactions: {} };
+                    const currentReactions = currentInteractions.reactions || {};
+                    const userReaction = Object.keys(currentReactions).find(reactionType => 
+                        currentReactions[reactionType]?.some(r => r.userId === user.uid)
+                    );
+                    
+                    // Si l'utilisateur a déjà réagi, on retire son ancienne réaction
+                    let newReactions = { ...currentReactions };
+                    if (userReaction) {
+                        newReactions[userReaction] = newReactions[userReaction].filter(r => r.userId !== user.uid);
+                        if (newReactions[userReaction].length === 0) {
+                            delete newReactions[userReaction];
+                        }
+                    }
+                    
+                    // Ajouter la nouvelle réaction (sauf si c'était la même)
+                if (userReaction !== type) {
+                    newReactions[type] = [...(newReactions[type] || []), {
+                        userId: user.uid,
+                        username: userProfile?.username || 'Vous',
+                        timestamp: new Date()
+                    }];
+                    
+                    // Haptic feedback + toast
+                    hapticFeedback.light();
+                    const reactionEmoji = REACTIONS.find(r => r.type === type)?.emoji || '👍';
+                    toast.success(`${reactionEmoji} Réaction ajoutée!`);
+                    
+                    // 📊 Analytics: Interaction
+                    logFeedInteraction(type, item.type, itemId);
+                }
+                
+                // Calculer le nouveau userReaction après modification
+                const newUserReaction = Object.keys(newReactions).find(reactionType =>
+                    Array.isArray(newReactions[reactionType]) && newReactions[reactionType]?.some(r => r.userId === user.uid)
+                ) || null;
+                
+                setInteractions(prev => ({
+                    ...prev,
+                    [itemId]: {
+                        ...currentInteractions,
+                        reactions: newReactions,
+                        userReaction: newUserReaction
+                    }
+                }));
+                
+                // Fermer le picker après sélection
+                setShowReactionPicker(prev => ({ ...prev, [itemId]: false }));
+            } else if (type === 'comment' && data?.text) {
+                const currentInteractions = interactions[itemId] || { likes: [], comments: [], congratulations: [] };
+                const newComment = {
+                    id: `temp-${Date.now()}`,
+                    userId: user.uid,
+                    username: userProfile?.username || 'Vous',
+                    text: data.text,
+                    timestamp: new Date()
+                };
+                
+                setInteractions(prev => ({
+                    ...prev,
+                    [itemId]: {
+                        ...currentInteractions,
+                        comments: [...(currentInteractions.comments || []), newComment]
+                    }
+                }));
+                
+                // Haptic feedback + toast
+                hapticFeedback.medium();
+                toast.success('💬 Commentaire ajouté!');
+            }
+
+            // Utiliser l'ID original pour Firebase
+            const originalId = item.originalId || itemId;
+
+            // 🚀 Envoyer la requête en arrière-plan (sans attendre)
+            handleFeedInteraction({
+                itemId: originalId,
+                itemType: item.type,
+                ownerId: item.userId,
+                interactionType: type,
+                content: data?.text || null,
+                appId
+            }).then(result => {
+                if (result?.data?.success) {
+                    logger.debug('Interaction synchronisée avec le serveur');
+                    // Recharger pour synchroniser avec les autres utilisateurs
+                    setTimeout(() => loadInteractions(itemId), 500);
+                } else {
+                    logger.error('Échec sync serveur, rollback', { error: result?.data?.error });
+                    // En cas d'erreur, recharger les vraies données
+                    loadInteractions(itemId);
+                }
+            }).catch(error => {
+                logger.error('Erreur sync serveur, rollback', { error: error.message });
+                // En cas d'erreur, recharger les vraies données  
+                loadInteractions(itemId);
+            });
+
+        } catch (error) {
+            logger.error('Erreur interaction', { error: error.message });
+            // En cas d'erreur, recharger les vraies données
+            loadInteractions(itemId);
+        }
+    }, [isLoadingInteraction, limitInteraction, feedItems, interactions, user, userProfile, handleFeedInteraction, appId]);
 
     // ===== INTERACTIONS MODERNES =====
 
     // Double-tap to like (Instagram-style)
-    const handleDoubleTap = (itemId) => {
+    const handleDoubleTap = useCallback((itemId) => {
         const now = Date.now();
         const lastTapTime = lastTap[itemId] || 0;
         
@@ -86,17 +232,20 @@ const FeedPage = () => {
             handleInteraction(itemId, 'like');
             hapticFeedback.light();
             
-            // Animation du coeur
-            setHeartAnimation({ [itemId]: true });
-            setTimeout(() => {
-                setHeartAnimation({ [itemId]: false });
+            // Animation du coeur avec cleanup
+            setHeartAnimation(prev => ({ ...prev, [itemId]: true }));
+            const timer = setTimeout(() => {
+                setHeartAnimation(prev => ({ ...prev, [itemId]: false }));
             }, 1000);
+            
+            // Cleanup si composant unmount
+            return () => clearTimeout(timer);
             
             logger.debug('Double-tap like', { itemId });
         }
         
         setLastTap({ ...lastTap, [itemId]: now });
-    };
+    }, [lastTap, handleInteraction]);
 
     // Pull-to-refresh
     const handlePullRefresh = async () => {
@@ -265,16 +414,42 @@ const FeedPage = () => {
             setFeedItems(allItems.slice(0, 20));
             logger.info('Feed chargé', { itemsCount: allItems.length });
 
+            // 📊 Analytics: Vue du feed
+            logFeedView(allItems.length);
+
+            // 4. Charger les interactions par batch pour optimiser
+            const itemsToLoad = allItems.slice(0, 20);
+            loadInteractionsBatch(itemsToLoad.map(item => item.id));
+
         } catch (error) {
             logger.error('Erreur chargement feed', { error: error.message });
+            logFeedError('load_feed', error.message);
             setError(error.message || 'Erreur lors du chargement du fil');
             setMessageBox({ message: 'Erreur lors du chargement du fil', type: 'error' });
         } finally {
             setLoading(false);
         }
-    }, [user, userProfile, db, appId, setMessageBox]);
+    }, [user, db, appId, setMessageBox]);
 
     // ===== GESTION DES INTERACTIONS =====
+
+    // Charger les interactions par batch pour optimiser les requêtes
+    const loadInteractionsBatch = useCallback(async (itemIds) => {
+        const BATCH_SIZE = 5;
+        const batches = [];
+        
+        for (let i = 0; i < itemIds.length; i += BATCH_SIZE) {
+            batches.push(itemIds.slice(i, i + BATCH_SIZE));
+        }
+        
+        for (const batch of batches) {
+            await Promise.all(batch.map(itemId => loadInteractions(itemId)));
+            // Petit délai entre les batches pour éviter de surcharger Firebase
+            if (batches.indexOf(batch) < batches.length - 1) {
+                await new Promise(resolve => setTimeout(resolve, 200));
+            }
+        }
+    }, []);
 
     // Charger les interactions d'un item
     const loadInteractions = async (itemId) => {
@@ -356,124 +531,6 @@ const FeedPage = () => {
         }
     };
 
-    // Gérer une interaction (like, comment, etc.) avec mise à jour optimiste
-    const handleInteraction = async (itemId, type, data = null) => {
-        if (isLoadingInteraction[itemId]) return;
-
-        try {
-            logger.debug('Interaction', { type, itemId });
-
-            // Trouver le propriétaire de l'item seulement pour l'appel Firebase
-            const item = feedItems.find(i => i.id === itemId);
-            if (!item) {
-                logger.error('Item non trouvé', { itemId });
-                return;
-            }
-
-            // ⚡ MISE À JOUR OPTIMISTE : Met à jour l'UI instantanément
-            if (['like', 'love', 'haha', 'wow', 'sad', 'angry'].includes(type)) {
-                const currentInteractions = interactions[itemId] || { likes: [], comments: [], congratulations: [], reactions: {} };
-                const currentReactions = currentInteractions.reactions || {};
-                const userReaction = Object.keys(currentReactions).find(reactionType => 
-                    currentReactions[reactionType]?.some(r => r.userId === user.uid)
-                );
-                
-                // Si l'utilisateur a déjà réagi, on retire son ancienne réaction
-                let newReactions = { ...currentReactions };
-                if (userReaction) {
-                    newReactions[userReaction] = newReactions[userReaction].filter(r => r.userId !== user.uid);
-                    if (newReactions[userReaction].length === 0) {
-                        delete newReactions[userReaction];
-                    }
-                }
-                
-                // Ajouter la nouvelle réaction (sauf si c'était la même)
-                if (userReaction !== type) {
-                    newReactions[type] = [...(newReactions[type] || []), {
-                        userId: user.uid,
-                        username: userProfile?.username || 'Vous',
-                        timestamp: new Date()
-                    }];
-                    
-                    // Haptic feedback + toast
-                    hapticFeedback.light();
-                    const reactionEmoji = REACTIONS.find(r => r.type === type)?.emoji || '👍';
-                    toast.success(`${reactionEmoji} Réaction ajoutée!`);
-                }
-                
-                // Calculer le nouveau userReaction après modification
-                const newUserReaction = Object.keys(newReactions).find(reactionType =>
-                    Array.isArray(newReactions[reactionType]) && newReactions[reactionType]?.some(r => r.userId === user.uid)
-                ) || null;
-                
-                setInteractions(prev => ({
-                    ...prev,
-                    [itemId]: {
-                        ...currentInteractions,
-                        reactions: newReactions,
-                        userReaction: newUserReaction
-                    }
-                }));
-                
-                // Fermer le picker après sélection
-                setShowReactionPicker(prev => ({ ...prev, [itemId]: false }));
-            } else if (type === 'comment' && data?.text) {
-                const currentInteractions = interactions[itemId] || { likes: [], comments: [], congratulations: [] };
-                const newComment = {
-                    id: `temp-${Date.now()}`,
-                    userId: user.uid,
-                    username: userProfile?.username || 'Vous',
-                    text: data.text,
-                    timestamp: new Date()
-                };
-                
-                setInteractions(prev => ({
-                    ...prev,
-                    [itemId]: {
-                        ...currentInteractions,
-                        comments: [...(currentInteractions.comments || []), newComment]
-                    }
-                }));
-                
-                // Haptic feedback + toast
-                hapticFeedback.medium();
-                toast.success('💬 Commentaire ajouté!');
-            }
-
-            // Utiliser l'ID original pour Firebase
-            const originalId = item.originalId || itemId;
-
-            // 🚀 Envoyer la requête en arrière-plan (sans attendre)
-            handleFeedInteraction({
-                itemId: originalId,
-                itemType: item.type,
-                ownerId: item.userId,
-                interactionType: type,
-                content: data?.text || null,
-                appId
-            }).then(result => {
-                if (result?.data?.success) {
-                    logger.debug('Interaction synchronisée avec le serveur');
-                    // Optionnel : recharger pour être sûr de la cohérence
-                    // loadInteractions(itemId);
-                } else {
-                    logger.error('Échec sync serveur, rollback', { error: result?.data?.error });
-                    // En cas d'erreur, recharger les vraies données
-                    loadInteractions(itemId);
-                }
-            }).catch(error => {
-                logger.error('Erreur sync serveur, rollback', { error: error.message });
-                // En cas d'erreur, recharger les vraies données  
-                loadInteractions(itemId);
-            });
-
-        } catch (error) {
-            logger.error('Erreur interaction', { error: error.message });
-            // En cas d'erreur, recharger les vraies données
-            loadInteractions(itemId);
-        }
-    };
-
     // Vérifier si l'utilisateur a déjà interagi
     const hasUserInteracted = (itemId, type) => {
         const itemInteractions = interactions[itemId];
@@ -488,14 +545,33 @@ const FeedPage = () => {
     };
 
     // Ajouter un commentaire
-    const handleAddComment = async (itemId, commentText) => {
+    const handleAddComment = useCallback(async (itemId, commentText) => {
         if (!commentText.trim() || !user) return;
 
+        // ✅ Vérifier le rate limiting manuellement
+        const rateLimitCheck = limitComment(() => {})();
         try {
+            await rateLimitCheck;
+        } catch (error) {
+            if (error.message.includes('Trop de requêtes')) {
+                toast.error(error.message);
+                return;
+            }
+        }
+
+        try {
+            // Trouver l'item pour obtenir le type et l'ownerId
+            const item = feedItems.find(i => i.id === itemId);
+            if (!item) {
+                logger.error('Item non trouvé pour commentaire', { itemId });
+                return;
+            }
+
             const newComment = {
                 userId: user.uid,
                 username: userProfile?.username || user.displayName || 'Utilisateur',
                 text: commentText.trim(),
+                content: commentText.trim(),
                 timestamp: new Date()
             };
 
@@ -508,37 +584,39 @@ const FeedPage = () => {
                 }
             }));
 
-            // Utiliser l'ID original pour les interactions (sans préfixe userId)
-            const originalId = itemId.includes('-') ? itemId.split('-')[1] : itemId;
+            // Utiliser l'ID original pour les interactions
+            const originalId = item.originalId || itemId;
 
-            // Enregistrer dans Firestore via artifacts/{appId}/feed_interactions
-            const interactionRef = doc(db, `artifacts/${appId}/feed_interactions`, originalId);
-            
-            // Vérifier si le document existe
-            const interactionDoc = await getDoc(interactionRef);
-            
-            if (interactionDoc.exists()) {
-                // Mettre à jour le document existant
-                await updateDoc(interactionRef, {
-                    comments: arrayUnion(newComment)
-                });
+            // Utiliser la Cloud Function pour la cohérence
+            const result = await handleFeedInteraction({
+                itemId: originalId,
+                itemType: item.type,
+                ownerId: item.userId,
+                interactionType: 'comment',
+                content: commentText.trim(),
+                appId
+            });
+
+            if (result?.data?.success) {
+                logger.info('Commentaire ajouté via Cloud Function', { itemId });
+                hapticFeedback.medium();
+                toast.success('💬 Commentaire ajouté!');
+                
+                // 📊 Analytics: Commentaire
+                logFeedComment(item.type, itemId, commentText.length);
+                
+                // Recharger pour synchroniser
+                setTimeout(() => loadInteractions(itemId), 500);
             } else {
-                // Créer le document s'il n'existe pas
-                await setDoc(interactionRef, {
-                    likes: [],
-                    comments: [newComment],
-                    congratulations: []
-                });
+                throw new Error(result?.data?.error || 'Erreur inconnue');
             }
-
-            logger.info('Commentaire ajouté', { itemId, commentLength: commentText.length });
 
         } catch (error) {
             logger.error('Erreur ajout commentaire', { error: error.message });
             // Recharger les interactions en cas d'erreur
             loadInteractions(itemId);
         }
-    };
+    }, [limitComment, user, feedItems, userProfile, handleFeedInteraction, appId, loadInteractions]);
 
     // ===== GESTION ÉDITION/SUPPRESSION DES SOIRÉES =====
     
@@ -664,7 +742,12 @@ const FeedPage = () => {
                                     wordBreak: 'break-word',
                                     hyphens: 'auto' // Césure automatique
                                 }}>
-                                    {comment.text || comment.content}
+                                    <span dangerouslySetInnerHTML={{ 
+                                      __html: DOMPurify.sanitize(comment.text || comment.content || '', {
+                                        ALLOWED_TAGS: ['br'],
+                                        ALLOWED_ATTR: []
+                                      })
+                                    }} />
                                 </div>
                             </div>
                         </div>
@@ -733,100 +816,6 @@ const FeedPage = () => {
         );
     };
 
-    // Item de soirée - Version Instagram
-    const PartyItem = ({ item, onEditParty, onDeleteParty }) => {
-        const party = item.data;
-        const totalDrinks = party.drinks?.reduce((sum, drink) => sum + drink.quantity, 0) || 0;
-        
-        // Protection: s'assurer que item.user existe
-        if (!item.user) {
-            item.user = item.isOwn ? userProfile : friendsData[item.userId] || { username: 'Utilisateur inconnu', displayName: 'Utilisateur' };
-        }
-
-        // Vérifier si l'utilisateur a réagi
-        const userReaction = interactions[item.id]?.userReaction;
-        const isLiked = userReaction === 'like' || userReaction === 'love';
-        
-        // Compter les likes
-        const likesCount = interactions[item.id]?.reactions ? 
-            Object.values(interactions[item.id].reactions).reduce((sum, users) => sum + users.length, 0) : 0;
-        
-        const commentsCount = interactions[item.id]?.comments?.length || 0;
-        
-        // Récupérer les interactions de cet item
-        const currentInteractions = interactions[item.id];
-
-        // Convertir timestamp en Date si nécessaire
-        let timestampDate = null;
-        try {
-            if (item.timestamp?.toDate) {
-                timestampDate = item.timestamp.toDate();
-            } else if (item.timestamp instanceof Date) {
-                timestampDate = item.timestamp;
-            }
-        } catch (e) {
-            console.error('Error converting timestamp:', e?.message || 'Unknown error');
-        }
-
-        // Préparer les données du post pour InstagramPost (valeurs primitives uniquement)
-        const postData = {
-            summary: (typeof party.summary === 'string' && party.summary) || '',
-            totalDrinks: Number(totalDrinks) || 0,
-            girlsTalkedTo: Number(party.girlsTalkedTo) || 0,
-            // location est un string direct, pas un objet
-            locationName: (typeof party.location === 'string' && party.location) || '',
-            photoURLs: Array.isArray(party.photoURLs) ? party.photoURLs : [],
-            photoURL: (typeof party.photoURL === 'string' && party.photoURL) || '',
-            videoURLs: Array.isArray(party.videoURLs) ? party.videoURLs : [],
-            xpGained: Number(party.xpGained) || 0,
-            // companions.selectedNames contient les noms des amis
-            companions: party.companions?.selectedNames && Array.isArray(party.companions.selectedNames)
-                ? party.companions.selectedNames.filter(name => typeof name === 'string' && name.trim() !== '')
-                : [],
-            companionsType: party.companions?.type || 'none',
-            groupName: (() => {
-                // Accepter 'group' et 'groups' (anciennes données)
-                const isGroup = party.companions?.type === 'group' || party.companions?.type === 'groups';
-                const name = isGroup && party.companions?.selectedNames?.[0] 
-                    ? party.companions.selectedNames[0] 
-                    : '';
-                if (isGroup) {
-                    console.log('🏷️ Group name:', { name, companions: party.companions });
-                }
-                return name;
-            })(),
-            badges: Array.isArray(party.badges) ? party.badges : [],
-            comments: currentInteractions?.comments || []
-        };
-
-        // Simplifier user en valeurs primitives uniquement
-        const userData = {
-            username: (typeof item.user?.username === 'string' && item.user.username) || 
-                      (typeof item.user?.displayName === 'string' && item.user.displayName) || 
-                      'Utilisateur',
-            profilePhoto: (typeof item.user?.photoURL === 'string' && item.user.photoURL) || 
-                         (typeof item.user?.profilePhoto === 'string' && item.user.profilePhoto) || 
-                         null
-        };
-
-        return (
-            <InstagramPost
-                post={postData}
-                user={userData}
-                onLike={() => handleInteraction(item.id, 'like')}
-                onComment={() => setShowComments(prev => ({ ...prev, [item.id]: !prev[item.id] }))}
-                onAddComment={(text) => handleAddComment(item.id, text)}
-                onDoubleTapLike={() => handleDoubleTap(item.id)}
-                isLiked={Boolean(isLiked)}
-                likesCount={Number(likesCount) || 0}
-                commentsCount={Number(commentsCount) || 0}
-                timestamp={timestampDate}
-                showHeartAnimation={Boolean(heartAnimation[item.id])}
-                isCommentsOpen={Boolean(showComments[item.id])}
-            />
-        );
-    };
-
     // Fonction utilitaire pour le temps
     const getTimeAgo = (date) => {
         if (!date) return 'Récemment';
@@ -845,12 +834,14 @@ const FeedPage = () => {
 
     // ===== EFFETS =====
 
-    // Charger le feed au démarrage
+    // ===== EFFETS =====
+
+    // Charger le feed au démarrage (on ne met PAS loadFeed en dépendance pour éviter les boucles)
     useEffect(() => {
         if (user && userProfile && db) {
             loadFeed();
         }
-    }, [user, userProfile, db, loadFeed]);
+    }, [user, userProfile, db]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Listener pour rafraîchissement automatique du feed
     useEffect(() => {
@@ -865,17 +856,7 @@ const FeedPage = () => {
         return () => {
             window.removeEventListener('refreshFeed', handleFeedRefresh);
         };
-    }, [loadFeed]);
-
-    // Charger les interactions quand les items changent
-    useEffect(() => {
-        if (feedItems.length > 0) {
-            logger.debug('FeedPage: Loading interactions', { itemsCount: feedItems.length });
-            feedItems.forEach(item => {
-                loadInteractions(item.id);
-            });
-        }
-    }, [feedItems.length]); // Seulement quand le nombre d'items change
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     // ===== RENDU =====
 
@@ -911,28 +892,90 @@ const FeedPage = () => {
     }
 
     return (
-        <div style={{
-            background: '#000',
-            minHeight: '100vh',
-            paddingBottom: '80px'
-        }}>
+        <div 
+            {...bind()}
+            style={{
+                background: '#000',
+                minHeight: '100vh',
+                paddingBottom: '80px',
+                position: 'relative',
+                touchAction: 'pan-y'
+            }}
+        >
             {/* Pull-to-refresh indicator */}
-            <div 
-                {...bind()}
-                style={{
+            {pullY > 0 && (
+                <div style={{
                     position: 'fixed',
                     top: 0,
                     left: 0,
                     right: 0,
-                    height: '4px',
-                    background: 'linear-gradient(90deg, #bf00ff, #ff00ff, #00ffff)',
-                    transform: `scaleX(${pullY / 100})`,
-                    transformOrigin: 'left',
-                    transition: pullY === 0 ? 'transform 0.3s ease' : 'none',
+                    height: pullY > 80 ? '80px' : `${pullY}px`,
+                    background: 'linear-gradient(180deg, rgba(191, 0, 255, 0.3), transparent)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 9998,
+                    transition: pullY === 0 ? 'all 0.3s ease' : 'none'
+                }}>
+                    <div style={{
+                        background: 'rgba(0, 0, 0, 0.8)',
+                        backdropFilter: 'blur(10px)',
+                        padding: '8px 16px',
+                        borderRadius: '20px',
+                        border: '1px solid rgba(191, 0, 255, 0.5)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        opacity: Math.min(pullY / 80, 1)
+                    }}>
+                        <RefreshCw 
+                            size={16} 
+                            color="#bf00ff"
+                            style={{
+                                animation: pullY > 80 ? 'spin 1s linear infinite' : 'none'
+                            }}
+                        />
+                        <span style={{ 
+                            color: '#bf00ff', 
+                            fontSize: '12px', 
+                            fontWeight: '600' 
+                        }}>
+                            {pullY > 80 ? 'Relâchez pour actualiser...' : 'Tirez pour actualiser'}
+                        </span>
+                    </div>
+                </div>
+            )}
+            
+            {/* Loading overlay quand refresh en cours */}
+            {refreshing && (
+                <div style={{
+                    position: 'fixed',
+                    top: '60px',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    background: 'rgba(0, 0, 0, 0.9)',
+                    backdropFilter: 'blur(10px)',
+                    padding: '12px 24px',
+                    borderRadius: '20px',
+                    border: '1px solid rgba(191, 0, 255, 0.5)',
                     zIndex: 9999,
-                    boxShadow: '0 0 10px rgba(191, 0, 255, 0.5)'
-                }}
-            />
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    boxShadow: '0 4px 20px rgba(191, 0, 255, 0.3)'
+                }}>
+                    <RefreshCw 
+                        size={16} 
+                        color="#bf00ff"
+                        style={{
+                            animation: 'spin 1s linear infinite'
+                        }}
+                    />
+                    <span style={{ color: '#bf00ff', fontSize: '14px', fontWeight: '600' }}>
+                        Actualisation...
+                    </span>
+                </div>
+            )}
             
             {/* Instagram-style Header */}
             <div style={{
@@ -958,6 +1001,7 @@ const FeedPage = () => {
                 <button
                     onClick={loadFeed}
                     disabled={refreshing}
+                    aria-label="Rafraîchir le feed"
                     style={{
                         background: 'none',
                         border: 'none',
@@ -988,7 +1032,20 @@ const FeedPage = () => {
             }}>
                 <AnimatedList
                     items={feedItems}
-                    renderItem={(item) => <PartyItem item={item} />}
+                    renderItem={(item) => (
+                        <PartyItem 
+                            item={item} 
+                            itemInteractions={interactions[item.id]}
+                            userProfile={userProfile}
+                            friendsData={friendsData}
+                            heartAnimation={heartAnimation}
+                            showComments={showComments}
+                            handleInteraction={handleInteraction}
+                            setShowComments={setShowComments}
+                            handleAddComment={handleAddComment}
+                            handleDoubleTap={handleDoubleTap}
+                        />
+                    )}
                     keyExtractor={(item) => `feed-item-${item.id}`}
                 />
             </div>

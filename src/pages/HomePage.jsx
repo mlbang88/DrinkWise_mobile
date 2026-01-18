@@ -56,19 +56,21 @@ const HomePage = () => {
         loadStreak();
     }, [user, db, appId]);
 
+    // Mettre à jour les stats publiques (throttle géré dans badgeService)
+    useEffect(() => {
+        if (!db || !appId || !user?.uid || !userProfile) return;
+        
+        logger.info('HOMEPAGE', 'Tentative de mise à jour des stats publiques');
+        badgeService.updatePublicStats(db, user, appId, userProfile);
+    }, [db, appId, user, userProfile]);
+
     // Charger les stats et badges
     useEffect(() => {
         // Vérifier que db, appId et user.uid sont disponibles AVANT tout
-        if (!db || !appId || !user?.uid) {
+        if (!db || !appId || !user?.uid || !userProfile) {
             logger.warn('HomePage: contexte Firebase incomplet');
             setLoading(false);
             return;
-        }
-
-        // Mettre à jour les stats publiques si elles n'existent pas
-        if (userProfile) {
-            logger.info('HOMEPAGE', 'Mise à jour des stats publiques');
-            badgeService.updatePublicStats(db, user, appId, userProfile);
         }
 
         let unsubscribe = null;

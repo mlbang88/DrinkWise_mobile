@@ -124,8 +124,9 @@ exports.generateSummary = onCall({
     const totalDrinks = partyData.drinks?.reduce((sum, drink) => sum + drink.quantity, 0) || 0;
     const drinkTypes = partyData.drinks?.map(drink => `${drink.quantity}x ${drink.type || drink.brand}`).join(', ') || 'Aucune boisson';
     
-    const prompt = `Génère un résumé amusant et créatif de cette soirée en 2-3 phrases maximum :
+    const prompt = `Génère un résumé amusant et créatif de cette soirée. IMPORTANT: Écris 2-3 phrases COMPLÈTES qui se terminent par un point final.
     
+    📊 Données de la soirée:
     🍻 Lieu: ${partyData.location || 'Lieu inconnu'}
     🍺 Boissons: ${drinkTypes} (Total: ${totalDrinks} verres)
     👥 Filles parlées: ${partyData.girlsTalkedTo || 0}
@@ -134,7 +135,13 @@ exports.generateSummary = onCall({
     🔥 Niveau d'alcoolémie: ${drunkLevel || 'Modéré'}
     
     Ton: ${partyData.vomi > 0 ? 'Humoristique sur les excès' : 'Positif et amusant'}
-    Style: Comme un ami qui raconte la soirée, avec des emojis.`;
+    Style: Comme un ami qui raconte la soirée, avec des emojis.
+    
+    CONSIGNES:
+    - Écris 2 à 3 phrases complètes
+    - Termine TOUJOURS par un point final
+    - Ne t'arrête PAS au milieu d'une phrase
+    - Sois créatif et amusant`;
 
     // Appeler l'API Gemini
     const result = await callGeminiForText(prompt);
@@ -208,13 +215,6 @@ async function callGeminiForText(prompt) {
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
     const model = genAI.getGenerativeModel({
       model: "gemini-2.5-flash",
-      generationConfig: {
-        temperature: 0.7,
-        topK: 20,
-        topP: 0.8,
-        maxOutputTokens: 800,
-        candidateCount: 1
-      },
       safetySettings: [
         { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_ONLY_HIGH" },
         { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_ONLY_HIGH" },
@@ -223,19 +223,49 @@ async function callGeminiForText(prompt) {
       ]
     });
 
-    // Générer le contenu avec le SDK
-    const result = await model.generateContent([{ text: prompt }]);
+    // Générer le contenu avec le SDK - generationConfig doit être ici!
+    const result = await model.generateContent({
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      generationConfig: {
+        temperature: 0.8,
+        topK: 40,
+        topP: 0.95,
+        maxOutputTokens: 1024,
+        stopSequences: []
+      }
+    });
     const response = result?.response;
 
     if (!response) {
       throw new Error('Réponse vide de Gemini (response manquant)');
     }
 
+    // Logger le finishReason pour déboguer
+    const candidates = response?.candidates || [];
+    const finishReason = candidates[0]?.finishReason || 'unknown';
+    const safetyRatings = candidates[0]?.safetyRatings || [];
+    const citationMetadata = candidates[0]?.citationMetadata || null;
+    
+    logger.info('📊 Réponse Gemini reçue', {
+      finishReason: finishReason,
+      candidatesCount: candidates.length,
+      safetyRatings: safetyRatings,
+      hasCitationMetadata: !!citationMetadata
+    });
+
+    // Logger la réponse brute complète pour diagnostic
+    logger.info('🔍 Contenu brut candidates[0]', {
+      candidate: JSON.stringify(candidates[0])
+    });
+
     const text = extractTextFromGeminiResponse(response);
 
     logger.info('✅ Génération de texte réussie', {
       length: text.length,
-      preview: text.substring(0, 150) + (text.length > 150 ? '...' : '')
+      firstChars: text.substring(0, 50),
+      lastChars: text.substring(Math.max(0, text.length - 50)),
+      preview: text.substring(0, 150) + (text.length > 150 ? '...' : ''),
+      endsWithPunctuation: /[.!?]$/.test(text)
     });
 
     return {
@@ -822,7 +852,7 @@ exports.handleFeedInteraction = onCall({
       itemId, 
       itemType, // 'party' ou 'badge'
       ownerId, 
-      interactionType, // 'like', 'congratulate', 'comment'
+      interactionType, // 'like', 'love', 'haha', 'wow', 'sad', 'angry', 'congratulate', 'comment'
       content, // Pour les commentaires
       appId 
     } = request.data;
@@ -869,30 +899,36 @@ exports.handleFeedInteraction = onCall({
         message: 'Commentaire ajouté avec succès' 
       };
 
-    } else if (interactionType === 'like' || interactionType === 'congratulate') {
-      // Vérifier si l'interaction existe déjà
-      const existingQuery = await interactionsRef
+    } else if (['like', 'love', 'haha', 'wow', 'sad', 'angry', 'congratulate'].includes(interactionType)) {
+      // Réactions (like, love, etc.) - Retirer d'abord toutes les anciennes réactions de cet utilisateur
+      const existingReactionsQuery = await interactionsRef
         .where('itemId', '==', itemId)
         .where('userId', '==', userId)
-        .where('type', '==', interactionType)
+        .where('type', 'in', ['like', 'love', 'haha', 'wow', 'sad', 'angry', 'congratulate'])
         .get();
 
-      if (!existingQuery.empty) {
-        // Supprimer l'interaction existante (toggle)
-        const batch = db.batch();
-        existingQuery.docs.forEach(doc => {
-          batch.delete(doc.ref);
-        });
-        await batch.commit();
+      const batch = db.batch();
+      
+      // Supprimer toutes les anciennes réactions
+      existingReactionsQuery.docs.forEach(doc => {
+        batch.delete(doc.ref);
+      });
 
+      // Vérifier si on toggle la même réaction
+      const sameReactionExists = existingReactionsQuery.docs.some(doc => doc.data().type === interactionType);
+
+      if (sameReactionExists) {
+        // Toggle off - juste supprimer
+        await batch.commit();
         return { 
           success: true, 
-          message: `${interactionType === 'like' ? 'Like' : 'Félicitation'} retiré(e)`,
+          message: 'Réaction retirée',
           action: 'removed'
         };
       } else {
-        // Ajouter la nouvelle interaction
-        await interactionsRef.add({
+        // Ajouter la nouvelle réaction
+        const newReactionRef = interactionsRef.doc();
+        batch.set(newReactionRef, {
           itemId,
           itemType,
           ownerId,
@@ -901,10 +937,11 @@ exports.handleFeedInteraction = onCall({
           timestamp,
           createdAt: new Date()
         });
+        await batch.commit();
 
         return { 
           success: true, 
-          message: `${interactionType === 'like' ? 'Like' : 'Félicitation'} ajouté(e)`,
+          message: 'Réaction ajoutée',
           action: 'added'
         };
       }
@@ -961,7 +998,15 @@ exports.getFeedInteractions = onCall({
     const interactions = {
       likes: [],
       congratulations: [],
-      comments: []
+      comments: [],
+      reactions: {
+        like: [],
+        love: [],
+        haha: [],
+        wow: [],
+        sad: [],
+        angry: []
+      }
     };
 
     // Utiliser for...of au lieu de forEach pour permettre await
@@ -1022,28 +1067,38 @@ exports.getFeedInteractions = onCall({
       
       logger.info(`✅ Interaction acceptée pour ${interactionUserId}`);
 
+      const interactionData = {
+        id: doc.id,
+        userId: data.userId,
+        timestamp: data.timestamp,
+        content: data.content
+      };
+
       switch(data.type) {
         case 'like':
-          interactions.likes.push({
-            id: doc.id,
-            userId: data.userId,
-            timestamp: data.timestamp
-          });
+          interactions.likes.push(interactionData);
+          interactions.reactions.like.push(interactionData);
+          break;
+        case 'love':
+          interactions.reactions.love.push(interactionData);
+          break;
+        case 'haha':
+          interactions.reactions.haha.push(interactionData);
+          break;
+        case 'wow':
+          interactions.reactions.wow.push(interactionData);
+          break;
+        case 'sad':
+          interactions.reactions.sad.push(interactionData);
+          break;
+        case 'angry':
+          interactions.reactions.angry.push(interactionData);
           break;
         case 'congratulate':
-          interactions.congratulations.push({
-            id: doc.id,
-            userId: data.userId,
-            timestamp: data.timestamp
-          });
+          interactions.congratulations.push(interactionData);
           break;
         case 'comment':
-          interactions.comments.push({
-            id: doc.id,
-            userId: data.userId,
-            content: data.content,
-            timestamp: data.timestamp
-          });
+          interactions.comments.push(interactionData);
           break;
       }
     }
@@ -1051,7 +1106,11 @@ exports.getFeedInteractions = onCall({
     logger.info('Interactions filtrées retournées:', {
       likes: interactions.likes.length,
       congratulations: interactions.congratulations.length,
-      comments: interactions.comments.length
+      comments: interactions.comments.length,
+      reactions: Object.keys(interactions.reactions).reduce((acc, key) => {
+        acc[key] = interactions.reactions[key].length;
+        return acc;
+      }, {})
     });
 
     return { 

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useContext, lazy, Suspense } from 'react';
+import React, { useState, useCallback, useContext, useEffect, lazy, Suspense } from 'react';
 import { ThemeProvider, useTheme } from './styles/ThemeContext.jsx';
 import ThemedText from './styles/ThemedText.jsx';
 import { FirebaseProvider, FirebaseContext } from './contexts/FirebaseContext.jsx';
@@ -133,7 +133,15 @@ const AppContent = () => {
                         paddingRight: 'env(safe-area-inset-right, 0)'
                     }}
                 >
-                    <header className="mobile-header p-4 bg-black/20 shadow-lg text-center backdrop-blur-sm">
+                    {/* Skip link pour navigation clavier */}
+                    <a href="#main-content" className="skip-link">
+                        Aller au contenu principal
+                    </a>
+
+                    <header 
+                        className="mobile-header p-4 bg-black/20 shadow-lg text-center backdrop-blur-sm"
+                        role="banner"
+                    >
                         <ThemedText style={{ 
                             fontSize: 'clamp(1.5rem, 5vw, 2rem)', // Taille responsive universelle
                             fontWeight: 'bold',
@@ -143,22 +151,31 @@ const AppContent = () => {
                         </ThemedText>
                     </header>
                     
-                    <main className="mobile-main">
+                    <main 
+                        id="main-content"
+                        className="mobile-main" 
+                        role="main"
+                        aria-label="Contenu principal"
+                    >
                         <div className="page-container">
                             {renderPage()}
                         </div>
                     </main>
                     
                     {/* Modern Bottom Navigation */}
-                    <BottomNav 
-                        currentPage={currentPage} 
-                        onNavigate={navigateToPage}
-                    />
+                    <nav role="navigation" aria-label="Navigation principale">
+                        <BottomNav 
+                            currentPage={currentPage} 
+                            onNavigate={navigateToPage}
+                        />
+                    </nav>
                 </div>
             )}
             
             {/* Toast notifications */}
-            <ToastContainer />
+            <aside role="status" aria-live="polite" aria-atomic="true">
+                <ToastContainer />
+            </aside>
             
             <MessageBox 
                 message={messageBox.message} 

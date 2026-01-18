@@ -3,6 +3,8 @@
  * Gestion intelligente des logs avec niveaux et environnements
  */
 
+import { captureException, captureMessage, addBreadcrumb } from './sentry.js';
+
 const LogLevel = {
   ERROR: 0,
   WARN: 1,
@@ -91,6 +93,16 @@ class Logger {
     const logData = this.formatMessage(level, context, message, ...sanitizedArgs);
     const levelName = logData.level;
     const color = LogColors[levelName] || '#000000';
+
+    // 🔴 Envoyer à Sentry selon le niveau
+    if (level === LogLevel.ERROR && args[0] instanceof Error) {
+      captureException(args[0], { context, message, ...sanitizedArgs[1] });
+    } else if (level === LogLevel.WARN) {
+      captureMessage(`${context}: ${message}`, 'warning', sanitizedArgs[0]);
+    }
+    
+    // Ajouter un breadcrumb pour le contexte
+    addBreadcrumb(context, message, sanitizedArgs[0]);
 
     // Console avec style (uniquement en développement)
     const isDev = import.meta.env.DEV || import.meta.env.MODE === 'development';

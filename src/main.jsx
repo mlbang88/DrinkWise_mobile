@@ -3,6 +3,10 @@ import ReactDOM from 'react-dom/client';
 import App from './App.jsx';
 import './index.css'; // Ne pas oublier d'importer le CSS
 import { ensureImageAccessibility, observeImageChanges } from './utils/imageAccessibility.js';
+import { initSentry } from './utils/sentry.js';
+
+// 🔴 Initialiser Sentry en premier (avant React)
+initSentry();
 
 // Enregistrement du Service Worker pour PWA
 if ('serviceWorker' in navigator) {
@@ -103,8 +107,9 @@ function showUpdateNotification() {
 ensureImageAccessibility();
 observeImageChanges();
 
+// StrictMode désactivé pour éviter les doubles montages/chargements
+// En dev, StrictMode exécute tout 2 fois pour détecter les effets de bord
+// Cela causait des chargements en double du feed et des interactions
 ReactDOM.createRoot(document.getElementById('root')).render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>,
+  <App />
 )

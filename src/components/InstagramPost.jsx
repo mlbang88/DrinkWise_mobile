@@ -1,7 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { Heart, MessageCircle, Share2, MapPin, Users, Trophy, Calendar } from 'lucide-react';
+import { Heart, MessageCircle, Share2, MapPin, Users, Trophy, Calendar, Play } from 'lucide-react';
 import { useGesture } from '@use-gesture/react';
+import DOMPurify from 'dompurify';
+import { logger } from '../utils/logger';
+
+// Types de réactions disponibles
+const REACTIONS = [
+  { type: 'like', emoji: '👍', label: "J'aime" },
+  { type: 'love', emoji: '❤️', label: 'Amour' },
+  { type: 'haha', emoji: '😂', label: 'Drôle' },
+  { type: 'wow', emoji: '😮', label: 'Wow' },
+  { type: 'sad', emoji: '😢', label: 'Triste' },
+  { type: 'angry', emoji: '😡', label: 'Énervé' }
+];
 
 const InstagramPost = ({ 
   post, 
@@ -11,6 +23,8 @@ const InstagramPost = ({
   onAddComment, 
   onDoubleTapLike,
   isLiked,
+  userReaction = null,  // 'like', 'love', 'haha', etc.
+  reactions = {},       // { like: [...], love: [...] }
   likesCount,
   commentsCount,
   timestamp,
@@ -19,27 +33,85 @@ const InstagramPost = ({
 }) => {
   const [showOptions, setShowOptions] = useState(false);
   const [commentText, setCommentText] = useState('');
-  const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
+  const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
+  const [showReactionPicker, setShowReactionPicker] = useState(false);
+  const [longPressTimer, setLongPressTimer] = useState(null);
+  const reactionPickerRef = useRef(null);
 
-  // Swipe gesture for multiple photos
+  // Debug: Log les re-renders
+  useEffect(() => {
+    logger.debug('InstagramPost RENDER', { 
+      postId: post?.id || 'NO_ID', 
+      likesCount, 
+      isLiked,
+      userReaction,
+      timestamp: Date.now() 
+    });
+  });
+
+  // Trouver l'emoji de la réaction active
+  const activeReactionEmoji = useMemo(() => {
+    if (!userReaction) return null;
+    const reaction = REACTIONS.find(r => r.type === userReaction);
+    return reaction?.emoji || null;
+  }, [userReaction]);
+
+  // Fermer le picker quand on clique ailleurs
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (reactionPickerRef.current && !reactionPickerRef.current.contains(event.target)) {
+        setShowReactionPicker(false);
+      }
+    };
+
+    if (showReactionPicker) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('touchstart', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, [showReactionPicker]);
+
+  // Combiner photos et vidéos dans un seul tableau de médias
+  const allMedia = useMemo(() => {
+    const media = [];
+    if (post.photoURLs && Array.isArray(post.photoURLs)) {
+      post.photoURLs.forEach(url => media.push({ type: 'photo', url }));
+    }
+    if (post.videoURLs && Array.isArray(post.videoURLs)) {
+      post.videoURLs.forEach(url => media.push({ type: 'video', url }));
+    }
+    return media;
+  }, [post.photoURLs, post.videoURLs]);
+
+  // Swipe gesture for multiple media (photos + videos)
   const bind = useGesture({
     onDoubleClick: () => {
       if (onDoubleTapLike) {
         onDoubleTapLike();
       }
     },
-    onDrag: ({ movement: [mx], direction: [xDir], cancel, last }) => {
+    onDrag: ({ movement: [mx, my], direction: [xDir], cancel, last }) => {
+      // Ignorer le swipe si le mouvement vertical domine (scroll vertical en cours)
+      const isVerticalScroll = Math.abs(my) > Math.abs(mx);
+      if (isVerticalScroll) {
+        return;
+      }
+
       const swipeDistance = Math.abs(mx);
-      if (last && swipeDistance > 50 && post.photoURLs && post.photoURLs.length > 1) {
-        // xDir > 0 = swipe RIGHT (show previous photo)
-        // xDir < 0 = swipe LEFT (show next photo)
-        if (mx > 50 && currentPhotoIndex > 0) {
-          console.log('⬅️ Swipe RIGHT - Previous photo');
-          setCurrentPhotoIndex(prev => prev - 1);
+      if (last && swipeDistance > 50 && allMedia.length > 1) {
+        // xDir > 0 = swipe RIGHT (show previous media)
+        // xDir < 0 = swipe LEFT (show next media)
+        if (mx > 50 && currentMediaIndex > 0) {
+          console.log('⬅️ Swipe RIGHT - Previous media');
+          setCurrentMediaIndex(prev => prev - 1);
           cancel();
-        } else if (mx < -50 && currentPhotoIndex < post.photoURLs.length - 1) {
-          console.log('➡️ Swipe LEFT - Next photo');
-          setCurrentPhotoIndex(prev => prev + 1);
+        } else if (mx < -50 && currentMediaIndex < allMedia.length - 1) {
+          console.log('➡️ Swipe LEFT - Next media');
+          setCurrentMediaIndex(prev => prev + 1);
           cancel();
         }
       }
@@ -62,8 +134,10 @@ const InstagramPost = ({
 
   return (
     <motion.article
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
+      key={post.id}
+      // ❌ Animation supprimée pour éviter le clignotement lors des updates d'interactions
+      // initial={{ opacity: 0, y: 20 }}
+      // animate={{ opacity: 1, y: 0 }}
       style={{
         background: '#000',
         marginBottom: 0,
@@ -94,8 +168,11 @@ const InstagramPost = ({
           }}>
             {user?.profilePhoto ? (
               <img 
+                key={user.profilePhoto}
                 src={user.profilePhoto} 
-                alt={user.username}
+                alt={`Photo de profil de ${user.username || 'l\'utilisateur'}`}
+                loading="eager"
+                decoding="async"
                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
               />
             ) : (
@@ -137,32 +214,78 @@ const InstagramPost = ({
         style={{ 
           position: 'relative', 
           width: '100%',
-          aspectRatio: (post.photoURLs && post.photoURLs.length > 0) || post.photoURL ? '1 / 1' : 'auto',
+          aspectRatio: allMedia.length > 0 || post.photoURL ? '1 / 1' : 'auto',
           touchAction: 'none',
-          minHeight: (post.photoURLs && post.photoURLs.length > 0) || post.photoURL ? 'auto' : '200px',
+          minHeight: allMedia.length > 0 || post.photoURL ? 'auto' : '200px',
           background: '#000',
           overflow: 'hidden'
         }}
       >
-        {post.photoURLs && post.photoURLs.length > 0 ? (
-          <motion.img
-            key={currentPhotoIndex}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.3 }}
-            src={post.photoURLs[currentPhotoIndex]}
-            alt="Post"
+        {allMedia.length > 0 ? (
+          <div
+            key={currentMediaIndex}
             style={{
               width: '100%',
               height: '100%',
-              objectFit: 'cover',
-              display: 'block'
+              position: 'relative'
             }}
-          />
+          >
+            {allMedia[currentMediaIndex].type === 'video' ? (
+              <>
+                <video
+                  src={allMedia[currentMediaIndex].url}
+                  controls
+                  playsInline
+                  aria-label={`Vidéo ${currentMediaIndex + 1} sur ${allMedia.length} de ${user?.username || 'l\'utilisateur'}`}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                    display: 'block'
+                  }}
+                />
+                {/* Indicateur vidéo */}
+                <div style={{
+                  position: 'absolute',
+                  top: '12px',
+                  left: '12px',
+                  background: 'rgba(0, 0, 0, 0.7)',
+                  color: '#fff',
+                  padding: '4px 8px',
+                  borderRadius: '12px',
+                  fontSize: '12px',
+                  fontWeight: '600',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}>
+                  <Play size={12} />
+                  Vidéo
+                </div>
+              </>
+            ) : (
+              <img
+                key={allMedia[currentMediaIndex].url}
+                src={allMedia[currentMediaIndex].url}
+                alt={`Photo ${currentMediaIndex + 1} sur ${allMedia.length} de ${user?.username || 'l\'utilisateur'} - ${post.content || 'Soirée'}`}
+                loading="eager"
+                decoding="async"
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover',
+                  display: 'block'
+                }}
+              />
+            )}
+          </div>
         ) : post.photoURL ? (
           <img
+            key={post.photoURL}
             src={post.photoURL}
-            alt="Post"
+            alt={`Photo de ${user?.username || 'l\'utilisateur'} - ${post.content || 'Soirée'}`}
+            loading="eager"
+            decoding="async"
             style={{
               width: '100%',
               height: '100%',
@@ -248,8 +371,8 @@ const InstagramPost = ({
           </div>
         )}
 
-        {/* Multiple photos indicator */}
-        {post.photoURLs && post.photoURLs.length > 1 && (
+        {/* Multiple media indicator */}
+        {allMedia.length > 1 && (
           <div style={{
             position: 'absolute',
             top: '12px',
@@ -261,7 +384,7 @@ const InstagramPost = ({
             fontSize: '12px',
             fontWeight: '600'
           }}>
-            {currentPhotoIndex + 1}/{post.photoURLs.length}
+            {currentMediaIndex + 1}/{allMedia.length}
           </div>
         )}
 
@@ -359,41 +482,136 @@ const InstagramPost = ({
         padding: '12px 16px',
         borderBottom: '1px solid rgba(255, 255, 255, 0.05)'
       }}>
-        <div style={{ display: 'flex', gap: '20px' }}>
-          <motion.button
-            whileTap={{ scale: 0.9 }}
-            onClick={onLike}
-            style={{
-              background: 'none',
-              border: 'none',
-              padding: 0,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px'
-            }}
-          >
-            <Heart 
-              size={24} 
-              fill={isLiked ? '#ff0080' : 'none'}
-              color={isLiked ? '#ff0080' : '#fff'}
-              style={{
-                filter: isLiked ? 'drop-shadow(0 0 8px rgba(255, 0, 128, 0.6))' : 'none',
-                transition: 'all 0.2s ease'
+        <div style={{ display: 'flex', gap: '20px', position: 'relative' }}>
+          <div style={{ position: 'relative' }}>
+            <motion.button
+              whileTap={{ scale: 0.9 }}
+              onClick={() => onLike(userReaction || 'like')}
+              onMouseDown={() => {
+                const timer = setTimeout(() => setShowReactionPicker(true), 500);
+                setLongPressTimer(timer);
               }}
-            />
-            {typeof likesCount === 'number' && likesCount > 0 && (
-              <span style={{ color: '#fff', fontSize: '14px', fontWeight: '600' }}>
-                {likesCount}
-              </span>
+              onMouseUp={() => {
+                if (longPressTimer) clearTimeout(longPressTimer);
+              }}
+              onTouchStart={() => {
+                const timer = setTimeout(() => setShowReactionPicker(true), 500);
+                setLongPressTimer(timer);
+              }}
+              onTouchEnd={() => {
+                if (longPressTimer) clearTimeout(longPressTimer);
+              }}
+              aria-label="Réagir au post"
+              aria-pressed={isLiked}
+              style={{
+                background: 'none',
+                border: 'none',
+                padding: 0,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+            >
+              {activeReactionEmoji ? (
+                <span style={{ 
+                  fontSize: '24px',
+                  filter: 'drop-shadow(0 0 8px rgba(191, 0, 255, 0.6))',
+                  transition: 'all 0.2s ease'
+                }}>
+                  {activeReactionEmoji}
+                </span>
+              ) : (
+                <Heart 
+                  size={24} 
+                  fill={isLiked ? '#ff0080' : 'none'}
+                  color={isLiked ? '#ff0080' : '#fff'}
+                  style={{
+                    filter: isLiked ? 'drop-shadow(0 0 8px rgba(255, 0, 128, 0.6))' : 'none',
+                    transition: 'all 0.2s ease'
+                  }}
+                />
+              )}
+              {typeof likesCount === 'number' && likesCount > 0 && (
+                <span style={{ color: '#fff', fontSize: '14px', fontWeight: '600' }}>
+                  {likesCount}
+                </span>
+              )}
+            </motion.button>
+
+            {/* Reaction Picker */}
+            {showReactionPicker && (
+              <motion.div
+                ref={reactionPickerRef}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                style={{
+                  position: 'absolute',
+                  bottom: '40px',
+                  left: '-10px',
+                  background: 'rgba(0, 0, 0, 0.95)',
+                  backdropFilter: 'blur(10px)',
+                  padding: '8px',
+                  borderRadius: '30px',
+                  border: '1px solid rgba(191, 0, 255, 0.3)',
+                  display: 'flex',
+                  gap: '8px',
+                  zIndex: 1000,
+                  boxShadow: '0 4px 20px rgba(191, 0, 255, 0.3)'
+                }}
+              >
+                {REACTIONS.map((reaction) => (
+                  <motion.button
+                    key={reaction.type}
+                    whileTap={{ scale: 1.3 }}
+                    whileHover={{ scale: 1.2 }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onLike(reaction.type);
+                      setShowReactionPicker(false);
+                    }}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      fontSize: '24px',
+                      cursor: 'pointer',
+                      padding: '4px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}
+                    title={reaction.label}
+                  >
+                    {reaction.emoji}
+                  </motion.button>
+                ))}
+                <motion.button
+                  whileTap={{ scale: 0.9 }}
+                  onClick={() => setShowReactionPicker(false)}
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.1)',
+                    border: 'none',
+                    color: '#fff',
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                    padding: '4px 8px',
+                    borderRadius: '20px',
+                    marginLeft: '4px'
+                  }}
+                >
+                  ✕
+                </motion.button>
+              </motion.div>
             )}
-          </motion.button>
+          </div>
 
           <motion.button
             whileTap={{ scale: 0.9 }}
             onClick={() => {
               if (onComment) onComment();
             }}
+            aria-label="Commenter"
+            aria-pressed={isCommentsOpen}
             style={{
               background: 'none',
               border: 'none',
@@ -418,6 +636,28 @@ const InstagramPost = ({
 
           <motion.button
             whileTap={{ scale: 0.9 }}
+            onClick={async () => {
+              const shareData = {
+                title: `Soirée de ${user?.username || 'Utilisateur'}`,
+                text: post.summary || `${post.totalDrinks || 0} verres à ${post.locationName || 'un endroit cool'}`,
+                url: window.location.href
+              };
+              
+              try {
+                if (navigator.share) {
+                  await navigator.share(shareData);
+                } else {
+                  // Fallback: copier dans le presse-papiers
+                  await navigator.clipboard.writeText(shareData.text + ' - ' + shareData.url);
+                  alert('📋 Lien copié dans le presse-papiers!');
+                }
+              } catch (err) {
+                if (err.name !== 'AbortError') {
+                  console.error('Erreur partage:', err);
+                }
+              }
+            }}
+            aria-label="Partager ce post"
             style={{
               background: 'none',
               border: 'none',
@@ -631,7 +871,12 @@ const InstagramPost = ({
                       {comment.username || 'Utilisateur'}
                     </div>
                     <div style={{ color: '#fff', fontSize: '13px', marginTop: '2px' }}>
-                      {comment.text || comment.content}
+                      <span dangerouslySetInnerHTML={{ 
+                        __html: DOMPurify.sanitize(comment.text || comment.content || '', {
+                          ALLOWED_TAGS: ['br'],
+                          ALLOWED_ATTR: []
+                        })
+                      }} />
                     </div>
                   </div>
                 </div>
@@ -681,6 +926,7 @@ const InstagramPost = ({
               }}
             />
             <button
+              aria-label="Envoyer le commentaire"
               style={{
                 background: commentText.trim() ? 'linear-gradient(135deg, #bf00ff, #8b00ff)' : 'rgba(255, 255, 255, 0.1)',
                 border: 'none',
@@ -711,4 +957,18 @@ const InstagramPost = ({
   );
 };
 
-export default InstagramPost;
+// Mémoiser le composant pour éviter les re-renders inutiles
+// On ne compare PAS les fonctions (onLike, onComment, etc.) car elles sont inline dans FeedPage
+export default React.memo(InstagramPost, (prevProps, nextProps) => {
+  // Ne re-render QUE si les DONNÉES changent (pas les fonctions)
+  return (
+    prevProps.post.id === nextProps.post.id &&
+    prevProps.isLiked === nextProps.isLiked &&
+    prevProps.userReaction === nextProps.userReaction &&
+    prevProps.likesCount === nextProps.likesCount &&
+    prevProps.commentsCount === nextProps.commentsCount &&
+    prevProps.showHeartAnimation === nextProps.showHeartAnimation &&
+    prevProps.isCommentsOpen === nextProps.isCommentsOpen
+    // ⚠️ On ne compare PAS reactions car JSON.stringify est coûteux et peut causer des faux positifs
+  );
+});

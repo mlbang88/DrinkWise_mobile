@@ -45,7 +45,69 @@ body {
   --text-primary: #ffffff;
   --text-secondary: #d1d5db;
   --text-muted: #9ca3af;
-  --focus-color: #667eea;
+  --focus-color: #bf00ff;
+  --focus-ring-width: 2px;
+}
+
+/* ===== ACCESSIBILITÉ: Focus Visible ===== */
+/* Style pour focus keyboard navigation (pas au clic souris) */
+*:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-color);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Reset du outline par défaut */
+*:focus {
+  outline: none;
+}
+
+/* Focus visible pour les boutons */
+button:focus-visible,
+[role="button"]:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-color);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 3px rgba(191, 0, 255, 0.2);
+}
+
+/* Focus visible pour les liens */
+a:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-color);
+  outline-offset: 2px;
+  text-decoration: underline;
+}
+
+/* Focus visible pour les inputs */
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-color);
+  outline-offset: 0;
+  border-color: var(--focus-color);
+}
+
+/* Focus visible pour les éléments interactifs */
+[tabindex]:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-color);
+  outline-offset: 2px;
+}
+
+/* Skip link pour navigation clavier */
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  background: var(--focus-color);
+  color: white;
+  padding: 8px 16px;
+  text-decoration: none;
+  border-radius: 0 0 4px 0;
+  z-index: 9999;
+  transition: top 0.2s;
+}
+
+.skip-link:focus {
+  top: 0;
 }
 
 #root {
