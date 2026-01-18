@@ -415,15 +415,17 @@ const ChallengesPage = () => {
 
             {/* Défis du Mois */}
             <div style={{
-                background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.015) 0%, rgba(255, 255, 255, 0.008) 100%)',
-                backdropFilter: 'blur(4px)',
-                borderRadius: '24px',
-                border: '1px solid rgba(255, 255, 255, 0.08)',
+                background: 'rgba(30, 30, 46, 0.6)',
+                backdropFilter: 'blur(20px)',
+                borderRadius: '20px',
+                border: '1px solid rgba(139, 92, 246, 0.2)',
                 padding: '28px',
-                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.02)'
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+                position: 'relative',
+                zIndex: 1
             }}>
                 <h2 style={{
-                    background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                    background: 'linear-gradient(135deg, #a78bfa 0%, #ec4899 50%, #f472b6 100%)',
                     WebkitBackgroundClip: 'text',
                     WebkitTextFillColor: 'transparent',
                     backgroundClip: 'text',
@@ -435,7 +437,8 @@ const ChallengesPage = () => {
                     gap: '12px',
                     letterSpacing: '-0.02em',
                     textAlign: 'center',
-                    justifyContent: 'center'
+                    justifyContent: 'center',
+                    textShadow: '0 2px 20px rgba(167, 139, 250, 0.4)'
                 }}>
                     ⭐ Défis du Mois
                 </h2>

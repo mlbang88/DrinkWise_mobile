@@ -53,9 +53,11 @@ const BattlePage = ({ setCurrentPage }) => {
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-900 via-red-900 to-gray-900">
+            <div className="flex items-center justify-center min-h-screen" style={{
+                background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)'
+            }}>
                 <div className="text-center">
-                    <div className="animate-spin w-16 h-16 border-4 border-red-500 border-t-transparent rounded-full mx-auto mb-4"></div>
+                    <div className="animate-spin w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full mx-auto mb-4"></div>
                     <p className="text-white/60">Chargement...</p>
                 </div>
             </div>
@@ -64,14 +66,16 @@ const BattlePage = ({ setCurrentPage }) => {
 
     if (!currentUser) {
         return (
-            <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-900 via-red-900 to-gray-900 p-4">
+            <div className="flex items-center justify-center min-h-screen p-4" style={{
+                background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)'
+            }}>
                 <div className="text-center">
                     <Swords className="mx-auto mb-4 text-white/20" size={64} />
                     <h2 className="text-2xl font-bold text-white mb-2">Connexion requise</h2>
                     <p className="text-white/60 mb-6">Connectez-vous pour accéder aux batailles</p>
                     <button
                         onClick={() => setCurrentPage('auth')}
-                        className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold transition-all"
+                        className="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-xl font-bold transition-all"
                     >
                         Se connecter
                     </button>
@@ -81,9 +85,20 @@ const BattlePage = ({ setCurrentPage }) => {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-900 via-red-900 to-gray-900 pb-20">
+        <div className="min-h-screen pb-20" style={{
+            background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
+            backgroundAttachment: 'fixed',
+            position: 'relative',
+            overflow: 'hidden'
+        }}>
+            <FloatingParticles count={15} />
+            
             {/* Header */}
-            <div className="bg-gradient-to-r from-red-600 to-orange-600 p-6">
+            <div className="p-6" style={{
+                background: 'linear-gradient(135deg, #a78bfa 0%, #ec4899 50%, #f472b6 100%)',
+                position: 'relative',
+                zIndex: 1
+            }}>
                 <div className="flex items-center gap-3 mb-4">
                     <Swords className="text-white" size={32} />
                     <div>

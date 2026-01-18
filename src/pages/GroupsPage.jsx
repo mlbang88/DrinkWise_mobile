@@ -1,6 +1,6 @@
 // src/pages/GroupsPage.jsx
 import React, { useState, useContext } from 'react';
-import { FirebaseContext } from '../contexts/FirebaseContext';
+import { FirebaseContext } from '../contexts/FirebaseContext.jsx';
 import GroupManager from '../components/GroupManager';
 import GroupStats from '../components/GroupStats';
 

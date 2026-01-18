@@ -295,19 +295,40 @@ const MapPage = ({ setCurrentPage }) => {
     ];
 
     return (
-        <div className="min-h-screen bg-gray-900 flex flex-col">
+        <div className="min-h-screen flex flex-col" style={{
+            background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
+            backgroundAttachment: 'fixed',
+            position: 'relative'
+        }}>
+            <FloatingParticles count={15} />
+            
             {/* Header */}
-            <div className="bg-gray-800/95 border-b border-gray-700 sticky top-0 z-50">
+            <div className="border-b sticky top-0 z-50" style={{
+                background: 'rgba(30, 30, 46, 0.95)',
+                backdropFilter: 'blur(20px)',
+                borderColor: 'rgba(139, 92, 246, 0.2)'
+            }}>
                 <div className="p-4 flex items-center justify-between">
                     <button
                         onClick={() => setCurrentPage('battle')}
-                        className="p-2 hover:bg-gray-700/50 rounded-lg transition-colors"
+                        className="p-2 rounded-lg transition-colors"
+                        style={{
+                            background: 'rgba(139, 92, 246, 0.1)',
+                            color: '#ffffff'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(139, 92, 246, 0.2)'}
+                        onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(139, 92, 246, 0.1)'}
                     >
                         <ArrowLeft size={24} style={{ color: '#ffffff' }} />
                     </button>
                     
                     <div className="flex-1 text-center">
-                        <h1 className="text-xl font-bold" style={{ color: '#ffffff' }}>
+                        <h1 className="text-xl font-bold" style={{ 
+                            background: 'linear-gradient(135deg, #a78bfa 0%, #ec4899 50%, #f472b6 100%)',
+                            WebkitBackgroundClip: 'text',
+                            WebkitTextFillColor: 'transparent',
+                            backgroundClip: 'text'
+                        }}>
                             🗺️ Carte Territoriale
                         </h1>
                         <p className="text-xs" style={{ color: '#9ca3af' }}>
@@ -318,12 +339,16 @@ const MapPage = ({ setCurrentPage }) => {
                     <div className="flex gap-2">
                         <button
                             onClick={() => setShowFilters(!showFilters)}
-                            className="p-2 hover:bg-gray-700/50 rounded-lg transition-colors"
+                            className="p-2 rounded-lg transition-colors"
+                            style={{
+                                background: showFilters ? 'rgba(167, 139, 250, 0.2)' : 'rgba(139, 92, 246, 0.1)',
+                                color: showFilters ? '#a78bfa' : '#9ca3af'
+                            }}
                             title="Filtres de carte"
                             aria-label="Ouvrir les filtres de carte"
                             aria-pressed={showFilters}
                         >
-                            <Filter size={24} style={{ color: showFilters ? '#fbbf24' : '#9ca3af' }} />
+                            <Filter size={24} style={{ color: showFilters ? '#a78bfa' : '#9ca3af' }} />
                         </button>
 
                         <button

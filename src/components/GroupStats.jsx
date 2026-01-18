@@ -1,11 +1,11 @@
 // src/components/GroupStats.jsx
 import React, { useState, useEffect, useContext } from 'react';
 import { doc, onSnapshot, getDoc } from 'firebase/firestore';
-import { FirebaseContext } from '../contexts/FirebaseContext';
+import { FirebaseContext } from '../contexts/FirebaseContext.jsx';
 import { groupService } from '../services/groupService';
 import { ExperienceService } from '../services/experienceService';
 import { gameplayConfig } from '../utils/data';
-import ThemedText from '../styles/ThemedText';
+import ThemedText from '../styles/ThemedText.jsx';
 import UserAvatar from './UserAvatar';
 import LoadingSpinner from './LoadingSpinner';
 import GroupGoals from './GroupGoals';
