@@ -8,6 +8,7 @@ import GroupSection from '../components/GroupSection.jsx';
 import FriendRequestSystem from '../components/FriendRequestSystem.jsx';
 import FriendsLeaderboard from '../components/FriendsLeaderboard.jsx';
 import { badgeService } from '../services/badgeService';
+import FloatingParticles from '../components/FloatingParticles';
 
 const FriendsPage = ({ setCurrentPage, setSelectedFriendId }) => {
     const { db, user, appId, userProfile, setMessageBox, functions } = useContext(FirebaseContext);
@@ -211,9 +212,24 @@ const FriendsPage = ({ setCurrentPage, setSelectedFriendId }) => {
     };
 
     return (
-        <>
+        <div 
+            className="page-modern"
+            style={{
+                minHeight: '100vh',
+                background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
+                backgroundAttachment: 'fixed',
+                padding: '20px',
+                display: 'flex',
+                flexDirection: 'column',
+                position: 'relative',
+                overflow: 'hidden'
+            }}
+        >
+            {/* Floating Particles Background */}
+            <FloatingParticles count={15} />
+            
             <h2 style={{
-                background: 'linear-gradient(135deg, #06b6d4 0%, #0891b2 50%, #0e7490 100%)',
+                background: 'linear-gradient(135deg, #a78bfa 0%, #ec4899 50%, #f472b6 100%)',
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
                 backgroundClip: 'text',
@@ -222,19 +238,25 @@ const FriendsPage = ({ setCurrentPage, setSelectedFriendId }) => {
                 textAlign: 'center',
                 margin: '0 0 32px 0',
                 letterSpacing: '-0.03em',
-                filter: 'drop-shadow(0 2px 4px rgba(6, 182, 212, 0.3))'
+                textShadow: '0 2px 20px rgba(167, 139, 250, 0.4)',
+                position: 'relative',
+                zIndex: 1
             }}>
-                👥 Amis
+                👥 Mes Amis
             </h2>
 
             {/* Système de demandes d'amis */}
-            <FriendRequestSystem />
+            <div style={{ position: 'relative', zIndex: 1 }}>
+                <FriendRequestSystem />
+            </div>
 
             {/* Classement des amis */}
-            <FriendsLeaderboard selectedCategory="level" title="🏆 Classement par Niveau" />
+            <div style={{ position: 'relative', zIndex: 1 }}>
+                <FriendsLeaderboard selectedCategory="level" title="🏆 Classement par Niveau" />
+            </div>
 
             {/* Bouton de debug */}
-            <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+            <div style={{ textAlign: 'center', marginBottom: '24px', position: 'relative', zIndex: 1 }}>
                 <button 
                     onClick={handleForceUpdateStats}
                     style={{
@@ -259,18 +281,20 @@ const FriendsPage = ({ setCurrentPage, setSelectedFriendId }) => {
 
             {/* Section Ajouter des Amis */}
             <div style={{
-                background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%)',
-                backdropFilter: 'blur(10px)',
-                borderRadius: '24px',
-                border: '1px solid rgba(255, 255, 255, 0.2)',
+                background: 'rgba(30, 30, 46, 0.6)',
+                backdropFilter: 'blur(20px)',
+                borderRadius: '20px',
+                border: '1px solid rgba(139, 92, 246, 0.2)',
                 padding: '28px',
                 marginBottom: '32px',
                 width: '100%',
                 boxSizing: 'border-box',
-                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+                position: 'relative',
+                zIndex: 1
             }}>
                 <h3 style={{
-                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                    background: 'linear-gradient(135deg, #a78bfa 0%, #ec4899 100%)',
                     WebkitBackgroundClip: 'text',
                     WebkitTextFillColor: 'transparent',
                     backgroundClip: 'text',
@@ -601,7 +625,7 @@ const FriendsPage = ({ setCurrentPage, setSelectedFriendId }) => {
                     )}
                 </div>
             </div>
-        </>
+        </div>
     );
 };
 

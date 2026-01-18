@@ -3,6 +3,9 @@ import { badgeList } from '../utils/data';
 import { ExperienceService } from './experienceService';
 import { logger } from '../utils/logger';
 
+// ✅ Cache en mémoire pour throttle (meilleur que sessionStorage)
+const throttleCache = new Map();
+
 const normalizeValue = (value) => {
     if (!value && value !== 0) return value;
 
@@ -41,22 +44,16 @@ const isDeepEqual = (a, b) => {
 };
 
 export const badgeService = {
-    // DEPRECATED: Utiliser ExperienceService.calculateRealStats à la place
-    calculateGlobalStats: (parties, userProfile = null) => {
-        logger.warn('badgeService: DEPRECATED calculateGlobalStats - Utiliser ExperienceService.calculateRealStats');
-        return ExperienceService.calculateRealStats(parties, userProfile);
-    },
-
     // Fonction pour mettre à jour les stats publiques (peut être appelée indépendamment)
     updatePublicStats: async (db, user, appId, userProfile = null) => {
         if (!user) return;
 
-        // ✅ Throttle: Ne mettre à jour qu'une fois toutes les 5 minutes
-        const throttleKey = `publicStats_lastUpdate_${user.uid}`;
-        const lastUpdate = sessionStorage.getItem(throttleKey);
+        // ✅ Throttle: Ne mettre à jour qu'une fois toutes les 5 minutes (Map en mémoire)
+        const throttleKey = `publicStats_${user.uid}`;
+        const lastUpdate = throttleCache.get(throttleKey);
         const now = Date.now();
         
-        if (lastUpdate && (now - parseInt(lastUpdate)) < 5 * 60 * 1000) {
+        if (lastUpdate && (now - lastUpdate) < 5 * 60 * 1000) {
             logger.debug('badgeService: updatePublicStats throttlé (dernière mise à jour < 5min)');
             return;
         }
@@ -186,8 +183,8 @@ export const badgeService = {
                 logger.info('badgeService: Stats publiques mises à jour', { statsCount: Object.keys(cumulativeStats).length });
             }
 
-            // ✅ Marquer la dernière mise à jour pour le throttle
-            sessionStorage.setItem(throttleKey, now.toString());
+            // ✅ Marquer la dernière mise à jour pour le throttle (Map en mémoire)
+            throttleCache.set(throttleKey, now);
 
             return cumulativeStats;
         } catch (error) {

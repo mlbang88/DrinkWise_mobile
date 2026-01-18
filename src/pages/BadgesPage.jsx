@@ -5,6 +5,7 @@ import { badgeList } from '../utils/data';
 import ThemedText from '../styles/ThemedText.jsx';
 import { DrinkWiseImages } from '../assets/DrinkWiseImages';
 import { logger } from '../utils/logger';
+import FloatingParticles from '../components/FloatingParticles';
 
 const BadgesPage = () => {
     const { userProfile } = useContext(FirebaseContext);
@@ -18,15 +19,22 @@ const BadgesPage = () => {
     });
 
     return (
-        <div style={{
+        <div 
+            role="main"
+            aria-label="Page des badges"
+            className="page-modern"
+            style={{
             minHeight: '100vh',
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%)',
+            background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
             backgroundAttachment: 'fixed',
             padding: '20px',
             display: 'flex',
             flexDirection: 'column',
-            position: 'relative'
+            position: 'relative',
+            overflow: 'hidden'
         }}>
+            {/* Floating Particles Background */}
+            <FloatingParticles count={15} />
             {/* Background logo watermark */}
             <div style={{
                 position: 'fixed',
@@ -46,19 +54,21 @@ const BadgesPage = () => {
                     }}
                 />
             </div>
-            {/* Titre dans un conteneur */}
+            {/* Titre dans un conteneur moderne */}
             <div style={{
-                background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0.1) 100%)',
+                background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(236, 72, 153, 0.1) 100%)',
                 backdropFilter: 'blur(20px)',
-                borderRadius: '28px',
-                border: '1px solid rgba(255, 255, 255, 0.3)',
+                borderRadius: '24px',
+                border: '1px solid rgba(139, 92, 246, 0.3)',
                 padding: '32px',
-                marginBottom: '40px',
+                marginBottom: '24px',
                 textAlign: 'center',
-                boxShadow: '0 12px 40px rgba(0, 0, 0, 0.15)'
+                boxShadow: '0 8px 32px rgba(139, 92, 246, 0.2)',
+                position: 'relative',
+                zIndex: 1
             }}>
                 <h2 style={{
-                    background: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%)',
+                    background: 'linear-gradient(135deg, #a78bfa 0%, #ec4899 50%, #f472b6 100%)',
                     WebkitBackgroundClip: 'text',
                     WebkitTextFillColor: 'transparent',
                     backgroundClip: 'text',
@@ -66,27 +76,39 @@ const BadgesPage = () => {
                     fontWeight: '800',
                     margin: 0,
                     letterSpacing: '-0.03em',
-                    filter: 'drop-shadow(0 2px 4px rgba(251, 191, 36, 0.3))'
+                    textShadow: '0 2px 20px rgba(167, 139, 250, 0.4)'
                 }}>
-                    🏆 Vos Badges
+                    🏆 Collection de Badges
                 </h2>
+                <p style={{
+                    color: 'rgba(255, 255, 255, 0.7)',
+                    fontSize: '14px',
+                    marginTop: '8px',
+                    marginBottom: 0
+                }}>
+                    {unlockedBadges.length} / {Object.keys(badgeList).length} débloqués
+                </p>
             </div>
 
             {/* Conteneur de la grille de badges */}
             <div 
                 className="badges-container force-visible"
                 style={{
-                    background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%)',
-                    backdropFilter: 'blur(15px)',
-                    borderRadius: '24px',
-                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                    background: 'rgba(30, 30, 46, 0.6)',
+                    backdropFilter: 'blur(20px)',
+                    borderRadius: '20px',
+                    border: '1px solid rgba(139, 92, 246, 0.2)',
                     padding: '20px',
                     width: '100%',
                     margin: '0 auto',
-                    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
+                    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+                    position: 'relative',
+                    zIndex: 1
                 }}>
                 {/* Grille de badges */}
                 <div 
+                    role="list"
+                    aria-label={`Grille de badges. ${unlockedBadges.length} badges débloqués sur ${Object.keys(badgeList).length}`}
                     className="badges-grid force-visible"
                     style={{
                         display: 'grid',
@@ -102,28 +124,29 @@ const BadgesPage = () => {
                                 className="badge-item force-visible"
                                 style={{
                                     background: isUnlocked 
-                                        ? 'linear-gradient(135deg, rgba(251, 191, 36, 0.2) 0%, rgba(245, 158, 11, 0.15) 100%)'
-                                        : 'linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.04) 100%)',
+                                        ? 'linear-gradient(135deg, rgba(139, 92, 246, 0.2) 0%, rgba(236, 72, 153, 0.15) 100%)'
+                                        : 'linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%)',
                                     backdropFilter: 'blur(10px)',
                                     border: isUnlocked 
-                                        ? '2px solid rgba(251, 191, 36, 0.5)' 
-                                        : '1px solid rgba(255, 255, 255, 0.2)',
+                                        ? '2px solid rgba(167, 139, 250, 0.5)' 
+                                        : '1px solid rgba(255, 255, 255, 0.1)',
                                     borderRadius: '20px',
                                     padding: '16px',
                                     display: 'flex',
                                     flexDirection: 'column',
                                     alignItems: 'center',
                                     textAlign: 'center',
-                                    transition: 'all 0.3s ease',
-                                    opacity: isUnlocked ? 1 : 0.7,
+                                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                    opacity: isUnlocked ? 1 : 0.6,
                                     minHeight: '160px',
                                     position: 'relative',
                                     justifyContent: 'space-between',
                                     boxSizing: 'border-box',
                                     boxShadow: isUnlocked 
-                                        ? '0 8px 32px rgba(251, 191, 36, 0.15)'
-                                        : '0 4px 16px rgba(0, 0, 0, 0.1)',
-                                    transform: isUnlocked ? 'scale(1.02)' : 'scale(1)'
+                                        ? '0 8px 32px rgba(139, 92, 246, 0.3)'
+                                        : '0 4px 16px rgba(0, 0, 0, 0.2)',
+                                    transform: isUnlocked ? 'scale(1.02)' : 'scale(1)',
+                                    cursor: 'default'
                                 }}
                             >
                                 {/* Overlay pour badges verrouillés */}
@@ -132,13 +155,13 @@ const BadgesPage = () => {
                                         position: 'absolute',
                                         top: '12px',
                                         right: '12px',
-                                        background: 'rgba(107, 114, 128, 0.9)',
+                                        background: 'rgba(75, 85, 99, 0.9)',
                                         backdropFilter: 'blur(8px)',
                                         borderRadius: '8px',
-                                        padding: '4px 6px',
+                                        padding: '4px 8px',
                                         fontSize: '14px',
                                         zIndex: 2,
-                                        border: '1px solid rgba(107, 114, 128, 0.3)'
+                                        border: '1px solid rgba(75, 85, 99, 0.3)'
                                     }}>
                                         🔒
                                     </div>
@@ -150,14 +173,14 @@ const BadgesPage = () => {
                                         position: 'absolute',
                                         top: '12px',
                                         right: '12px',
-                                        background: 'linear-gradient(135deg, rgba(251, 191, 36, 0.9) 0%, rgba(245, 158, 11, 0.9) 100%)',
+                                        background: 'linear-gradient(135deg, rgba(167, 139, 250, 0.9) 0%, rgba(236, 72, 153, 0.9) 100%)',
                                         backdropFilter: 'blur(8px)',
                                         borderRadius: '8px',
-                                        padding: '4px 6px',
+                                        padding: '4px 8px',
                                         fontSize: '14px',
                                         zIndex: 2,
-                                        border: '1px solid rgba(251, 191, 36, 0.3)',
-                                        animation: 'pulse 2s infinite'
+                                        border: '1px solid rgba(167, 139, 250, 0.3)',
+                                        animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite'
                                     }}>
                                         ✨
                                     </div>
@@ -172,8 +195,8 @@ const BadgesPage = () => {
                                     height: '60px',
                                     marginBottom: '12px',
                                     background: isUnlocked 
-                                        ? 'linear-gradient(135deg, rgba(251, 191, 36, 0.3) 0%, rgba(245, 158, 11, 0.2) 100%)'
-                                        : 'rgba(255, 255, 255, 0.1)',
+                                        ? 'linear-gradient(135deg, rgba(139, 92, 246, 0.3) 0%, rgba(236, 72, 153, 0.2) 100%)'
+                                        : 'rgba(255, 255, 255, 0.05)',
                                     backdropFilter: 'blur(8px)',
                                     borderRadius: '16px',
                                     border: isUnlocked 

@@ -20,7 +20,7 @@ import { PlusCircle } from 'lucide-react';
 import { DrinkWiseImages } from '../assets/DrinkWiseImages';
 import { logger } from '../utils/logger';
 
-const HomePage = () => {
+const HomePage = ({ setCurrentPage }) => {
     const { db, user, appId, userProfile } = useContext(FirebaseContext);
     
     const { theme } = useTheme();
@@ -60,8 +60,13 @@ const HomePage = () => {
     useEffect(() => {
         if (!db || !appId || !user?.uid || !userProfile) return;
         
-        logger.info('HOMEPAGE', 'Tentative de mise à jour des stats publiques');
-        badgeService.updatePublicStats(db, user, appId, userProfile);
+        // Throttle avec un délai pour éviter les appels multiples
+        const throttleTimeout = setTimeout(() => {
+            logger.info('HOMEPAGE', 'Tentative de mise à jour des stats publiques');
+            badgeService.updatePublicStats(db, user, appId, userProfile);
+        }, 1000); // Délai de 1 seconde
+        
+        return () => clearTimeout(throttleTimeout);
     }, [db, appId, user, userProfile]);
 
     // Charger les stats et badges
@@ -179,8 +184,12 @@ const HomePage = () => {
 
             {/* Hero Action Button */}
             <div className="hero-action">
-                <button className="btn-hero" onClick={() => setShowPartyModeSelector(true)}>
-                    <div className="btn-hero-icon">
+                <button 
+                    className="btn-hero" 
+                    onClick={() => setShowPartyModeSelector(true)}
+                    aria-label="Commencer une nouvelle soirée"
+                >
+                    <div className="btn-hero-icon" aria-hidden="true">
                         <PlusCircle size={32} />
                     </div>
                     <div className="btn-hero-content">
@@ -191,38 +200,42 @@ const HomePage = () => {
             </div>
 
             {/* Quick Stats Grid */}
-            <div className="stats-grid">
+            <div className="stats-grid" role="region" aria-label="Statistiques rapides">
                 <StatCard 
                     icon="🔥" 
                     label="Série Actuelle" 
                     value={<AnimatedCounter value={streakData.currentStreak} />}
                     accent="warning"
+                    aria-label={`Série actuelle: ${streakData.currentStreak} jours`}
                 />
                 <StatCard 
                     icon="🍻" 
                     label="Soirées" 
                     value={<AnimatedCounter value={weeklyStats?.totalParties || 0} />}
                     accent="primary"
+                    aria-label={`${weeklyStats?.totalParties || 0} soirées cette semaine`}
                 />
                 <StatCard 
                     icon="🏆" 
                     label="Badges" 
                     value={<AnimatedCounter value={userProfile?.unlockedBadges?.length || 0} />}
                     accent="success"
+                    aria-label={`${userProfile?.unlockedBadges?.length || 0} badges débloqués`}
                 />
                 <StatCard 
                     icon="⚡" 
                     label="XP Total" 
-                    value={<AnimatedCounter value={userProfile?.xp ? Math.floor(userProfile.xp) : 0} />}
+                    value={<AnimatedCounter value={userProfile?.publicStats?.totalXP || 0} />}
                     accent="info"
+                    aria-label={`${userProfile?.publicStats?.totalXP || 0} points d'expérience`}
                 />
             </div>
 
             {/* Stats Hebdomadaires */}
             {weeklyStats && weeklyStats.totalParties > 0 && (
-                <div className="card-elevated animate-slide-up" style={{ margin: '0 20px 24px' }}>
-                    <h2 className="heading-2 mb-4">📊 Cette Semaine</h2>
-                    <div className="neon-divider" style={{ margin: '12px 0 16px' }} />
+                <section className="card-elevated animate-slide-up" style={{ margin: '0 20px 24px' }} aria-labelledby="weekly-stats-heading">
+                    <h2 id="weekly-stats-heading" className="heading-2 mb-4">📊 Cette Semaine</h2>
+                    <div className="neon-divider" style={{ margin: '12px 0 16px' }} aria-hidden="true" />
                     <div className="space-y-3">
                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-base)' }}>
                             <span className="text-secondary">🎉 Soirées</span>
@@ -255,13 +268,13 @@ const HomePage = () => {
                             </span>
                         </div>
                     </div>
-                </div>
+                </section>
             )}
 
             {/* Dernier Badge */}
             {lastBadge && (
-                <div className="card-elevated" style={{ margin: '0 20px 24px' }}>
-                    <h2 className="heading-2 mb-4">🏆 Dernier Exploit</h2>
+                <section className="card-elevated" style={{ margin: '0 20px 24px' }} aria-labelledby="last-badge-heading">
+                    <h2 id="last-badge-heading" className="heading-2 mb-4">🏆 Dernier Exploit</h2>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                         <div style={{ 
                             padding: '12px', 
@@ -269,7 +282,7 @@ const HomePage = () => {
                             background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.2) 0%, rgba(236, 72, 153, 0.2) 100%)',
                             border: '2px solid rgba(139, 92, 246, 0.3)',
                             flexShrink: 0
-                        }}>
+                        }} aria-hidden="true">
                             {React.cloneElement(lastBadge.icon, { size: 32, style: { color: '#8b5cf6' } })}
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
@@ -281,8 +294,59 @@ const HomePage = () => {
                             </div>
                         </div>
                     </div>
-                </div>
+                </section>
             )}
+
+            {/* Accès rapides */}
+            <div style={{ margin: '0 20px 24px' }}>
+                <div style={{ 
+                    display: 'grid', 
+                    gridTemplateColumns: 'repeat(2, 1fr)', 
+                    gap: '12px' 
+                }}>
+                    <button
+                        onClick={() => setCurrentPage && setCurrentPage('challenges')}
+                        className="card-glass"
+                        style={{
+                            padding: '20px',
+                            border: '2px solid rgba(251, 191, 36, 0.3)',
+                            cursor: 'pointer',
+                            transition: 'all 0.3s ease',
+                            background: 'linear-gradient(135deg, rgba(251, 191, 36, 0.1) 0%, rgba(245, 158, 11, 0.05) 100%)'
+                        }}
+                        aria-label="Voir les défis et challenges"
+                    >
+                        <div style={{ fontSize: '32px', marginBottom: '8px' }}>🎯</div>
+                        <div className="body-large" style={{ fontWeight: 'var(--font-bold)', marginBottom: '4px' }}>
+                            Défis
+                        </div>
+                        <div className="caption">
+                            Challenges hebdo
+                        </div>
+                    </button>
+
+                    <button
+                        onClick={() => setCurrentPage && setCurrentPage('battle')}
+                        className="card-glass"
+                        style={{
+                            padding: '20px',
+                            border: '2px solid rgba(239, 68, 68, 0.3)',
+                            cursor: 'pointer',
+                            transition: 'all 0.3s ease',
+                            background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(220, 38, 38, 0.05) 100%)'
+                        }}
+                        aria-label="Accéder aux batailles"
+                    >
+                        <div style={{ fontSize: '32px', marginBottom: '8px' }}>⚔️</div>
+                        <div className="body-large" style={{ fontWeight: 'var(--font-bold)', marginBottom: '4px' }}>
+                            Batailles
+                        </div>
+                        <div className="caption">
+                            Affronte tes rivaux
+                        </div>
+                    </button>
+                </div>
+            </div>
 
             {/* Empty State si pas de stats */}
             {weeklyStats && weeklyStats.totalParties === 0 && (

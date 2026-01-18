@@ -13,6 +13,7 @@ import BattlePointsNotification from './BattlePointsNotification';
 import VenueSearchModal from './VenueSearchModal';
 import PartySuggestions from './PartySuggestions';
 import { updateVenueControl } from '../services/venueService';
+import { ExperienceService } from '../services/experienceService';
 import { logger } from '../utils/logger';
 
 const CompetitivePartyModal = ({ onClose, onPartySaved, draftData = null }) => {
@@ -301,6 +302,19 @@ RÉPONDS UNIQUEMENT AVEC LES 3 PHRASES COMPLÈTES, SANS PRÉAMBULE NI EXPLICATIO
         return (end - start) / (1000 * 60 * 60); // Durée en heures
     };
 
+    // ✨ Calcul XP Preview utilisant la vraie formule ExperienceService
+    const calculateXPPreview = () => {
+        const previewData = {
+            drinks,
+            battleMode: selectedBattleMode,
+            companions,
+            location,
+            duration: calculatePartyDuration(),
+            battlePoints: 0 // Pas de Battle Points avant sauvegarde
+        };
+        return ExperienceService.calculatePartyXP(previewData);
+    };
+
     const handlePhotoAdd = (e) => {
         const files = Array.from(e.target.files);
         const newPhotos = files.slice(0, 5 - photoFiles.length);
@@ -461,6 +475,10 @@ RÉPONDS UNIQUEMENT AVEC LES 3 PHRASES COMPLÈTES, SANS PRÉAMBULE NI EXPLICATIO
             mode: 'competitive', // Marqueur pour identifier le mode
             battleMode: selectedBattleMode // Style de jeu pour calcul XP et tournois
         };
+        
+        // ✅ Calculer et sauvegarder XP pour éviter double comptage
+        const xpEarned = ExperienceService.calculatePartyXP(partyData);
+        partyData.xpEarned = xpEarned;
         
         try {
             const docRef = await addDoc(collection(db, `artifacts/${appId}/users/${user.uid}/parties`), partyData);
@@ -1061,29 +1079,46 @@ RÉPONDS UNIQUEMENT AVEC LES 3 PHRASES COMPLÈTES, SANS PRÉAMBULE NI EXPLICATIO
                                 </option>
                             </select>
                             
-                            {/* Aperçu des points */}
+                            {/* ✨ Aperçu XP avec vrai calcul */}
                             {drinks.length > 0 && (
                                 <div style={{
                                     marginTop: '12px',
-                                    padding: '8px 12px',
-                                    background: 'rgba(34, 197, 94, 0.2)',
-                                    borderRadius: '8px',
-                                    textAlign: 'center'
+                                    padding: '12px',
+                                    background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(34, 197, 94, 0.15))',
+                                    border: '1px solid rgba(139, 92, 246, 0.3)',
+                                    borderRadius: '10px'
                                 }}>
-                                    <span style={{ 
-                                        color: '#22c55e', 
-                                        fontSize: '14px', 
-                                        fontWeight: '700' 
+                                    <div style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        marginBottom: '8px'
                                     }}>
-                                        ≈ {Math.max(30, Math.min(100, 
-                                            50 + 
-                                            (selectedBattleMode === 'moderation' ? -drinks.length * 5 + 20 : 0) +
-                                            (selectedBattleMode === 'party' ? drinks.length * 8 : 0) +
-                                            (selectedBattleMode === 'explorer' ? drinks.length * 5 + (location ? 20 : 0) : 0) +
-                                            (selectedBattleMode === 'social' ? companions.selectedNames.length * 10 : 0) +
-                                            (calculatePartyDuration() > 0 ? 15 : 0)
-                                        ))} points estimés
-                                    </span>
+                                        <span style={{ 
+                                            color: 'rgba(255, 255, 255, 0.7)', 
+                                            fontSize: '12px',
+                                            fontWeight: '600'
+                                        }}>
+                                            ✨ XP Prévu
+                                        </span>
+                                        <span style={{ 
+                                            color: '#22c55e', 
+                                            fontSize: '20px', 
+                                            fontWeight: '700',
+                                            textShadow: '0 2px 10px rgba(34, 197, 94, 0.5)'
+                                        }}>
+                                            +{calculateXPPreview()} XP
+                                        </span>
+                                    </div>
+                                    <div style={{
+                                        fontSize: '11px',
+                                        color: 'rgba(255, 255, 255, 0.5)',
+                                        lineHeight: '1.4'
+                                    }}>
+                                        <div>🍺 Base: {ExperienceService.CONFIG.XP_PER_PARTY}XP + {drinks.length}×{ExperienceService.CONFIG.XP_PER_DRINK}XP</div>
+                                        <div>🎯 Mode: ×{ExperienceService.CONFIG.BATTLE_MODE_MULTIPLIERS[selectedBattleMode]}</div>
+                                        {companions.selectedNames.length > 0 && <div>👥 Groupe: +{Math.round(drinks.length * ExperienceService.CONFIG.XP_PER_DRINK * 0.2)}XP</div>}
+                                    </div>
                                 </div>
                             )}
                     </div>

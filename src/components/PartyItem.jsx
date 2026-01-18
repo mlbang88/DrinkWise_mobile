@@ -1,8 +1,9 @@
 import React, { useCallback } from 'react';
+import { motion } from 'framer-motion';
 import InstagramPost from './InstagramPost';
 
 /**
- * PartyItem - Composant mémorisé pour afficher un post de soirée
+ * PartyItem - Composant mémorisé pour afficher un post de soirée avec animations
  * 🎯 CRITICAL: Ce composant DOIT être défini en dehors de FeedPage
  * pour que React.memo fonctionne correctement
  */
@@ -22,6 +23,8 @@ const PartyItem = React.memo(({
 }) => {
   const party = item.data;
   const totalDrinks = party.drinks?.reduce((sum, drink) => sum + drink.quantity, 0) || 0;
+  const xpGained = Number(party.xpGained) || 0;
+  const isFeatured = xpGained > 100; // Post légendaire
   
   // Protection: s'assurer que item.user existe
   if (!item.user) {
@@ -110,22 +113,66 @@ const PartyItem = React.memo(({
   };
 
   return (
-    <InstagramPost
-      post={postData}
-      user={userData}
-      onLike={handleLike}
-      onComment={handleComment}
-      onAddComment={handleAddCommentCallback}
-      onDoubleTapLike={handleDoubleTapCallback}
-      isLiked={Boolean(isLiked)}
-      userReaction={currentInteractions?.userReaction || null}
-      reactions={currentInteractions?.reactions || {}}
-      likesCount={Number(likesCount) || 0}
-      commentsCount={Number(commentsCount) || 0}
-      timestamp={timestampDate}
-      showHeartAnimation={Boolean(heartAnimation[item.id])}
-      isCommentsOpen={Boolean(showComments[item.id])}
-    />
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      transition={{ duration: 0.3, ease: 'easeOut' }}
+      layout
+      className={isFeatured ? 'featured-post' : ''}
+      style={isFeatured ? {
+        position: 'relative',
+        borderRadius: '12px',
+        padding: '4px',
+        background: 'linear-gradient(135deg, #bf00ff 0%, #8b5cf6 50%, #bf00ff 100%)',
+        backgroundSize: '200% 200%',
+        animation: 'featured-gradient 3s ease infinite'
+      } : {}}
+    >
+      {isFeatured && (
+        <div style={{
+          position: 'absolute',
+          top: '-10px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          background: 'linear-gradient(135deg, #bf00ff, #8b5cf6)',
+          color: '#fff',
+          padding: '4px 12px',
+          borderRadius: '12px',
+          fontSize: '11px',
+          fontWeight: '700',
+          zIndex: 10,
+          boxShadow: '0 4px 12px rgba(191, 0, 255, 0.4)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '4px'
+        }}>
+          ⭐ LÉGENDAIRE +{xpGained} XP
+        </div>
+      )}
+      <div style={isFeatured ? {
+        background: '#000',
+        borderRadius: '8px',
+        overflow: 'hidden'
+      } : {}}>
+        <InstagramPost
+          post={postData}
+          user={userData}
+          onLike={handleLike}
+          onComment={handleComment}
+          onAddComment={handleAddCommentCallback}
+          onDoubleTapLike={handleDoubleTapCallback}
+          isLiked={Boolean(isLiked)}
+          userReaction={currentInteractions?.userReaction || null}
+          reactions={currentInteractions?.reactions || {}}
+          likesCount={Number(likesCount) || 0}
+          commentsCount={Number(commentsCount) || 0}
+          timestamp={timestampDate}
+          showHeartAnimation={Boolean(heartAnimation[item.id])}
+          isCommentsOpen={Boolean(showComments[item.id])}
+        />
+      </div>
+    </motion.div>
   );
 }, (prevProps, nextProps) => {
   // 🎯 Compare ONLY data props that affect rendering

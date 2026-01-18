@@ -7,6 +7,7 @@ import { generateUniqueUsername } from '../utils/usernameUtils';
 import { friendshipListenerService } from '../services/friendshipListenerService.js';
 import { ExperienceService } from '../services/experienceService';
 import { logger } from '../utils/logger.js';
+import { setupMigrationHelper } from '../utils/migratePartiesXP.js';
 
 // Valeur par défaut pour éviter les erreurs de destructuration
 const defaultContextValue = {
@@ -246,6 +247,11 @@ export const FirebaseProvider = ({ children }) => {
                     try {
                         logger.debug('FIREBASE', 'Service d\'écoute des amitiés temporairement désactivé pour diagnostic');
                         // friendshipListenerService.startListening(db, appId, firebaseUser.uid, setMessageBox, functions);
+                        
+                        // 🔧 Installer le helper de migration XP (dev only)
+                        if (process.env.NODE_ENV === 'development') {
+                            setupMigrationHelper(db, appId, firebaseUser.uid);
+                        }
                     } catch (error) {
                         logger.error('FIREBASE', 'Erreur démarrage service d\'écoute', error);
                     }

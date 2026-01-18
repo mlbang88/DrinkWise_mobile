@@ -16,6 +16,7 @@ import { Flame, Trophy, Lightbulb, GitBranch, Rocket, Sparkles, Camera, Calendar
 import { logger } from '../utils/logger.js';
 import EditPartyModal from '../components/EditPartyModal';
 import { DrinkWiseImages } from '../assets/DrinkWiseImages';
+import FloatingParticles from '../components/FloatingParticles';
 
 // Phase 2C: Animation components
 import AnimatedCard from '../components/AnimatedCard';
@@ -32,7 +33,10 @@ const ComparisonBar = ({ label, userValue, avgValue, unit, color }) => {
     const isAboveAvg = userNum >= avgNum;
 
     return (
-        <div style={{
+        <div 
+            role="article"
+            aria-label={`Comparaison: ${label}. Vous: ${userNum} ${unit}. Moyenne: ${avgNum} ${unit}. Vous êtes ${isAboveAvg ? 'au-dessus' : 'en-dessous'} de la moyenne de ${Math.abs(((userNum - avgNum) / avgNum) * 100).toFixed(0)}%`}
+            style={{
             background: 'rgba(255, 255, 255, 0.05)',
             borderRadius: '12px',
             padding: '16px',

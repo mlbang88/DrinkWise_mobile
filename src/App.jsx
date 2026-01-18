@@ -90,7 +90,7 @@ const AppContent = () => {
     const renderPage = () => {
         const PageComponent = () => {
             switch (currentPage) {
-                case 'home': return <HomePage />;
+                case 'home': return <HomePage setCurrentPage={setCurrentPage} />;
                 case 'feed': return <FeedPage />;
                 case 'battle': return <BattleRoyale setCurrentPage={setCurrentPage} />;
                 case 'map': return <MapPage setCurrentPage={setCurrentPage} />;

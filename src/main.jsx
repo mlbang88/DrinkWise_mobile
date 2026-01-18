@@ -4,9 +4,13 @@ import App from './App.jsx';
 import './index.css'; // Ne pas oublier d'importer le CSS
 import { ensureImageAccessibility, observeImageChanges } from './utils/imageAccessibility.js';
 import { initSentry } from './utils/sentry.js';
+import { initPerformanceTracking } from './utils/performance.js';
 
 // 🔴 Initialiser Sentry en premier (avant React)
 initSentry();
+
+// 📊 Initialiser le tracking de performance
+initPerformanceTracking();
 
 // Enregistrement du Service Worker pour PWA
 if ('serviceWorker' in navigator) {

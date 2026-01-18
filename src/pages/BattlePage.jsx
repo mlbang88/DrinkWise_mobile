@@ -6,6 +6,7 @@ import BattleLeaderboard from '../components/BattleLeaderboard';
 import BattleArena from '../components/BattleArena';
 import { motion } from 'framer-motion';
 import { logger } from '../utils/logger';
+import FloatingParticles from '../components/FloatingParticles';
 
 /**
  * BattlePage - Page principale des batailles
@@ -93,29 +94,36 @@ const BattlePage = ({ setCurrentPage }) => {
 
                 {/* Stats rapides */}
                 {userStats && (
-                    <div className="grid grid-cols-4 gap-3">
-                        <div className="bg-white/10 backdrop-blur rounded-xl p-3 text-center">
+                    <motion.div 
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.1 }}
+                        className="grid grid-cols-4 gap-3"
+                        role="region"
+                        aria-label="Statistiques de bataille"
+                    >
+                        <div className="bg-white/10 backdrop-blur rounded-xl p-3 text-center" role="article" aria-label="Total de batailles">
                             <p className="text-2xl font-bold text-white">{userStats.totalBattles}</p>
                             <p className="text-white/60 text-xs">Batailles</p>
                         </div>
-                        <div className="bg-white/10 backdrop-blur rounded-xl p-3 text-center">
+                        <div className="bg-white/10 backdrop-blur rounded-xl p-3 text-center" role="article" aria-label={`${userStats.wins} victoires`}>
                             <p className="text-2xl font-bold text-green-400">{userStats.wins}</p>
                             <p className="text-white/60 text-xs">Victoires</p>
                         </div>
-                        <div className="bg-white/10 backdrop-blur rounded-xl p-3 text-center">
+                        <div className="bg-white/10 backdrop-blur rounded-xl p-3 text-center" role="article" aria-label={`Taux de victoire: ${userStats.winRate.toFixed(0)}%`}>
                             <p className="text-2xl font-bold text-orange-400">
                                 {userStats.winRate.toFixed(0)}%
                             </p>
                             <p className="text-white/60 text-xs">Taux</p>
                         </div>
-                        <div className="bg-white/10 backdrop-blur rounded-xl p-3 text-center">
+                        <div className="bg-white/10 backdrop-blur rounded-xl p-3 text-center" role="article" aria-label={`Série actuelle: ${userStats.currentStreak}`}>
                             <p className="text-2xl font-bold text-yellow-400">
                                 {userStats.currentStreak}
                                 {userStats.currentStreak >= 3 && '🔥'}
                             </p>
                             <p className="text-white/60 text-xs">Série</p>
                         </div>
-                    </div>
+                    </motion.div>
                 )}
             </div>
 
@@ -125,12 +133,15 @@ const BattlePage = ({ setCurrentPage }) => {
                     <motion.div
                         initial={{ scale: 0.95, opacity: 0 }}
                         animate={{ scale: 1, opacity: 1 }}
+                        transition={{ type: "spring", stiffness: 100 }}
                         className="bg-gradient-to-r from-orange-600 to-red-600 rounded-2xl p-6 border-2 border-orange-500"
+                        role="region"
+                        aria-labelledby="active-battle-heading"
                     >
                         <div className="flex items-center gap-3 mb-4">
-                            <Flame className="text-white" size={28} />
+                            <Flame className="text-white" size={28} aria-hidden="true" />
                             <div>
-                                <h3 className="text-xl font-bold text-white">Bataille en cours</h3>
+                                <h3 id="active-battle-heading" className="text-xl font-bold text-white">Bataille en cours</h3>
                                 <p className="text-white/80 text-sm">{activeBattle.venueName}</p>
                             </div>
                         </div>
@@ -168,14 +179,20 @@ const BattlePage = ({ setCurrentPage }) => {
                 )}
 
                 {/* Actions */}
-                <div className="space-y-3">
+                <motion.div 
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.2 }}
+                    className="space-y-3"
+                >
                     <motion.button
-                        whileHover={{ scale: 1.02 }}
+                        whileHover={{ scale: 1.02, boxShadow: "0 10px 30px rgba(239, 68, 68, 0.5)" }}
                         whileTap={{ scale: 0.98 }}
                         onClick={() => setCurrentPage('map')}
                         className="w-full py-4 bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 text-white rounded-xl font-bold text-lg shadow-lg transition-all flex items-center justify-center gap-3"
+                        aria-label="Aller sur la carte pour trouver une bataille"
                     >
-                        <Target size={24} />
+                        <Target size={24} aria-hidden="true" />
                         <span>Trouver une bataille</span>
                     </motion.button>
 
@@ -184,11 +201,23 @@ const BattlePage = ({ setCurrentPage }) => {
                         whileTap={{ scale: 0.98 }}
                         onClick={() => setShowLeaderboard(true)}
                         className="w-full py-4 bg-white/10 hover:bg-white/20 backdrop-blur text-white rounded-xl font-bold transition-all flex items-center justify-center gap-3 border border-white/20"
+                        aria-label="Voir le classement des batailles"
                     >
-                        <Trophy size={24} />
+                        <Trophy size={24} aria-hidden="true" />
                         <span>Classement des batailles</span>
                     </motion.button>
-                </div>
+
+                    <motion.button
+                        whileHover={{ scale: 1.02, boxShadow: "0 10px 30px rgba(251, 191, 36, 0.5)" }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => setCurrentPage('challenges')}
+                        className="w-full py-4 bg-gradient-to-r from-amber-500 to-yellow-600 hover:from-amber-600 hover:to-yellow-700 text-white rounded-xl font-bold transition-all flex items-center justify-center gap-3 border border-amber-400/30"
+                        aria-label="Voir les défis à relever"
+                    >
+                        <Target size={24} aria-hidden="true" />
+                        <span>🎯 Défis & Challenges</span>
+                    </motion.button>
+                </motion.div>
 
                 {/* Statistiques détaillées */}
                 {userStats && (

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext, useCallback } from 'react';
-import { collection, query, where, getDocs, orderBy, limit, doc, getDoc, updateDoc, arrayUnion, setDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy, limit, doc, getDoc, updateDoc, arrayUnion, setDoc, startAfter } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { FirebaseContext } from '../contexts/FirebaseContext.jsx';
 import DOMPurify from 'dompurify';
@@ -34,6 +34,12 @@ import {
     logFeedRefresh,
     logFeedError 
 } from '../utils/analytics';
+import PullToRefresh from '../components/PullToRefresh';
+import SkeletonPost from '../components/SkeletonPost';
+import OfflineIndicator from '../components/OfflineIndicator';
+import ErrorRetry, { InlineErrorRetry } from '../components/ErrorRetry';
+import { t } from '../utils/i18n';
+import '../styles/FeedPage.css';
 
 // Types de réactions disponibles (défini en dehors pour être accessible partout)
 const REACTIONS = [
@@ -61,8 +67,10 @@ const FeedPage = () => {
     // États pour les interactions
     const [interactions, setInteractions] = useState({});
     const [showComments, setShowComments] = useState({});
+    const [showAllComments, setShowAllComments] = useState({}); // Preview commentaires
     const [isLoadingInteraction, setIsLoadingInteraction] = useState({});
     const [showReactionPicker, setShowReactionPicker] = useState({});
+    const [filter, setFilter] = useState('all'); // Filtres: all | friends | own
     
     // États pour l'affichage des photos
     const [selectedPhoto, setSelectedPhoto] = useState(null);
@@ -82,200 +90,16 @@ const FeedPage = () => {
     // État pour pull-to-refresh
     const [pullY, setPullY] = useState(0);
     
+    // États pour infinite scroll
+    const [hasMore, setHasMore] = useState(true);
+    const [loadingMore, setLoadingMore] = useState(false);
+    const [lastVisible, setLastVisible] = useState(null);
+    
     // Fonctions Firebase
     const handleFeedInteraction = httpsCallable(functions, 'handleFeedInteraction');
     const getFeedInteractions = httpsCallable(functions, 'getFeedInteractions');
 
-    // ===== GÉRER LES INTERACTIONS =====
-    
-    // Gérer une interaction (like, comment, etc.) avec mise à jour optimiste
-    const handleInteraction = useCallback(async (itemId, type, data = null) => {
-        if (isLoadingInteraction[itemId]) return;
-
-        // ✅ Vérifier le rate limiting manuellement
-        const rateLimitCheck = limitInteraction(() => {})();
-        try {
-            await rateLimitCheck;
-        } catch (error) {
-            if (error.message.includes('Trop de requêtes')) {
-                toast.error(error.message);
-                return;
-            }
-        }
-
-        try {
-            logger.debug('Interaction', { type, itemId });
-
-            // Trouver le propriétaire de l'item seulement pour l'appel Firebase
-            const item = feedItems.find(i => i.id === itemId);
-            if (!item) {
-                logger.error('Item non trouvé', { itemId });
-                return;
-            }
-
-            // ⚡ MISE À JOUR OPTIMISTE : Met à jour l'UI instantanément
-            if (['like', 'love', 'haha', 'wow', 'sad', 'angry'].includes(type)) {
-                    const currentInteractions = interactions[itemId] || { likes: [], comments: [], congratulations: [], reactions: {} };
-                    const currentReactions = currentInteractions.reactions || {};
-                    const userReaction = Object.keys(currentReactions).find(reactionType => 
-                        currentReactions[reactionType]?.some(r => r.userId === user.uid)
-                    );
-                    
-                    // Si l'utilisateur a déjà réagi, on retire son ancienne réaction
-                    let newReactions = { ...currentReactions };
-                    if (userReaction) {
-                        newReactions[userReaction] = newReactions[userReaction].filter(r => r.userId !== user.uid);
-                        if (newReactions[userReaction].length === 0) {
-                            delete newReactions[userReaction];
-                        }
-                    }
-                    
-                    // Ajouter la nouvelle réaction (sauf si c'était la même)
-                if (userReaction !== type) {
-                    newReactions[type] = [...(newReactions[type] || []), {
-                        userId: user.uid,
-                        username: userProfile?.username || 'Vous',
-                        timestamp: new Date()
-                    }];
-                    
-                    // Haptic feedback + toast
-                    hapticFeedback.light();
-                    const reactionEmoji = REACTIONS.find(r => r.type === type)?.emoji || '👍';
-                    toast.success(`${reactionEmoji} Réaction ajoutée!`);
-                    
-                    // 📊 Analytics: Interaction
-                    logFeedInteraction(type, item.type, itemId);
-                }
-                
-                // Calculer le nouveau userReaction après modification
-                const newUserReaction = Object.keys(newReactions).find(reactionType =>
-                    Array.isArray(newReactions[reactionType]) && newReactions[reactionType]?.some(r => r.userId === user.uid)
-                ) || null;
-                
-                setInteractions(prev => ({
-                    ...prev,
-                    [itemId]: {
-                        ...currentInteractions,
-                        reactions: newReactions,
-                        userReaction: newUserReaction
-                    }
-                }));
-                
-                // Fermer le picker après sélection
-                setShowReactionPicker(prev => ({ ...prev, [itemId]: false }));
-            } else if (type === 'comment' && data?.text) {
-                const currentInteractions = interactions[itemId] || { likes: [], comments: [], congratulations: [] };
-                const newComment = {
-                    id: `temp-${Date.now()}`,
-                    userId: user.uid,
-                    username: userProfile?.username || 'Vous',
-                    text: data.text,
-                    timestamp: new Date()
-                };
-                
-                setInteractions(prev => ({
-                    ...prev,
-                    [itemId]: {
-                        ...currentInteractions,
-                        comments: [...(currentInteractions.comments || []), newComment]
-                    }
-                }));
-                
-                // Haptic feedback + toast
-                hapticFeedback.medium();
-                toast.success('💬 Commentaire ajouté!');
-            }
-
-            // Utiliser l'ID original pour Firebase
-            const originalId = item.originalId || itemId;
-
-            // 🚀 Envoyer la requête en arrière-plan (sans attendre)
-            handleFeedInteraction({
-                itemId: originalId,
-                itemType: item.type,
-                ownerId: item.userId,
-                interactionType: type,
-                content: data?.text || null,
-                appId
-            }).then(result => {
-                if (result?.data?.success) {
-                    logger.debug('Interaction synchronisée avec le serveur');
-                    // Recharger pour synchroniser avec les autres utilisateurs
-                    setTimeout(() => loadInteractions(itemId), 500);
-                } else {
-                    logger.error('Échec sync serveur, rollback', { error: result?.data?.error });
-                    // En cas d'erreur, recharger les vraies données
-                    loadInteractions(itemId);
-                }
-            }).catch(error => {
-                logger.error('Erreur sync serveur, rollback', { error: error.message });
-                // En cas d'erreur, recharger les vraies données  
-                loadInteractions(itemId);
-            });
-
-        } catch (error) {
-            logger.error('Erreur interaction', { error: error.message });
-            // En cas d'erreur, recharger les vraies données
-            loadInteractions(itemId);
-        }
-    }, [isLoadingInteraction, limitInteraction, feedItems, interactions, user, userProfile, handleFeedInteraction, appId]);
-
-    // ===== INTERACTIONS MODERNES =====
-
-    // Double-tap to like (Instagram-style)
-    const handleDoubleTap = useCallback((itemId) => {
-        const now = Date.now();
-        const lastTapTime = lastTap[itemId] || 0;
-        
-        if (now - lastTapTime < 300) {
-            // Double tap détecté!
-            handleInteraction(itemId, 'like');
-            hapticFeedback.light();
-            
-            // Animation du coeur avec cleanup
-            setHeartAnimation(prev => ({ ...prev, [itemId]: true }));
-            const timer = setTimeout(() => {
-                setHeartAnimation(prev => ({ ...prev, [itemId]: false }));
-            }, 1000);
-            
-            // Cleanup si composant unmount
-            return () => clearTimeout(timer);
-            
-            logger.debug('Double-tap like', { itemId });
-        }
-        
-        setLastTap({ ...lastTap, [itemId]: now });
-    }, [lastTap, handleInteraction]);
-
-    // Pull-to-refresh
-    const handlePullRefresh = async () => {
-        if (refreshing) return;
-        
-        setRefreshing(true);
-        hapticFeedback.medium();
-        logger.info('Pull-to-refresh déclenché');
-        
-        await loadFeed();
-        
-        setRefreshing(false);
-        hapticFeedback.success();
-        toast.success('✨ Feed mis à jour!');
-    };
-
-    // Gesture pour pull-to-refresh
-    const bind = useGesture({
-        onDrag: ({ down, movement: [, my] }) => {
-            if (my > 0 && window.scrollY === 0) {
-                setPullY(down ? Math.min(my, 100) : 0);
-                
-                if (!down && my > 80) {
-                    handlePullRefresh();
-                }
-            }
-        },
-    });
-
-    // ===== CHARGEMENT DES DONNÉES =====
+    // ===== CHARGEMENT DES DONNÉES (défini en premier) =====
 
     // Charger les données des amis
     const loadFriendsData = async () => {
@@ -327,13 +151,14 @@ const FeedPage = () => {
             const snapshot = await getDocs(partiesQuery);
             
             return snapshot.docs.map(doc => ({
-                id: doc.id, // ID simple sans préfixe
+                id: `${user.uid}-${doc.id}`, // ID unique avec préfixe userId
                 type: 'party',
                 userId: user.uid,
                 username: userProfile?.username || 'Vous',
                 timestamp: doc.data().timestamp,
                 data: doc.data(),
-                isOwn: true
+                isOwn: true,
+                originalId: doc.id
             }));
         } catch (error) {
             logger.error('Erreur chargement mes soirées', { error: error.message });
@@ -380,79 +205,14 @@ const FeedPage = () => {
         return parties;
     };
 
-    // Charger le feed principal
-    const loadFeed = useCallback(async () => {
-        if (!db || !user || !appId) {
-            logger.debug('FeedPage: Firebase not ready, waiting');
-            setLoading(false);
-            return;
-        }
-        
-        try {
-            setLoading(true);
-            setError(null);
-            logger.info('Chargement du feed...');
+    // ===== GESTION DES INTERACTIONS (défini AVANT handleInteraction) =====
 
-            // 1. Charger les amis
-            const friends = await loadFriendsData();
-            setFriendsData(friends);
+    // Charger les interactions d'un item - DÉFINITION UNIQUE (voir ligne ~500 pour l'implémentation réelle)
 
-            // 2. Charger les activités
-            const [myParties, friendsParties] = await Promise.all([
-                loadMyParties(),
-                loadFriendsParties(friends)
-            ]);
-
-            // 3. Combiner et trier
-            const allItems = [...myParties, ...friendsParties];
-            allItems.sort((a, b) => {
-                const dateA = a.timestamp?.toDate ? a.timestamp.toDate() : a.timestamp;
-                const dateB = b.timestamp?.toDate ? b.timestamp.toDate() : b.timestamp;
-                return dateB - dateA;
-            });
-
-            setFeedItems(allItems.slice(0, 20));
-            logger.info('Feed chargé', { itemsCount: allItems.length });
-
-            // 📊 Analytics: Vue du feed
-            logFeedView(allItems.length);
-
-            // 4. Charger les interactions par batch pour optimiser
-            const itemsToLoad = allItems.slice(0, 20);
-            loadInteractionsBatch(itemsToLoad.map(item => item.id));
-
-        } catch (error) {
-            logger.error('Erreur chargement feed', { error: error.message });
-            logFeedError('load_feed', error.message);
-            setError(error.message || 'Erreur lors du chargement du fil');
-            setMessageBox({ message: 'Erreur lors du chargement du fil', type: 'error' });
-        } finally {
-            setLoading(false);
-        }
-    }, [user, db, appId, setMessageBox]);
-
-    // ===== GESTION DES INTERACTIONS =====
-
-    // Charger les interactions par batch pour optimiser les requêtes
-    const loadInteractionsBatch = useCallback(async (itemIds) => {
-        const BATCH_SIZE = 5;
-        const batches = [];
-        
-        for (let i = 0; i < itemIds.length; i += BATCH_SIZE) {
-            batches.push(itemIds.slice(i, i + BATCH_SIZE));
-        }
-        
-        for (const batch of batches) {
-            await Promise.all(batch.map(itemId => loadInteractions(itemId)));
-            // Petit délai entre les batches pour éviter de surcharger Firebase
-            if (batches.indexOf(batch) < batches.length - 1) {
-                await new Promise(resolve => setTimeout(resolve, 200));
-            }
-        }
-    }, []);
+    // ===== GESTION DES INTERACTIONS (défini AVANT loadFeed) =====
 
     // Charger les interactions d'un item
-    const loadInteractions = async (itemId) => {
+    const loadInteractions = useCallback(async (itemId) => {
         try {
             logger.debug('Chargement interactions', { itemId });
             
@@ -529,7 +289,83 @@ const FeedPage = () => {
                 [itemId]: { likes: [], comments: [], congratulations: [] }
             }));
         }
-    };
+    }, [user, userProfile, friendsData, db, appId, getFeedInteractions]);
+
+    // Charger les interactions par batch pour optimiser les requêtes
+    const loadInteractionsBatch = useCallback(async (itemIds) => {
+        const BATCH_SIZE = 5;
+        const batches = [];
+        
+        for (let i = 0; i < itemIds.length; i += BATCH_SIZE) {
+            batches.push(itemIds.slice(i, i + BATCH_SIZE));
+        }
+        
+        for (const batch of batches) {
+            await Promise.all(batch.map(itemId => loadInteractions(itemId)));
+            // Petit délai entre les batches pour éviter de surcharger Firebase
+            if (batches.indexOf(batch) < batches.length - 1) {
+                await new Promise(resolve => setTimeout(resolve, 200));
+            }
+        }
+    }, [loadInteractions]);
+
+    // Charger le feed principal
+    const loadFeed = useCallback(async (isInitialLoad = true) => {
+        if (!db || !user || !appId) {
+            logger.debug('FeedPage: Firebase not ready, waiting');
+            setLoading(false);
+            return;
+        }
+        
+        try {
+            if (isInitialLoad) {
+                setLoading(true);
+                setError(null);
+            } else {
+                setLoadingMore(true);
+            }
+            logger.info('Chargement du feed...');
+
+            // 1. Charger les amis
+            const friends = await loadFriendsData();
+            setFriendsData(friends);
+
+            // 2. Charger les activités
+            const [myParties, friendsParties] = await Promise.all([
+                loadMyParties(),
+                loadFriendsParties(friends)
+            ]);
+
+            // 3. Combiner et trier
+            const allItems = [...myParties, ...friendsParties];
+            allItems.sort((a, b) => {
+                const dateA = a.timestamp?.toDate ? a.timestamp.toDate() : a.timestamp;
+                const dateB = b.timestamp?.toDate ? b.timestamp.toDate() : b.timestamp;
+                return dateB - dateA;
+            });
+
+            setFeedItems(allItems.slice(0, 20));
+            setHasMore(allItems.length > 20);
+            setLastVisible(allItems.length > 20 ? allItems[19] : null);
+            logger.info('Feed chargé', { itemsCount: allItems.length });
+
+            // 📊 Analytics: Vue du feed
+            logFeedView(allItems.length);
+
+            // 4. Charger les interactions par batch pour optimiser
+            const itemsToLoad = allItems.slice(0, 20);
+            loadInteractionsBatch(itemsToLoad.map(item => item.id));
+
+        } catch (error) {
+            logger.error('Erreur chargement feed', { error: error.message });
+            logFeedError('load_feed', error.message);
+            setError(error.message || 'Erreur lors du chargement du fil');
+            setMessageBox({ message: 'Erreur lors du chargement du fil', type: 'error' });
+        } finally {
+            setLoading(false);
+            setLoadingMore(false);
+        }
+    }, [user, db, appId, setMessageBox, loadInteractionsBatch, logFeedView, logFeedError]);
 
     // Vérifier si l'utilisateur a déjà interagi
     const hasUserInteracted = (itemId, type) => {
@@ -543,6 +379,195 @@ const FeedPage = () => {
         }
         return false;
     };
+
+    // ===== GÉRER LES INTERACTIONS (défini APRÈS loadInteractions) =====
+    
+    // Gérer une interaction (like, comment, etc.) avec mise à jour optimiste
+    const handleInteraction = useCallback(async (itemId, type, data = null) => {
+        if (isLoadingInteraction[itemId]) return;
+
+        // ✅ Vérifier le rate limiting manuellement
+        const rateLimitCheck = limitInteraction(() => {})();
+        try {
+            await rateLimitCheck;
+        } catch (error) {
+            if (error.message.includes('Trop de requêtes')) {
+                toast.error(error.message);
+                return;
+            }
+        }
+
+        try {
+            logger.debug('Interaction', { type, itemId });
+
+            // Trouver le propriétaire de l'item seulement pour l'appel Firebase
+            const item = feedItems.find(i => i.id === itemId);
+            if (!item) {
+                logger.error('Item non trouvé', { itemId });
+                return;
+            }
+
+            // ⚡ MISE À JOUR OPTIMISTE : Met à jour l'UI instantanément
+            if (['like', 'love', 'haha', 'wow', 'sad', 'angry'].includes(type)) {
+                const currentInteractions = interactions[itemId] || { likes: [], comments: [], congratulations: [], reactions: {} };
+                const currentReactions = currentInteractions.reactions || {};
+                const userReaction = Object.keys(currentReactions).find(reactionType => 
+                    currentReactions[reactionType]?.some(r => r.userId === user.uid)
+                );
+                
+                // Si l'utilisateur a déjà réagi, on retire son ancienne réaction
+                let newReactions = { ...currentReactions };
+                if (userReaction) {
+                    newReactions[userReaction] = newReactions[userReaction].filter(r => r.userId !== user.uid);
+                    if (newReactions[userReaction].length === 0) {
+                        delete newReactions[userReaction];
+                    }
+                }
+                
+                // Ajouter la nouvelle réaction (sauf si c'était la même)
+                if (userReaction !== type) {
+                    newReactions[type] = [...(newReactions[type] || []), {
+                        userId: user.uid,
+                        username: userProfile?.username || 'Vous',
+                        timestamp: new Date()
+                    }];
+                    
+                    // Haptic feedback + toast
+                    hapticFeedback.light();
+                    const reactionEmoji = REACTIONS.find(r => r.type === type)?.emoji || '👍';
+                    toast.success(`${reactionEmoji} ${t('success.reactionAdded')}`);
+                    
+                    // 📊 Analytics: Interaction
+                    logFeedInteraction(type, item.type, itemId);
+                }
+                
+                // Calculer le nouveau userReaction après modification
+                const newUserReaction = Object.keys(newReactions).find(reactionType =>
+                    Array.isArray(newReactions[reactionType]) && newReactions[reactionType]?.some(r => r.userId === user.uid)
+                ) || null;
+                
+                setInteractions(prev => ({
+                    ...prev,
+                    [itemId]: {
+                        ...currentInteractions,
+                        reactions: newReactions,
+                        userReaction: newUserReaction
+                    }
+                }));
+                
+                // Fermer le picker après sélection
+                setShowReactionPicker(prev => ({ ...prev, [itemId]: false }));
+            } else if (type === 'comment' && data?.text) {
+                const currentInteractions = interactions[itemId] || { likes: [], comments: [], congratulations: [] };
+                const newComment = {
+                    id: `temp-${Date.now()}`,
+                    userId: user.uid,
+                    username: userProfile?.username || 'Vous',
+                    text: data.text,
+                    timestamp: new Date()
+                };
+                
+                setInteractions(prev => ({
+                    ...prev,
+                    [itemId]: {
+                        ...currentInteractions,
+                        comments: [...(currentInteractions.comments || []), newComment]
+                    }
+                }));
+                
+                // Haptic feedback + toast
+                hapticFeedback.medium();
+                toast.success(`💬 ${t('success.commentAdded')}`);
+            }
+
+            // Utiliser l'ID original pour Firebase
+            const originalId = item.originalId || itemId;
+
+            // 🚀 Envoyer la requête en arrière-plan (sans attendre)
+            handleFeedInteraction({
+                itemId: originalId,
+                itemType: item.type,
+                ownerId: item.userId,
+                interactionType: type,
+                content: data?.text || null,
+                appId
+            }).then(result => {
+                if (result?.data?.success) {
+                    logger.debug('Interaction synchronisée avec le serveur');
+                    // Recharger pour synchroniser avec les autres utilisateurs
+                    setTimeout(() => loadInteractions(itemId), 500);
+                } else {
+                    logger.error('Échec sync serveur, rollback', { error: result?.data?.error });
+                    // En cas d'erreur, recharger les vraies données
+                    loadInteractions(itemId);
+                }
+            }).catch(error => {
+                logger.error('Erreur sync serveur, rollback', { error: error.message });
+                // En cas d'erreur, recharger les vraies données  
+                loadInteractions(itemId);
+            });
+
+        } catch (error) {
+            logger.error('Erreur interaction', { error: error.message });
+            // En cas d'erreur, recharger les vraies données
+            loadInteractions(itemId);
+        }
+    }, [isLoadingInteraction, limitInteraction, feedItems, interactions, user, userProfile, handleFeedInteraction, appId, loadInteractions]);
+
+    // ===== INTERACTIONS MODERNES =====
+
+    // Double-tap to like (Instagram-style)
+    const handleDoubleTap = useCallback((itemId) => {
+        const now = Date.now();
+        const lastTapTime = lastTap[itemId] || 0;
+        
+        if (now - lastTapTime < 300) {
+            // Double tap détecté!
+            handleInteraction(itemId, 'like');
+            hapticFeedback.light();
+            
+            // Animation du coeur avec cleanup
+            setHeartAnimation(prev => ({ ...prev, [itemId]: true }));
+            const timer = setTimeout(() => {
+                setHeartAnimation(prev => ({ ...prev, [itemId]: false }));
+            }, 1000);
+            
+            // Cleanup si composant unmount
+            return () => clearTimeout(timer);
+            
+            logger.debug('Double-tap like', { itemId });
+        }
+        
+        setLastTap({ ...lastTap, [itemId]: now });
+    }, [lastTap, handleInteraction]);
+
+    // Pull-to-refresh
+    const handlePullRefresh = async () => {
+        if (refreshing) return;
+        
+        setRefreshing(true);
+        hapticFeedback.medium();
+        logger.info('Pull-to-refresh déclenché');
+        
+        await loadFeed();
+        
+        setRefreshing(false);
+        hapticFeedback.success();
+        toast.success('✨ Feed mis à jour!');
+    };
+
+    // Gesture pour pull-to-refresh
+    const bind = useGesture({
+        onDrag: ({ down, movement: [, my] }) => {
+            if (my > 0 && window.scrollY === 0) {
+                setPullY(down ? Math.min(my, 100) : 0);
+                
+                if (!down && my > 80) {
+                    handlePullRefresh();
+                }
+            }
+        },
+    });
 
     // Ajouter un commentaire
     const handleAddComment = useCallback(async (itemId, commentText) => {
@@ -836,10 +861,126 @@ const FeedPage = () => {
 
     // ===== EFFETS =====
 
+    // Charger plus d'items (infinite scroll)
+    const loadMore = useCallback(async () => {
+        if (!hasMore || loadingMore || !lastVisible || !db || !user || !appId) return;
+        
+        setLoadingMore(true);
+        try {
+            logger.info('Chargement de plus d\'items...');
+            
+            // Charger les soirées suivantes de l'utilisateur
+            const myPartiesQuery = query(
+                collection(db, `artifacts/${appId}/users/${user.uid}/parties`),
+                orderBy('timestamp', 'desc'),
+                startAfter(lastVisible.timestamp),
+                limit(5)
+            );
+            const myPartiesSnapshot = await getDocs(myPartiesQuery);
+            
+            const newMyParties = myPartiesSnapshot.docs.map(doc => ({
+                id: `${user.uid}-${doc.id}`,
+                type: 'party',
+                userId: user.uid,
+                username: userProfile?.username || 'Vous',
+                timestamp: doc.data().timestamp,
+                data: doc.data(),
+                isOwn: true,
+                originalId: doc.id
+            }));
+            
+            // Charger les soirées suivantes des amis
+            const friends = friendsData || {};
+            const newFriendsParties = [];
+            
+            for (const [friendId, friendData] of Object.entries(friends)) {
+                try {
+                    const partiesQuery = query(
+                        collection(db, `artifacts/${appId}/users/${friendId}/parties`),
+                        orderBy('timestamp', 'desc'),
+                        startAfter(lastVisible.timestamp),
+                        limit(2)
+                    );
+                    const snapshot = await getDocs(partiesQuery);
+                    
+                    snapshot.docs.forEach(doc => {
+                        newFriendsParties.push({
+                            id: `${friendId}-${doc.id}`,
+                            type: 'party',
+                            userId: friendId,
+                            username: friendData.username,
+                            timestamp: doc.data().timestamp,
+                            data: doc.data(),
+                            isOwn: false,
+                            originalId: doc.id
+                        });
+                    });
+                } catch (error) {
+                    logger.error('Erreur chargement plus soirées ami', { friendId, error: error.message });
+                }
+            }
+            
+            // Combiner et trier les nouveaux items
+            const newItems = [...newMyParties, ...newFriendsParties];
+            newItems.sort((a, b) => {
+                const dateA = a.timestamp?.toDate ? a.timestamp.toDate() : a.timestamp;
+                const dateB = b.timestamp?.toDate ? b.timestamp.toDate() : b.timestamp;
+                return dateB - dateA;
+            });
+            
+            if (newItems.length > 0) {
+                setFeedItems(prev => [...prev, ...newItems]);
+                setLastVisible(newItems[newItems.length - 1]);
+                setHasMore(newItems.length >= 5); // Si on a récupéré 5+ items, il y en a peut-être plus
+                
+                // Charger les interactions des nouveaux items
+                loadInteractionsBatch(newItems.map(item => item.id));
+                
+                logger.info('Plus d\'items chargés', { count: newItems.length });
+            } else {
+                setHasMore(false);
+                logger.info('Plus d\'items disponibles');
+            }
+        } catch (error) {
+            logger.error('Erreur chargement plus items', { error: error.message });
+            logFeedError('load_more', error.message);
+        } finally {
+            setLoadingMore(false);
+        }
+    }, [hasMore, loadingMore, lastVisible, db, user, appId, userProfile, friendsData, loadInteractionsBatch, logFeedError]);
+
+    // Détecter le scroll pour infinite scroll
+    useEffect(() => {
+        const handleScroll = () => {
+            const scrollTop = window.scrollY;
+            const windowHeight = window.innerHeight;
+            const documentHeight = document.documentElement.scrollHeight;
+            
+            // Charger plus quand on est à 80% du scroll
+            if (scrollTop + windowHeight >= documentHeight * 0.8) {
+                loadMore();
+            }
+        };
+
+        window.addEventListener('scroll', handleScroll, { passive: true });
+        return () => window.removeEventListener('scroll', handleScroll);
+    }, [loadMore]);
+
+    // Fonction de refresh pour PullToRefresh
+    const handleRefresh = useCallback(async () => {
+        setRefreshing(true);
+        logFeedRefresh();
+        await loadFeed(true);
+        setRefreshing(false);
+    }, [loadFeed]);
+
     // Charger le feed au démarrage (on ne met PAS loadFeed en dépendance pour éviter les boucles)
     useEffect(() => {
         if (user && userProfile && db) {
-            loadFeed();
+            // Vider les items existants pour forcer un rechargement complet
+            setFeedItems([]);
+            setInteractions({});
+            loadFeed(true);
         }
     }, [user, userProfile, db]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -856,7 +997,7 @@ const FeedPage = () => {
         return () => {
             window.removeEventListener('refreshFeed', handleFeedRefresh);
         };
-    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [loadFeed]);
 
     // ===== RENDU =====
 
@@ -869,77 +1010,57 @@ const FeedPage = () => {
                 color: 'white'
             }}>
                 <h2 style={{ fontSize: '28px', fontWeight: 'bold', marginBottom: '24px' }}>
-                    📱 Fil d'actualité
+                    📱 {t('feed.title')}
                 </h2>
-                <SkeletonCard count={3} />
+                <span className="sr-only" role="status" aria-live="polite">
+                    {t('feed.loading')}
+                </span>
+                <SkeletonPost />
+                <SkeletonPost />
+                <SkeletonPost />
             </div>
         );
     }
 
     if (error) {
-        return <ErrorFallback message={error} onRetry={loadFeed} />;
+        return <ErrorRetry error={error} onRetry={() => loadFeed(true)} />;
     }
 
     if (!loading && feedItems.length === 0) {
         return (
             <EmptyState 
-                title="Aucune activité"
-                message="Ajoutez des amis ou créez votre première soirée pour voir des activités ici"
-                actionLabel="Créer une soirée"
+                title={t('feed.empty')}
+                message={t('feed.emptyMessage')}
+                actionLabel={t('feed.emptyAction')}
                 onAction={() => window.location.href = '/'}
             />
         );
     }
 
     return (
-        <div 
-            {...bind()}
-            style={{
-                background: '#000',
-                minHeight: '100vh',
-                paddingBottom: '80px',
-                position: 'relative',
-                touchAction: 'pan-y'
-            }}
-        >
+        <PullToRefresh onRefresh={handleRefresh} threshold={80}>
+            <OfflineIndicator />
+            
+            <div 
+                className="feed-container"
+                {...bind()}
+            >
             {/* Pull-to-refresh indicator */}
             {pullY > 0 && (
-                <div style={{
-                    position: 'fixed',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    height: pullY > 80 ? '80px' : `${pullY}px`,
-                    background: 'linear-gradient(180deg, rgba(191, 0, 255, 0.3), transparent)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    zIndex: 9998,
-                    transition: pullY === 0 ? 'all 0.3s ease' : 'none'
-                }}>
-                    <div style={{
-                        background: 'rgba(0, 0, 0, 0.8)',
-                        backdropFilter: 'blur(10px)',
-                        padding: '8px 16px',
-                        borderRadius: '20px',
-                        border: '1px solid rgba(191, 0, 255, 0.5)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        opacity: Math.min(pullY / 80, 1)
-                    }}>
+                <div className="pull-indicator" style={{ height: pullY > 80 ? '80px' : `${pullY}px` }}>
+                    <div 
+                        className="pull-indicator-content" 
+                        style={{ opacity: Math.min(pullY / 80, 1) }}
+                        role="status"
+                        aria-live="polite"
+                        aria-label={pullY > 80 ? t('feed.releaseToRefresh') : t('feed.pullToRefresh')}>
                         <RefreshCw 
                             size={16} 
                             color="#bf00ff"
-                            style={{
-                                animation: pullY > 80 ? 'spin 1s linear infinite' : 'none'
-                            }}
+                            className={pullY > 80 ? 'spin-animation' : ''}
+                            aria-hidden="true"
                         />
-                        <span style={{ 
-                            color: '#bf00ff', 
-                            fontSize: '12px', 
-                            fontWeight: '600' 
-                        }}>
+                        <span className="pull-indicator-text">
                             {pullY > 80 ? 'Relâchez pour actualiser...' : 'Tirez pour actualiser'}
                         </span>
                     </div>
@@ -948,80 +1069,76 @@ const FeedPage = () => {
             
             {/* Loading overlay quand refresh en cours */}
             {refreshing && (
-                <div style={{
-                    position: 'fixed',
-                    top: '60px',
-                    left: '50%',
-                    transform: 'translateX(-50%)',
-                    background: 'rgba(0, 0, 0, 0.9)',
-                    backdropFilter: 'blur(10px)',
-                    padding: '12px 24px',
-                    borderRadius: '20px',
-                    border: '1px solid rgba(191, 0, 255, 0.5)',
-                    zIndex: 9999,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    boxShadow: '0 4px 20px rgba(191, 0, 255, 0.3)'
-                }}>
+                <div 
+                    className="refresh-overlay"
+                    role="status"
+                    aria-busy="true"
+                    aria-label={t('feed.refreshing')}>
                     <RefreshCw 
                         size={16} 
                         color="#bf00ff"
-                        style={{
-                            animation: 'spin 1s linear infinite'
-                        }}
+                        className="spin-animation"
+                        aria-hidden="true"
                     />
-                    <span style={{ color: '#bf00ff', fontSize: '14px', fontWeight: '600' }}>
-                        Actualisation...
+                    <span className="refresh-overlay-text">
+                        {t('feed.refreshing')}
                     </span>
                 </div>
             )}
             
             {/* Instagram-style Header */}
-            <div style={{
-                position: 'sticky',
-                top: 0,
-                zIndex: 100,
-                background: '#000',
-                borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
-                padding: '12px 16px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between'
-            }}>
-                <h1 style={{
-                    fontSize: '24px',
-                    fontWeight: '700',
-                    color: '#fff',
-                    fontFamily: 'Billabong, cursive, sans-serif',
-                    margin: 0
-                }}>
-                    DrinkWise
-                </h1>
-                <button
-                    onClick={loadFeed}
-                    disabled={refreshing}
-                    aria-label="Rafraîchir le feed"
-                    style={{
-                        background: 'none',
-                        border: 'none',
-                        color: '#fff',
-                        cursor: 'pointer',
-                        padding: '8px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        opacity: refreshing ? 0.5 : 1
-                    }}
-                >
-                    <RefreshCw 
-                        size={24} 
-                        style={{ 
-                            transition: 'transform 0.3s ease',
-                            transform: refreshing ? 'rotate(360deg)' : 'rotate(0deg)'
-                        }} 
-                    />
-                </button>
+            <div className="feed-header">
+                <div className="feed-header-top">
+                    <h1 className="feed-header-title">
+                        DrinkWise
+                    </h1>
+                    <button
+                        onClick={loadFeed}
+                        disabled={refreshing}
+                        aria-label={t('feed.refreshing')}
+                        style={{
+                            background: 'none',
+                            border: 'none',
+                            color: '#fff',
+                            cursor: 'pointer',
+                            padding: '8px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            opacity: refreshing ? 0.5 : 1
+                        }}
+                    >
+                        <RefreshCw 
+                            size={24} 
+                            style={{ 
+                                transition: 'transform 0.3s ease',
+                                transform: refreshing ? 'rotate(360deg)' : 'rotate(0deg)'
+                            }} 
+                        />
+                    </button>
+                </div>
+
+                {/* Filtres */}
+                <div className="feed-filters">
+                    <button 
+                        className={`feed-filter-btn ${filter === 'all' ? 'active' : ''}`}
+                        onClick={() => setFilter('all')}
+                    >
+                        🌍 {t('feed.filters.all')}
+                    </button>
+                    <button 
+                        className={`feed-filter-btn ${filter === 'friends' ? 'active' : ''}`}
+                        onClick={() => setFilter('friends')}
+                    >
+                        👥 {t('feed.filters.friends')}
+                    </button>
+                    <button 
+                        className={`feed-filter-btn ${filter === 'own' ? 'active' : ''}`}
+                        onClick={() => setFilter('own')}
+                    >
+                        ⭐ {t('feed.filters.own')}
+                    </button>
+                </div>
             </div>
 
             {/* Feed content */}
@@ -1031,7 +1148,11 @@ const FeedPage = () => {
                 width: '100%'
             }}>
                 <AnimatedList
-                    items={feedItems}
+                    items={feedItems.filter(item => {
+                        if (filter === 'own') return item.isOwn;
+                        if (filter === 'friends') return !item.isOwn;
+                        return true;
+                    })}
                     renderItem={(item) => (
                         <PartyItem 
                             item={item} 
@@ -1089,6 +1210,7 @@ const FeedPage = () => {
                                 e.stopPropagation();
                                 setSelectedPhoto(null);
                             }}
+                            aria-label={t('common.close')}
                             style={{
                                 position: 'absolute',
                                 top: '-10px',
@@ -1128,7 +1250,32 @@ const FeedPage = () => {
                     }}
                 />
             )}
+            
+            {/* Infinite scroll loading indicator */}
+            {loadingMore && (
+                <div style={{
+                    padding: '20px',
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center'
+                }}>
+                    <LoadingSpinner />
+                </div>
+            )}
+            
+            {/* End of feed indicator */}
+            {!hasMore && feedItems.length > 0 && (
+                <div style={{
+                    padding: '40px 20px',
+                    textAlign: 'center',
+                    color: 'rgba(255, 255, 255, 0.4)',
+                    fontSize: '14px'
+                }}>
+                    {t('feed.endOfFeed')}
+                </div>
+            )}
         </div>
+        </PullToRefresh>
     );
 };
 

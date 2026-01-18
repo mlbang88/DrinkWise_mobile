@@ -1,4 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { t } from '../utils/i18n';
+
 import { motion } from 'framer-motion';
 import { Heart, MessageCircle, Share2, MapPin, Users, Trophy, Calendar, Play } from 'lucide-react';
 import { useGesture } from '@use-gesture/react';
@@ -35,19 +37,10 @@ const InstagramPost = ({
   const [commentText, setCommentText] = useState('');
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
   const [showReactionPicker, setShowReactionPicker] = useState(false);
+  const [showAllComments, setShowAllComments] = useState(false); // Preview commentaires
   const [longPressTimer, setLongPressTimer] = useState(null);
   const reactionPickerRef = useRef(null);
 
-  // Debug: Log les re-renders
-  useEffect(() => {
-    logger.debug('InstagramPost RENDER', { 
-      postId: post?.id || 'NO_ID', 
-      likesCount, 
-      isLiked,
-      userReaction,
-      timestamp: Date.now() 
-    });
-  });
 
   // Trouver l'emoji de la réaction active
   const activeReactionEmoji = useMemo(() => {
@@ -268,7 +261,7 @@ const InstagramPost = ({
                 key={allMedia[currentMediaIndex].url}
                 src={allMedia[currentMediaIndex].url}
                 alt={`Photo ${currentMediaIndex + 1} sur ${allMedia.length} de ${user?.username || 'l\'utilisateur'} - ${post.content || 'Soirée'}`}
-                loading="eager"
+                loading="lazy"
                 decoding="async"
                 style={{
                   width: '100%',
@@ -284,7 +277,7 @@ const InstagramPost = ({
             key={post.photoURL}
             src={post.photoURL}
             alt={`Photo de ${user?.username || 'l\'utilisateur'} - ${post.content || 'Soirée'}`}
-            loading="eager"
+            loading="lazy"
             decoding="async"
             style={{
               width: '100%',
@@ -843,45 +836,72 @@ const InstagramPost = ({
           }}
         >
           {post.comments && post.comments.length > 0 ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '16px' }}>
-              {post.comments.map((comment, index) => (
-                <div key={index} style={{
-                  display: 'flex',
-                  gap: '8px',
-                  padding: '8px',
-                  background: 'rgba(255, 255, 255, 0.05)',
-                  borderRadius: '8px'
-                }}>
-                  <div style={{
-                    width: 24,
-                    height: 24,
-                    borderRadius: '50%',
-                    background: 'linear-gradient(45deg, #bf00ff, #ff00ff)',
+            <>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '16px' }}>
+                {(showAllComments ? post.comments : post.comments.slice(0, 3)).map((comment, index) => (
+                  <div key={index} style={{
                     display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: '12px',
-                    color: '#fff',
-                    flexShrink: 0
+                    gap: '8px',
+                    padding: '8px',
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    borderRadius: '8px'
                   }}>
-                    {(comment.username || '?')[0].toUpperCase()}
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ color: '#bf00ff', fontSize: '12px', fontWeight: '600' }}>
-                      {comment.username || 'Utilisateur'}
+                    <div style={{
+                      width: 24,
+                      height: 24,
+                      borderRadius: '50%',
+                      background: 'linear-gradient(45deg, #bf00ff, #ff00ff)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '12px',
+                      color: '#fff',
+                      flexShrink: 0
+                    }}>
+                      {(comment.username || '?')[0].toUpperCase()}
                     </div>
-                    <div style={{ color: '#fff', fontSize: '13px', marginTop: '2px' }}>
-                      <span dangerouslySetInnerHTML={{ 
-                        __html: DOMPurify.sanitize(comment.text || comment.content || '', {
-                          ALLOWED_TAGS: ['br'],
-                          ALLOWED_ATTR: []
-                        })
-                      }} />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ color: '#bf00ff', fontSize: '12px', fontWeight: '600' }}>
+                        {comment.username || 'Utilisateur'}
+                      </div>
+                      <div style={{ color: '#fff', fontSize: '13px', marginTop: '2px' }}>
+                        <span dangerouslySetInnerHTML={{ 
+                          __html: DOMPurify.sanitize(comment.text || comment.content || '', {
+                            ALLOWED_TAGS: ['br'],
+                            ALLOWED_ATTR: []
+                          })
+                        }} />
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+
+              {/* Bouton "Voir plus" si plus de 3 commentaires */}
+              {post.comments.length > 3 && (
+                <button
+                  onClick={() => setShowAllComments(!showAllComments)}
+                  style={{
+                    width: '100%',
+                    padding: '8px',
+                    marginBottom: '16px',
+                    background: 'rgba(191, 0, 255, 0.1)',
+                    border: '1px solid rgba(191, 0, 255, 0.3)',
+                    borderRadius: '8px',
+                    color: '#bf00ff',
+                    fontSize: '13px',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  {showAllComments 
+                    ? t('post.hideComments')
+                    : t('post.viewMoreComments', { count: post.comments.length - 3 })
+                  }
+                </button>
+              )}
+            </>
           ) : (
             <div style={{
               color: '#a0a0a0',

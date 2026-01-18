@@ -3,14 +3,13 @@ import { ExperienceService } from './experienceService';
 import { getWeekId, getMonthId } from '../utils/helpers';
 
 export const challengeService = {
-    // DEPRECATED: Utiliser ExperienceService.calculateRealStats avec filtre de période
-    calculatePeriodStats: (parties, period = 'weekly') => {
-        console.warn('⚠️ DEPRECATED: challengeService.calculatePeriodStats - Utiliser ExperienceService.calculateRealStats');
+    // ✅ Filtrer parties par période
+    filterPartiesByPeriod: (parties, period = 'weekly') => {
         const now = new Date();
         const currentWeekId = getWeekId(now);
         const currentMonthId = getMonthId(now);
         
-        const periodParties = parties.filter(party => {
+        return parties.filter(party => {
             const partyDate = party.timestamp?.toDate ? party.timestamp.toDate() : new Date(party.date || party.timestamp);
             const partyWeekId = getWeekId(partyDate);
             const partyMonthId = getMonthId(partyDate);
@@ -22,51 +21,18 @@ export const challengeService = {
             }
             return false;
         });
-
-        const stats = {
-            totalParties: periodParties.length,
-            totalDrinks: 0,
-            totalVomi: 0,
-            totalFights: 0,
-            totalRecal: 0,
-            totalGirlsTalkedTo: 0,
-            uniqueLocations: new Set(),
-            drinkTypes: {},
-            partyTypes: {}
-        };
-
-        periodParties.forEach(party => {
-            if (party.drinks) {
-                party.drinks.forEach(drink => {
-                    stats.totalDrinks += drink.quantity || 0;
-                    stats.drinkTypes[drink.type] = (stats.drinkTypes[drink.type] || 0) + (drink.quantity || 0);
-                });
-            }
-            
-            stats.totalVomi += party.vomi || 0;
-            stats.totalFights += party.fights || 0;
-            stats.totalRecal += party.recal || 0;
-            stats.totalGirlsTalkedTo += party.girlsTalkedTo || 0;
-            
-            if (party.location) {
-                stats.uniqueLocations.add(party.location.toLowerCase());
-            }
-            if (party.category) {
-                stats.partyTypes[party.category] = (stats.partyTypes[party.category] || 0) + 1;
-            }
-        });
-
-        stats.uniqueLocations = stats.uniqueLocations.size;
-        return stats;
     },
 
     // Vérifier quels challenges sont complétés
-    checkCompletedChallenges: (parties, completedChallenges = {}) => {
+    checkCompletedChallenges: (parties, completedChallenges = {}, userProfile = null) => {
         console.log("🎯 checkCompletedChallenges called:", { partiesCount: parties.length, completedChallenges });
         
         const newlyCompleted = [];
-        const weeklyStats = challengeService.calculatePeriodStats(parties, 'weekly');
-        const monthlyStats = challengeService.calculatePeriodStats(parties, 'monthly');
+        // ✅ Utiliser ExperienceService.calculateRealStats au lieu de calculatePeriodStats
+        const weeklyParties = challengeService.filterPartiesByPeriod(parties, 'weekly');
+        const monthlyParties = challengeService.filterPartiesByPeriod(parties, 'monthly');
+        const weeklyStats = ExperienceService.calculateRealStats(weeklyParties, userProfile);
+        const monthlyStats = ExperienceService.calculateRealStats(monthlyParties, userProfile);
 
         console.log("📊 Stats calculées:", { weeklyStats, monthlyStats });
 
@@ -110,9 +76,12 @@ export const challengeService = {
     },
 
     // Obtenir le statut de tous les challenges
-    getChallengesWithStatus: (parties, completedChallenges = {}) => {
-        const weeklyStats = challengeService.calculatePeriodStats(parties, 'weekly');
-        const monthlyStats = challengeService.calculatePeriodStats(parties, 'monthly');
+    getChallengesWithStatus: (parties, completedChallenges = {}, userProfile = null) => {
+        // ✅ Utiliser les nouvelles fonctions au lieu de calculatePeriodStats deprecated
+        const weeklyParties = challengeService.filterPartiesByPeriod(parties, 'weekly');
+        const monthlyParties = challengeService.filterPartiesByPeriod(parties, 'monthly');
+        const weeklyStats = ExperienceService.calculateRealStats(weeklyParties, userProfile);
+        const monthlyStats = ExperienceService.calculateRealStats(monthlyParties, userProfile);
         
         return Object.values(challengeList).map(challenge => {
             const stats = challenge.type === 'weekly' ? weeklyStats : monthlyStats;

@@ -1,13 +1,14 @@
 import React from 'react';
-import { Home, Users, Trophy, User } from 'lucide-react';
+import { Home, Users, Trophy, User, Rss } from 'lucide-react';
 import { motion } from 'framer-motion';
 import '../styles/BottomNav.css';
 
 const BottomNav = ({ currentPage, onNavigate }) => {
   const tabs = [
     { id: 'home', icon: Home, label: 'Accueil', navigateTo: 'home' },
-    { id: 'feed', icon: Users, label: 'Feed', badge: null, navigateTo: 'feed' },
+    { id: 'feed', icon: Rss, label: 'Feed', badge: null, navigateTo: 'feed' },
     { id: 'battle', icon: Trophy, label: 'Battles', navigateTo: 'battle' },
+    { id: 'friends', icon: Users, label: 'Amis', navigateTo: 'friends' },
     { id: 'profile', icon: User, label: 'Profil', navigateTo: 'profile' }
   ];
 

@@ -13,6 +13,7 @@ import { logger } from '../utils/logger.js';
 import { useModalAnimation } from '../hooks/useAnimation.js';
 import useBattleRoyale from '../hooks/useBattleRoyale.js';
 import BattleModeGuide from './BattleModeGuide.jsx';
+import { ExperienceService } from '../services/experienceService';
 
 // Phase 2C: Animation components
 import AnimatedButton from './AnimatedButton';
@@ -359,6 +360,10 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
             realTimeTracking: realTimeMode
         };
         console.log("📋 Données de soirée:", partyData);
+        
+        // ✅ Calculer et sauvegarder XP pour éviter double comptage
+        const xpEarned = ExperienceService.calculatePartyXP(partyData);
+        partyData.xpEarned = xpEarned;
         
         try {
             const docRef = await addDoc(collection(db, `artifacts/${appId}/users/${user.uid}/parties`), partyData);
@@ -1156,6 +1161,55 @@ const AddPartyModal = ({ onClose, onPartySaved, draftData }) => {
                                 <PlusCircle size={20} />
                                 Ajouter
                             </button>
+                            
+                            {/* ✨ Aperçu XP */}
+                            {drinks.length > 0 && (
+                                <div style={{
+                                    marginTop: '16px',
+                                    padding: '12px',
+                                    background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(34, 197, 94, 0.15))',
+                                    border: '1px solid rgba(139, 92, 246, 0.3)',
+                                    borderRadius: '10px'
+                                }}>
+                                    <div style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        marginBottom: '8px'
+                                    }}>
+                                        <span style={{ 
+                                            color: 'rgba(255, 255, 255, 0.7)', 
+                                            fontSize: '12px',
+                                            fontWeight: '600'
+                                        }}>
+                                            ✨ XP Prévu
+                                        </span>
+                                        <span style={{ 
+                                            color: '#22c55e', 
+                                            fontSize: '20px', 
+                                            fontWeight: '700',
+                                            textShadow: '0 2px 10px rgba(34, 197, 94, 0.5)'
+                                        }}>
+                                            +{ExperienceService.calculatePartyXP({ 
+                                                drinks, 
+                                                battleMode: selectedBattleMode, 
+                                                companions, 
+                                                location,
+                                                battlePoints: 0 
+                                            })} XP
+                                        </span>
+                                    </div>
+                                    <div style={{
+                                        fontSize: '11px',
+                                        color: 'rgba(255, 255, 255, 0.5)',
+                                        lineHeight: '1.4'
+                                    }}>
+                                        <div>🍺 Base: {ExperienceService.CONFIG.XP_PER_PARTY}XP + {drinks.length}×{ExperienceService.CONFIG.XP_PER_DRINK}XP</div>
+                                        <div>🎯 Mode: ×{ExperienceService.CONFIG.BATTLE_MODE_MULTIPLIERS[selectedBattleMode]}</div>
+                                        {companions.selectedNames.length > 0 && <div>👥 Groupe: +{Math.round(drinks.length * ExperienceService.CONFIG.XP_PER_DRINK * 0.2)}XP</div>}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                         {/* Statistiques en grille 2x2 */}
                         <div>

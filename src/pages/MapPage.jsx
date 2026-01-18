@@ -13,6 +13,7 @@ import ZoneOverlay from '../components/ZoneOverlay';
 import TerritoryHistory from '../components/TerritoryHistory';
 import GlobalLeaderboard from '../components/GlobalLeaderboard';
 import BattleArena from '../components/BattleArena';
+import FloatingParticles from '../components/FloatingParticles';
 
 /**
  * MapPage - Carte interactive des territoires conquis
@@ -42,6 +43,7 @@ const MapPage = ({ setCurrentPage }) => {
     const [battleVenue, setBattleVenue] = useState(null);
     const [showFilters, setShowFilters] = useState(false);
     const [showZones, setShowZones] = useState(false); // Zones cachées par défaut
+    const [showMoreMenu, setShowMoreMenu] = useState(false); // Menu Plus
     const [mapFilter, setMapFilter] = useState({
         distance: 10000,
         showUserVenues: true,
@@ -318,6 +320,8 @@ const MapPage = ({ setCurrentPage }) => {
                             onClick={() => setShowFilters(!showFilters)}
                             className="p-2 hover:bg-gray-700/50 rounded-lg transition-colors"
                             title="Filtres de carte"
+                            aria-label="Ouvrir les filtres de carte"
+                            aria-pressed={showFilters}
                         >
                             <Filter size={24} style={{ color: showFilters ? '#fbbf24' : '#9ca3af' }} />
                         </button>
@@ -326,41 +330,85 @@ const MapPage = ({ setCurrentPage }) => {
                             onClick={() => setShowZones(!showZones)}
                             className="p-2 hover:bg-gray-700/50 rounded-lg transition-colors"
                             title="Zones de contrôle"
+                            aria-label="Afficher les zones de contrôle"
+                            aria-pressed={showZones}
                         >
                             <Target size={24} style={{ color: showZones ? '#10b981' : '#9ca3af' }} />
                         </button>
 
-                        <button
-                            onClick={() => setShowBattleArena(true)}
-                            className="p-2 hover:bg-gray-700/50 rounded-lg transition-colors"
-                            title="Battle Arena"
-                        >
-                            <Swords size={24} style={{ color: '#ef4444' }} />
-                        </button>
-
-                        <button
-                            onClick={() => setShowHistory(true)}
-                            className="p-2 hover:bg-gray-700/50 rounded-lg transition-colors"
-                            title="Timeline des conquêtes"
-                        >
-                            <History size={24} style={{ color: '#22c55e' }} />
-                        </button>
-
-                        <button
-                            onClick={() => setShowGlobalLeaderboard(true)}
-                            className="p-2 hover:bg-gray-700/50 rounded-lg transition-colors"
-                            title="Classement mondial"
-                        >
-                            <Globe size={24} style={{ color: '#3b82f6' }} />
-                        </button>
-
-                        <button
-                            onClick={() => setShowLeaderboard(!showLeaderboard)}
-                            className="p-2 hover:bg-gray-700/50 rounded-lg transition-colors"
-                            title="Classement local"
-                        >
-                            <Trophy size={24} style={{ color: '#8b5cf6' }} />
-                        </button>
+                        {/* Menu Plus */}
+                        <div style={{ position: 'relative' }}>
+                            <button
+                                onClick={() => setShowMoreMenu(!showMoreMenu)}
+                                className="p-2 hover:bg-gray-700/50 rounded-lg transition-colors"
+                                title="Plus d'options"
+                                aria-label="Ouvrir le menu d'options"
+                                aria-expanded={showMoreMenu}
+                                aria-haspopup="menu"
+                            >
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: showMoreMenu ? '#8b5cf6' : '#9ca3af' }}>
+                                    <circle cx="12" cy="12" r="1" />
+                                    <circle cx="12" cy="5" r="1" />
+                                    <circle cx="12" cy="19" r="1" />
+                                </svg>
+                            </button>
+                            
+                            {/* Dropdown Menu */}
+                            {showMoreMenu && (
+                                <div 
+                                    role="menu"
+                                    style={{
+                                        position: 'absolute',
+                                        top: '100%',
+                                        right: 0,
+                                        marginTop: '8px',
+                                        backgroundColor: '#1f2937',
+                                        border: '1px solid rgba(139, 92, 246, 0.3)',
+                                        borderRadius: '12px',
+                                        padding: '8px',
+                                        minWidth: '200px',
+                                        boxShadow: '0 8px 24px rgba(0, 0, 0, 0.4)',
+                                        zIndex: 1001
+                                    }}
+                                >
+                                    <button
+                                        role="menuitem"
+                                        onClick={() => { setShowBattleArena(true); setShowMoreMenu(false); }}
+                                        className="w-full flex items-center gap-3 p-3 hover:bg-gray-700/50 rounded-lg transition-colors text-left"
+                                    >
+                                        <Swords size={20} style={{ color: '#ef4444' }} />
+                                        <span className="text-white text-sm font-medium">Battle Arena</span>
+                                    </button>
+                                    
+                                    <button
+                                        role="menuitem"
+                                        onClick={() => { setShowHistory(true); setShowMoreMenu(false); }}
+                                        className="w-full flex items-center gap-3 p-3 hover:bg-gray-700/50 rounded-lg transition-colors text-left"
+                                    >
+                                        <History size={20} style={{ color: '#22c55e' }} />
+                                        <span className="text-white text-sm font-medium">Timeline</span>
+                                    </button>
+                                    
+                                    <button
+                                        role="menuitem"
+                                        onClick={() => { setShowGlobalLeaderboard(true); setShowMoreMenu(false); }}
+                                        className="w-full flex items-center gap-3 p-3 hover:bg-gray-700/50 rounded-lg transition-colors text-left"
+                                    >
+                                        <Globe size={20} style={{ color: '#3b82f6' }} />
+                                        <span className="text-white text-sm font-medium">Classement mondial</span>
+                                    </button>
+                                    
+                                    <button
+                                        role="menuitem"
+                                        onClick={() => { setShowLeaderboard(!showLeaderboard); setShowMoreMenu(false); }}
+                                        className="w-full flex items-center gap-3 p-3 hover:bg-gray-700/50 rounded-lg transition-colors text-left"
+                                    >
+                                        <Trophy size={20} style={{ color: '#8b5cf6' }} />
+                                        <span className="text-white text-sm font-medium">Classement local</span>
+                                    </button>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
 

@@ -27,7 +27,13 @@ export const useUserLevel = (userProfile) => {
       };
     }
 
-    // UNIQUE SOURCE: Toujours utiliser les mêmes propriétés
+    // ✅ SOURCE UNIQUE DE VÉRITÉ: Utiliser publicStats.totalXP qui est déjà calculé et sauvegardé
+    // publicStats est mis à jour par badgeService.updatePublicStats qui calcule le vrai XP depuis toutes les parties
+    const xp = userProfile?.publicStats?.totalXP ?? 0;
+    const level = userProfile?.publicStats?.level ?? ExperienceService.calculateLevel(xp);
+    const levelName = userProfile?.publicStats?.levelName ?? ExperienceService.getLevelName(level);
+
+    // Stats pour affichage
     const stats = {
       totalParties: userProfile?.publicStats?.totalParties ?? 0,
       totalDrinks: userProfile?.publicStats?.totalDrinks ?? 0,
@@ -36,13 +42,8 @@ export const useUserLevel = (userProfile) => {
       totalQuizQuestions: userProfile?.publicStats?.totalQuizQuestions ?? 0
     };
 
-    console.log('🎯 useUserLevel - Stats:', stats);
+    console.log('🎯 useUserLevel - Utilisation publicStats:', { xp, level, levelName });
 
-    // UNIQUE CALCUL: Même formule partout - passer l'objet stats directement
-    const xp = ExperienceService.calculateTotalXP(stats);
-
-    const level = ExperienceService.calculateLevel(xp);
-    const levelName = ExperienceService.getLevelName(level);
     const xpForNextLevel = ExperienceService?.getXpForLevel 
       ? ExperienceService.getXpForLevel(level + 1) 
       : 100;
@@ -62,6 +63,9 @@ export const useUserLevel = (userProfile) => {
       stats
     };
   }, [
+    userProfile?.publicStats?.totalXP,
+    userProfile?.publicStats?.level,
+    userProfile?.publicStats?.levelName,
     userProfile?.publicStats?.totalParties,
     userProfile?.publicStats?.totalDrinks,
     userProfile?.publicStats?.challengesCompleted,

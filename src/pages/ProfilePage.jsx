@@ -152,8 +152,8 @@ const ProfilePage = ({ setCurrentPage }) => {
                 maxWidth: '440px',
                 margin: '20px auto',
                 padding: '36px'
-            }}>
-                <h1 style={{
+            }} role="main" aria-labelledby="profile-heading">
+                <h1 id="profile-heading" style={{
                     background: 'linear-gradient(135deg, #a855f7 0%, #8b5cf6 50%, #7c3aed 100%)',
                     WebkitBackgroundClip: 'text',
                     WebkitTextFillColor: 'transparent',
@@ -305,7 +305,7 @@ const ProfilePage = ({ setCurrentPage }) => {
                     marginBottom: '32px',
                     boxShadow: '0 4px 16px rgba(0, 0, 0, 0.1)'
                 }}>
-                    <label style={{
+                    <label htmlFor="username-input" style={{
                         display: 'block',
                         fontSize: '16px',
                         fontWeight: '600',
@@ -316,9 +316,12 @@ const ProfilePage = ({ setCurrentPage }) => {
                         📝 Nom d'utilisateur
                     </label>
                     <input 
+                        id="username-input"
                         type="text"
                         value={newUsername}
                         onChange={(e) => handleUsernameChange(e.target.value)}
+                        aria-invalid={!usernameValidation.isValid}
+                        aria-describedby="username-validation"
                         style={{
                             width: '100%',
                             padding: '16px 20px',
@@ -336,7 +339,7 @@ const ProfilePage = ({ setCurrentPage }) => {
                     />
                     
                     {/* Messages de validation */}
-                    <div style={{ marginTop: '12px', minHeight: '24px' }}>
+                    <div id="username-validation" style={{ marginTop: '12px', minHeight: '24px' }} role="status" aria-live="polite">
                         {checkingUsername && (
                             <div style={{
                                 fontSize: '13px',
@@ -420,16 +423,20 @@ const ProfilePage = ({ setCurrentPage }) => {
                         }}>
                             🌍 Profil Public
                         </span>
-                    <label style={{
+                    <label htmlFor="public-toggle" style={{
                         position: 'relative',
                         display: 'inline-block',
                         width: '50px',
                         height: '24px'
                     }}>
                         <input
+                            id="public-toggle"
                             type="checkbox"
+                            role="switch"
                             checked={userProfile?.isPublic || false}
                             onChange={(e) => handleTogglePublic(e.target.checked)}
+                            aria-label="Rendre le profil public"
+                            aria-checked={userProfile?.isPublic || false}
                             style={{
                                 opacity: 0,
                                 width: 0,
@@ -606,6 +613,7 @@ const ProfilePage = ({ setCurrentPage }) => {
                 {/* Bouton Déconnexion */}
                 <button
                     onClick={handleSignOut}
+                    aria-label="Se déconnecter de l'application"
                     style={{
                         width: '100%',
                         padding: '16px 24px',
@@ -625,7 +633,6 @@ const ProfilePage = ({ setCurrentPage }) => {
                         transition: 'all 0.3s ease',
                         letterSpacing: '-0.01em'
                     }}
-                    aria-label="Se déconnecter de l'application"
                 >
                     <span>🚀</span>
                     Déconnexion

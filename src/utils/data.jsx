@@ -68,23 +68,37 @@ export const partyCategories = [
 ];
 
 export const badgeList = {
-    'first_party': { name: "Le Baptême du Feu", description: "Enregistrer sa toute première soirée.", icon: <Award size={24} />, criteria: (stats) => stats.totalParties >= 1 },
-    'drinks_1': { name: "Buveur Novice", description: "Boire 50 verres au total.", icon: <Beer size={24} />, criteria: (stats) => stats.totalDrinks >= 50 },
-    'drinks_2': { name: "Pilier de Bar", description: "Boire 250 verres au total.", icon: <Beer size={24} />, criteria: (stats) => stats.totalDrinks >= 250 },
-    'drinks_3': { name: "Légende de la Soif", description: "Boire 1000 verres au total.", icon: <Beer size={24} />, criteria: (stats) => stats.totalDrinks >= 1000 },
-    'vomi_1': { name: "Premier Regret", description: "Vomir pour la première fois.", icon: <GlassWater size={24} />, criteria: (stats) => stats.totalVomi >= 1 },
-    'vomi_2': { name: "Habitué des Toilettes", description: "Vomir 10 fois au total.", icon: <GlassWater size={24} />, criteria: (stats) => stats.totalVomi >= 10 },
-    'fights_1': { name: "Le Bagarreur", description: "Participer à 5 bagarres.", icon: <Bomb size={24} />, criteria: (stats) => stats.totalFights >= 5 },
-    'iron_stomach': { name: "Estomac d'Acier", description: "Boire >10 verres en une soirée sans vomir.", icon: <Shield size={24} />, criteria: (stats, party) => party.drinks.reduce((sum, d) => sum + d.quantity, 0) >= 10 && party.vomi === 0 },
-    'pacifist': { name: "Le Pacifiste", description: "Participer à 20 soirées sans aucune bagarre.", icon: <Heart size={24} />, criteria: (stats) => stats.totalParties >= 20 && stats.totalFights === 0 },
-    'legendary_night': { name: "Nuit Légendaire", description: "Boire >15 verres en une seule soirée.", icon: <Sparkles size={24} />, criteria: (stats, party) => party.drinks.reduce((sum, d) => sum + d.quantity, 0) >= 15 },
-    'blackout_king': { name: "Roi du Blackout", description: "Obtenir 'Trou Noir Galactique' au quiz.", icon: <HelpCircle size={24} />, criteria: (stats, party) => party.partyTitle === "Trou Noir Galactique" },
-    'social_butterfly': { name: "Papillon Social", description: "Parler à 50 personnes au total.", icon: <Users size={24} />, criteria: (stats) => stats.totalGirlsTalkedTo >= 50 },
-    'heartbreaker': { name: "Le Brise-cœur", description: "Prendre 20 recals au total.", icon: <HeartOff size={24} />, criteria: (stats) => stats.totalRecal >= 20 },
-    'festival_goer': { name: "Festivalier", description: "Participer à 5 festivals.", icon: <PartyPopper size={24} />, criteria: (stats) => stats.partyTypes['Festival'] >= 5 },
-    'clubber': { name: "Clubber Invétéré", description: "Participer à 10 soirées en club.", icon: <Wine size={24} />, criteria: (stats) => stats.partyTypes['Clubbing'] >= 10 },
-    'sommelier': { name: "Sommelier en Herbe", description: "Boire 50 verres de vin.", icon: <Wine size={24} />, criteria: (stats) => stats.drinkTypes['Vin'] >= 50 },
-    'explorer': { name: "L'Explorateur", description: "Enregistrer des soirées dans 5 lieux différents.", icon: <MapPin size={24} />, criteria: (stats) => stats.uniqueLocations >= 5 },
+    // === BADGES COMMUNS (Common) - Premiers pas ===
+    'first_party': { name: "Le Baptême du Feu", description: "Enregistrer sa toute première soirée.", icon: <Award size={24} />, tier: 'common', xpBonus: 50, criteria: (stats) => stats.totalParties >= 1 },
+    'drinks_1': { name: "Buveur Novice", description: "Boire 50 verres au total.", icon: <Beer size={24} />, tier: 'common', xpBonus: 50, criteria: (stats) => stats.totalDrinks >= 50 },
+    'vomi_1': { name: "Premier Regret", description: "Vomir pour la première fois.", icon: <GlassWater size={24} />, tier: 'common', xpBonus: 30, criteria: (stats) => stats.totalVomi >= 1 },
+    'social_starter': { name: "Premier Contact", description: "Parler à 10 personnes au total.", icon: <Users size={24} />, tier: 'common', xpBonus: 50, criteria: (stats) => stats.totalGirlsTalkedTo >= 10 },
+    
+    // === BADGES RARES (Rare) - Progression significative ===
+    'drinks_2': { name: "Pilier de Bar", description: "Boire 250 verres au total.", icon: <Beer size={24} />, tier: 'rare', xpBonus: 100, criteria: (stats) => stats.totalDrinks >= 250 },
+    'iron_stomach': { name: "Estomac d'Acier", description: "Boire >10 verres en une soirée sans vomir.", icon: <Shield size={24} />, tier: 'rare', xpBonus: 100, criteria: (stats, party) => party.drinks.reduce((sum, d) => sum + d.quantity, 0) >= 10 && party.vomi === 0 },
+    'pacifist': { name: "Le Pacifiste", description: "Participer à 20 soirées sans aucune bagarre.", icon: <Heart size={24} />, tier: 'rare', xpBonus: 150, criteria: (stats) => stats.totalParties >= 20 && stats.totalFights === 0 },
+    'social_butterfly': { name: "Papillon Social", description: "Parler à 50 personnes au total.", icon: <Users size={24} />, tier: 'rare', xpBonus: 100, criteria: (stats) => stats.totalGirlsTalkedTo >= 50 },
+    'explorer': { name: "L'Explorateur", description: "Enregistrer des soirées dans 5 lieux différents.", icon: <MapPin size={24} />, tier: 'rare', xpBonus: 100, criteria: (stats) => stats.uniqueLocations >= 5 },
+    'festival_goer': { name: "Festivalier", description: "Participer à 5 festivals.", icon: <PartyPopper size={24} />, tier: 'rare', xpBonus: 100, criteria: (stats) => stats.partyTypes['Festival'] >= 5 },
+    'vomi_2': { name: "Habitué des Toilettes", description: "Vomir 10 fois au total.", icon: <GlassWater size={24} />, tier: 'rare', xpBonus: 75, criteria: (stats) => stats.totalVomi >= 10 },
+    'responsible_drinker': { name: "Le Responsable", description: "10 soirées consécutives sans vomir ni bagarre.", icon: <ShieldCheck size={24} />, tier: 'rare', xpBonus: 150, criteria: (stats) => stats.consecutiveCleanParties >= 10 },
+    
+    // === BADGES ÉPIQUES (Epic) - Accomplissements majeurs ===
+    'drinks_3': { name: "Légende de la Soif", description: "Boire 1000 verres au total.", icon: <Beer size={24} />, tier: 'epic', xpBonus: 250, criteria: (stats) => stats.totalDrinks >= 1000 },
+    'legendary_night': { name: "Nuit Légendaire", description: "Boire >15 verres en une seule soirée.", icon: <Sparkles size={24} />, tier: 'epic', xpBonus: 200, criteria: (stats, party) => party.drinks.reduce((sum, d) => sum + d.quantity, 0) >= 15 },
+    'clubber': { name: "Clubber Invétéré", description: "Participer à 10 soirées en club.", icon: <Wine size={24} />, tier: 'epic', xpBonus: 200, criteria: (stats) => stats.partyTypes['Clubbing'] >= 10 },
+    'sommelier': { name: "Sommelier en Herbe", description: "Boire 50 verres de vin.", icon: <Wine size={24} />, tier: 'epic', xpBonus: 200, criteria: (stats) => stats.drinkTypes['Vin'] >= 50 },
+    'social_master': { name: "Maître Social", description: "Parler à 100 personnes au total.", icon: <Users size={24} />, tier: 'epic', xpBonus: 250, criteria: (stats) => stats.totalGirlsTalkedTo >= 100 },
+    'fights_1': { name: "Le Bagarreur", description: "Participer à 5 bagarres.", icon: <Bomb size={24} />, tier: 'epic', xpBonus: 150, criteria: (stats) => stats.totalFights >= 5 },
+    'world_traveler': { name: "Globe-Trotter", description: "Enregistrer des soirées dans 15 lieux différents.", icon: <MapPin size={24} />, tier: 'epic', xpBonus: 250, criteria: (stats) => stats.uniqueLocations >= 15 },
+    
+    // === BADGES LÉGENDAIRES (Legendary) - Exploits rarissimes ===
+    'blackout_king': { name: "Roi du Blackout", description: "Obtenir 'Trou Noir Galactique' au quiz.", icon: <HelpCircle size={24} />, tier: 'legendary', xpBonus: 500, criteria: (stats, party) => party.partyTitle === "Trou Noir Galactique" },
+    'heartbreaker': { name: "Le Brise-cœur", description: "Prendre 20 recals au total.", icon: <HeartOff size={24} />, tier: 'legendary', xpBonus: 500, criteria: (stats) => stats.totalRecal >= 20 },
+    'party_god': { name: "Dieu de la Fête", description: "Participer à 100 soirées au total.", icon: <Trophy size={24} />, tier: 'legendary', xpBonus: 1000, criteria: (stats) => stats.totalParties >= 100 },
+    'drink_master': { name: "Maître des Boissons", description: "Boire 5000 verres au total.", icon: <Beer size={24} />, tier: 'legendary', xpBonus: 1000, criteria: (stats) => stats.totalDrinks >= 5000 },
+    'perfect_balance': { name: "Équilibre Parfait", description: "50 soirées consécutives sans vomir ni bagarre.", icon: <ShieldCheck size={24} />, tier: 'legendary', xpBonus: 1000, criteria: (stats) => stats.consecutiveCleanParties >= 50 },
 };
 
 export const challengeList = {

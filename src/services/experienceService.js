@@ -30,14 +30,15 @@ export class ExperienceService {
         };
     }
 
-    // === CALCUL XP PAR SOIRÉE (avec battleMode) ===
+    // === CALCUL XP PAR SOIRÉE (avec battleMode + Battle Points) ===
     static calculatePartyXP(partyData) {
         const { 
             drinks = [], 
             battleMode = 'balanced',
             companions = {},
             location = '',
-            duration = 0
+            duration = 0,
+            battlePoints = 0  // ✨ Battle Points du Battle Royale
         } = partyData;
         
         // XP de base
@@ -45,6 +46,12 @@ export class ExperienceService {
         
         // XP des boissons
         xp += drinks.length * this.CONFIG.XP_PER_DRINK;
+        
+        // ✨ Bonus Battle Points (conversion 1:1 avec multiplicateur)
+        if (battlePoints > 0) {
+            xp += battlePoints;
+            logger.debug(`experienceService: +${battlePoints} XP bonus Battle Points`);
+        }
         
         // Multiplicateur selon le style de jeu
         const modeMultiplier = this.CONFIG.BATTLE_MODE_MULTIPLIERS[battleMode] || 1.0;
@@ -90,23 +97,21 @@ export class ExperienceService {
     // === CALCUL XP UNIFIÉ ===
     static calculateTotalXP(stats, multipliers = {}) {
         const { 
-            totalParties = 0, 
-            totalDrinks = 0, 
+            totalPartiesXP = 0, // ✅ XP des parties depuis xpEarned sauvegardé
             totalBadges = 0, 
             totalChallenges = 0,
             totalQuizQuestions = 0
         } = stats;
         
-        // Calcul de base
+        // Calcul depuis XP sauvegardé (pas de re-calcul)
         const xpBreakdown = {
-            parties: totalParties * this.CONFIG.XP_PER_PARTY,
-            drinks: totalDrinks * this.CONFIG.XP_PER_DRINK,
+            parties: totalPartiesXP, // ✅ Utiliser XP sauvegardé
             badges: totalBadges * this.CONFIG.XP_PER_BADGE,
             challenges: totalChallenges * this.CONFIG.XP_PER_CHALLENGE,
             quiz: totalQuizQuestions * this.CONFIG.XP_PER_QUIZ_QUESTION
         };
         
-        let totalXP = xpBreakdown.parties + xpBreakdown.drinks + xpBreakdown.badges + xpBreakdown.challenges + xpBreakdown.quiz;
+        let totalXP = xpBreakdown.parties + xpBreakdown.badges + xpBreakdown.challenges + xpBreakdown.quiz;
         
         // Appliquer les multiplicateurs si présents
         let finalMultiplier = 1.0;
@@ -205,12 +210,15 @@ export class ExperienceService {
             totalBadges: userProfile?.unlockedBadges?.length || 0,
             totalChallenges: Object.keys(userProfile?.completedChallenges || {}).length,
             totalQuizQuestions: 0,
+            totalPartiesXP: 0, // ✅ XP cumulé depuis xpEarned sauvegardé
             uniqueLocations: new Set(),
             drinkTypes: {},
             partyTypes: {}
         };
 
         parties.forEach(party => {
+            // ✅ Accumuler XP sauvegardé (ou calculer si manquant pour rétrocompatibilité)
+            stats.totalPartiesXP += party.xpEarned || this.calculatePartyXP(party);
             // Calcul boissons et volume
             party.drinks?.forEach(drink => {
                 stats.totalDrinks += drink.quantity || 0;

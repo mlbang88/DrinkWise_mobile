@@ -10,6 +10,8 @@ import ProgressRing from '../components/ProgressRing';
 import AnimatedCounter from '../components/AnimatedCounter';
 import { DrinkWiseImages } from '../assets/DrinkWiseImages';
 import { logger } from '../utils/logger.js';
+import { motion } from 'framer-motion';
+import FloatingParticles from '../components/FloatingParticles';
 
 const ChallengesPage = () => {
     const { db, user, appId, userProfile, setMessageBox } = useContext(FirebaseContext);
@@ -206,7 +208,14 @@ const ChallengesPage = () => {
         }
 
         return (
-            <div style={{
+            <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                whileHover={{ scale: 1.02, boxShadow: challenge.completed ? '0 12px 40px rgba(16, 185, 129, 0.2)' : '0 12px 40px rgba(139, 69, 255, 0.2)' }}
+                transition={{ duration: 0.3 }}
+                role="article"
+                aria-label={`Défi: ${challenge.title}. ${challenge.description}. Progression: ${displayCurrent} sur ${displayTarget}. ${challenge.completed ? 'Complété!' : ''}`}
+                style={{
                 background: challenge.completed 
                     ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(5, 150, 105, 0.1) 100%)'
                     : 'linear-gradient(135deg, rgba(139, 69, 255, 0.15) 0%, rgba(124, 58, 237, 0.1) 100%)',
@@ -220,7 +229,8 @@ const ChallengesPage = () => {
                 boxShadow: challenge.completed 
                     ? '0 8px 32px rgba(16, 185, 129, 0.1)'
                     : '0 8px 32px rgba(139, 69, 255, 0.1)',
-                transition: 'all 0.3s ease'
+                transition: 'all 0.3s ease',
+                cursor: 'default'
             }}>
                 <div style={{
                     display: 'flex',
@@ -345,33 +355,43 @@ const ChallengesPage = () => {
                         </div>
                     )}
                 </div>
-            </div>
+            </motion.div>
         );
     };
 
     if (loading) return <LoadingSpinner />;
 
-    const backgroundStyle = {
-        minHeight: '100vh',
-        padding: '20px',
-        fontFamily: 'Arial, sans-serif',
-        color: 'white'
-    };
-
     return (
-        <div className="page-modern" style={backgroundStyle}>
+        <div 
+            className="page-modern" 
+            style={{
+                minHeight: '100vh',
+                background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
+                backgroundAttachment: 'fixed',
+                padding: '20px',
+                fontFamily: 'Arial, sans-serif',
+                color: 'white',
+                position: 'relative',
+                overflow: 'hidden'
+            }}
+        >
+            {/* Floating Particles Background */}
+            <FloatingParticles count={15} />
+            
             {/* Défis de la Semaine */}
             <div style={{
-                background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.015) 0%, rgba(255, 255, 255, 0.008) 100%)',
-                backdropFilter: 'blur(4px)',
-                borderRadius: '24px',
-                border: '1px solid rgba(255, 255, 255, 0.08)',
+                background: 'rgba(30, 30, 46, 0.6)',
+                backdropFilter: 'blur(20px)',
+                borderRadius: '20px',
+                border: '1px solid rgba(139, 92, 246, 0.2)',
                 padding: '28px',
                 marginBottom: '32px',
-                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.02)'
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+                position: 'relative',
+                zIndex: 1
             }}>
                 <h2 style={{
-                    background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
+                    background: 'linear-gradient(135deg, #a78bfa 0%, #ec4899 50%, #f472b6 100%)',
                     WebkitBackgroundClip: 'text',
                     WebkitTextFillColor: 'transparent',
                     backgroundClip: 'text',
@@ -383,7 +403,8 @@ const ChallengesPage = () => {
                     gap: '12px',
                     letterSpacing: '-0.02em',
                     textAlign: 'center',
-                    justifyContent: 'center'
+                    justifyContent: 'center',
+                    textShadow: '0 2px 20px rgba(167, 139, 250, 0.4)'
                 }}>
                     📅 Défis de la Semaine
                 </h2>

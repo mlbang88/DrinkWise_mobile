@@ -12,6 +12,7 @@ import VenueSearchModal from './VenueSearchModal';
 import PartySuggestions from './PartySuggestions';
 import { updateVenueControl } from '../services/venueService';
 import { StreakService } from '../services/streakService';
+import { ExperienceService } from '../services/experienceService';
 
 const BasicPartyModal = ({ onClose, onPartySaved }) => {
     const { db, storage, user, appId, userProfile, setMessageBox, functions } = useContext(FirebaseContext);
@@ -370,6 +371,10 @@ Comme un pote qui raconte. Mentionne le lieu, avec qui, les verres et les stats.
             mode: 'basic' // Marqueur pour identifier le mode
         };
         
+        // ✅ Calculer et sauvegarder XP pour éviter double comptage
+        const xpEarned = ExperienceService.calculatePartyXP(partyData);
+        partyData.xpEarned = xpEarned;
+        
         try {
             const docRef = await addDoc(collection(db, `artifacts/${appId}/users/${user.uid}/parties`), partyData);
 
@@ -709,6 +714,55 @@ Comme un pote qui raconte. Mentionne le lieu, avec qui, les verres et les stats.
                             <PlusCircle size={16} />
                             Ajouter une boisson
                         </button>
+                        
+                        {/* ✨ Aperçu XP */}
+                        {drinks.length > 0 && (
+                            <div style={{
+                                marginTop: '12px',
+                                padding: '12px',
+                                background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(34, 197, 94, 0.15))',
+                                border: '1px solid rgba(139, 92, 246, 0.3)',
+                                borderRadius: '10px'
+                            }}>
+                                <div style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    marginBottom: '8px'
+                                }}>
+                                    <span style={{ 
+                                        color: 'rgba(255, 255, 255, 0.7)', 
+                                        fontSize: '12px',
+                                        fontWeight: '600'
+                                    }}>
+                                        ✨ XP Prévu
+                                    </span>
+                                    <span style={{ 
+                                        color: '#22c55e', 
+                                        fontSize: '20px', 
+                                        fontWeight: '700',
+                                        textShadow: '0 2px 10px rgba(34, 197, 94, 0.5)'
+                                    }}>
+                                        +{ExperienceService.calculatePartyXP({ 
+                                            drinks, 
+                                            battleMode: 'balanced', 
+                                            companions, 
+                                            location,
+                                            battlePoints: 0 
+                                        })} XP
+                                    </span>
+                                </div>
+                                <div style={{
+                                    fontSize: '11px',
+                                    color: 'rgba(255, 255, 255, 0.5)',
+                                    lineHeight: '1.4'
+                                }}>
+                                    <div>🍺 Base: {ExperienceService.CONFIG.XP_PER_PARTY}XP + {drinks.length}×{ExperienceService.CONFIG.XP_PER_DRINK}XP</div>
+                                    <div>🎯 Mode Basique: ×{ExperienceService.CONFIG.BATTLE_MODE_MULTIPLIERS['balanced']}</div>
+                                    {companions.selectedNames.length > 0 && <div>👥 Groupe: +{Math.round(drinks.length * ExperienceService.CONFIG.XP_PER_DRINK * 0.2)}XP</div>}
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     {/* Détection IA des boissons */}
