@@ -229,10 +229,10 @@ export class ExperienceService {
                 stats.totalVolume += volume;
             });
             
-            // Autres stats
-            stats.totalVomi += party.vomi || 0;
-            stats.totalFights += party.fights || 0; 
-            stats.totalRecal += party.recal || 0;
+            // Autres stats - Gestion des anciens et nouveaux noms de propriétés
+            stats.totalVomi += party.vomi || party.vomitCount || 0;
+            stats.totalFights += party.fights || party.timeFightsStarted || 0; 
+            stats.totalRecal += party.recal || party.elleVeut || 0;
             stats.totalQuizQuestions += party.quizResponses?.length || 0;
             
             // Lieux uniques

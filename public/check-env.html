@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vérification Variables d'Environnement - DrinkWise</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: white;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        .subtitle {
+            opacity: 0.8;
+            margin-bottom: 30px;
+        }
+        .var-item {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            border-left: 4px solid transparent;
+        }
+        .var-item.success {
+            border-left-color: #10b981;
+        }
+        .var-item.error {
+            border-left-color: #ef4444;
+        }
+        .var-item.warning {
+            border-left-color: #f59e0b;
+        }
+        .var-name {
+            font-weight: 600;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+        .var-value {
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            opacity: 0.8;
+            word-break: break-all;
+        }
+        .status {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-top: 5px;
+        }
+        .status.ok {
+            background: #10b981;
+        }
+        .status.missing {
+            background: #ef4444;
+        }
+        .status.placeholder {
+            background: #f59e0b;
+        }
+        .summary {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 30px;
+            text-align: center;
+        }
+        .summary h2 {
+            margin-bottom: 10px;
+        }
+        .big-status {
+            font-size: 48px;
+            margin: 20px 0;
+        }
+        .instructions {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+        .instructions h3 {
+            margin-bottom: 10px;
+        }
+        .instructions ol {
+            margin-left: 20px;
+            line-height: 1.8;
+        }
+        .copy-button {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 12px;
+            margin-left: 10px;
+        }
+        .copy-button:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 Vérification des Variables</h1>
+        <p class="subtitle">Vérifiez que vos variables d'environnement sont correctement configurées</p>
+        
+        <div id="variables"></div>
+        
+        <div class="summary" id="summary"></div>
+        
+        <div class="instructions">
+            <h3>📝 Pour ajouter sur Vercel :</h3>
+            <ol>
+                <li>Allez sur <a href="https://vercel.com/dashboard" target="_blank" style="color: #fbbf24;">vercel.com/dashboard</a></li>
+                <li>Sélectionnez le projet "drink-wise-mobile"</li>
+                <li>Settings → Environment Variables</li>
+                <li>Copiez-collez les variables manquantes (en rouge/orange ci-dessus)</li>
+                <li>Sélectionnez Production, Preview, ET Development</li>
+                <li>Redéployez votre projet</li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        // Variables attendues
+        const expectedVars = [
+            {
+                name: 'VITE_GOOGLE_MAPS_API_KEY',
+                value: 'AIzaSyBft5cAtkne-0dbY8m20bFeYGIKUBHRf_Y',
+                required: true
+            },
+            {
+                name: 'VITE_GEMINI_API_KEY',
+                value: 'your_actual_api_key_here',
+                required: false,
+                note: 'Clé placeholder - optionnelle pour le moment'
+            },
+            {
+                name: 'VITE_FIREBASE_API_KEY',
+                value: 'AIzaSyD_Gi_m1IRhl8SfgfIU6x0erT5pxeaUM5o',
+                required: true
+            },
+            {
+                name: 'VITE_FIREBASE_AUTH_DOMAIN',
+                value: 'drinkwise-31d3a.firebaseapp.com',
+                required: true
+            },
+            {
+                name: 'VITE_FIREBASE_PROJECT_ID',
+                value: 'drinkwise-31d3a',
+                required: true
+            },
+            {
+                name: 'VITE_FIREBASE_STORAGE_BUCKET',
+                value: 'drinkwise-31d3a.firebasestorage.app',
+                required: true
+            },
+            {
+                name: 'VITE_FIREBASE_MESSAGING_SENDER_ID',
+                value: '210028837880',
+                required: true
+            },
+            {
+                name: 'VITE_FIREBASE_APP_ID',
+                value: 'AIzaSyD_Gi_m1IRhl8SfgfIU6x0erT5pxeaUM5o',
+                required: true
+            },
+            {
+                name: 'VITE_FIREBASE_MEASUREMENT_ID',
+                value: 'G-RHZNKFRZVF',
+                required: true
+            }
+        ];
+
+        // Vérifier les variables
+        let okCount = 0;
+        let missingCount = 0;
+        let placeholderCount = 0;
+
+        const varsContainer = document.getElementById('variables');
+        
+        expectedVars.forEach(varConfig => {
+            const actualValue = import.meta.env[varConfig.name];
+            const div = document.createElement('div');
+            div.className = 'var-item';
+            
+            let status, statusClass, statusText;
+            
+            if (!actualValue || actualValue === 'undefined') {
+                status = 'missing';
+                statusClass = 'error';
+                statusText = '❌ MANQUANTE';
+                missingCount++;
+            } else if (actualValue === varConfig.value && varConfig.value.includes('your_actual')) {
+                status = 'placeholder';
+                statusClass = 'warning';
+                statusText = '⚠️ PLACEHOLDER';
+                placeholderCount++;
+            } else {
+                status = 'ok';
+                statusClass = 'success';
+                statusText = '✅ OK';
+                okCount++;
+            }
+            
+            div.classList.add(statusClass);
+            
+            const displayValue = actualValue || 'Non définie';
+            const maskedValue = actualValue && actualValue.length > 20 
+                ? actualValue.substring(0, 20) + '...' 
+                : displayValue;
+            
+            div.innerHTML = `
+                <div class="var-name">
+                    ${varConfig.name}
+                    <button class="copy-button" onclick="copyToClipboard('${varConfig.name}', '${varConfig.value}')">
+                        📋 Copier
+                    </button>
+                </div>
+                <div class="var-value">Valeur attendue: ${varConfig.value}</div>
+                <div class="var-value">Valeur actuelle: ${maskedValue}</div>
+                ${varConfig.note ? `<div class="var-value" style="margin-top: 5px; font-style: italic;">ℹ️ ${varConfig.note}</div>` : ''}
+                <span class="status ${status}">${statusText}</span>
+            `;
+            
+            varsContainer.appendChild(div);
+        });
+
+        // Afficher le résumé
+        const summaryDiv = document.getElementById('summary');
+        const total = expectedVars.length;
+        const allGood = missingCount === 0;
+        
+        summaryDiv.innerHTML = `
+            <h2>Résumé</h2>
+            <div class="big-status">${allGood ? '🎉' : '⚠️'}</div>
+            <p style="font-size: 18px; margin-bottom: 15px;">
+                ${okCount}/${total} variables configurées correctement
+            </p>
+            <p>
+                ✅ ${okCount} OK | 
+                ${placeholderCount > 0 ? `⚠️ ${placeholderCount} Placeholder | ` : ''}
+                ${missingCount > 0 ? `❌ ${missingCount} Manquantes` : ''}
+            </p>
+            ${allGood 
+                ? '<p style="margin-top: 15px; font-size: 16px;">🚀 Tout est bon ! Vous pouvez déployer sur Vercel.</p>' 
+                : '<p style="margin-top: 15px; font-size: 16px;">⚠️ Ajoutez les variables manquantes sur Vercel avant de déployer.</p>'
+            }
+        `;
+
+        function copyToClipboard(name, value) {
+            const text = `${name}=${value}`;
+            navigator.clipboard.writeText(text).then(() => {
+                alert(`✅ Copié !\n\n${name}\n${value}\n\nCollez ceci dans Vercel.`);
+            }).catch(err => {
+                console.error('Erreur copie:', err);
+                alert(`Variable: ${name}\nValeur: ${value}\n\nCopiez manuellement.`);
+            });
+        }
+    </script>
+</body>
+</html>
