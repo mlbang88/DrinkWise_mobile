@@ -255,31 +255,28 @@ export default function StoryViewer({ stories, userName, onClose, initialIndex =
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                overflow: 'hidden'
+                backgroundColor: 'rgba(255,0,0,0.1)'
             }}>
                 {currentStory.type === 'image' ? (
                     <img
                         src={currentStory.mediaUrl}
                         alt="Story"
                         style={{
-                            width: '80vw',
-                            height: '60vh',
+                            maxWidth: '90%',
+                            maxHeight: '90%',
                             objectFit: 'contain',
-                            userSelect: 'none'
+                            userSelect: 'none',
+                            border: '2px solid lime'
                         }}
-                        onLoad={(e) => {
-                            console.log('✅ Image loaded:', e.target.naturalWidth, 'x', e.target.naturalHeight);
-                            console.log('✅ Display dimensions:', e.target.width, 'x', e.target.height);
-                            console.log('✅ Computed style:', window.getComputedStyle(e.target).display);
-                        }}
-                        onError={(e) => console.error('❌ Image failed to load:', currentStory.mediaUrl, e)}
+                        onLoad={() => console.log('✅ Image loaded and should be visible')}
+                        onError={(e) => console.error('❌ Image failed to load:', e)}
                     />
                 ) : (
                     <video
                         src={currentStory.mediaUrl}
                         style={{
-                            width: '80vw',
-                            height: '60vh',
+                            maxWidth: '90%',
+                            maxHeight: '90%',
                             objectFit: 'contain'
                         }}
                         autoPlay
