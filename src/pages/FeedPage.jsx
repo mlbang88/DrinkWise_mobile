@@ -8,6 +8,7 @@ import { challengeService } from '../services/challengeService';
 import LoadingSpinner from '../components/LoadingSpinner';
 import LoadingIcon from '../components/LoadingIcon';
 import ErrorFallback, { EmptyState } from '../components/ErrorFallback';
+import StoriesBar from '../components/stories/StoriesBar';
 
 // Phase 2C: Animation components
 import AnimatedList from '../components/AnimatedList';
@@ -1040,6 +1041,9 @@ const FeedPage = () => {
     return (
         <PullToRefresh onRefresh={handleRefresh} threshold={80}>
             <OfflineIndicator />
+            
+            {/* Stories Bar */}
+            <StoriesBar />
             
             <div 
                 className="feed-container"

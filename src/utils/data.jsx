@@ -1,7 +1,7 @@
 // src/utils/data.jsx
 
 import React from 'react';
-import { Award, Beer, GlassWater, Bomb, Shield, Heart, Sparkles, HelpCircle, Users, HeartOff, PartyPopper, Wine, MapPin, ShieldCheck, Trophy, Calendar, Star } from 'lucide-react';
+import { Award, Beer, GlassWater, Bomb, Shield, Heart, Sparkles, HelpCircle, Users, HeartOff, PartyPopper, Wine, MapPin, ShieldCheck, Trophy, Calendar, Star, Moon, Feather, Dumbbell, Music, Sun, Snowflake, Crown } from 'lucide-react';
 
 export const localImageData = {
     soiree: 'https://images.unsplash.com/photo-1517457373958-b7bdd4587205?q=80&w=2069&auto=format&fit=crop',
@@ -93,12 +93,38 @@ export const badgeList = {
     'fights_1': { name: "Le Bagarreur", description: "Participer à 5 bagarres.", icon: <Bomb size={24} />, tier: 'epic', xpBonus: 150, criteria: (stats) => stats.totalFights >= 5 },
     'world_traveler': { name: "Globe-Trotter", description: "Enregistrer des soirées dans 15 lieux différents.", icon: <MapPin size={24} />, tier: 'epic', xpBonus: 250, criteria: (stats) => stats.uniqueLocations >= 15 },
     
+    // === NOUVEAUX BADGES CRÉATIFS ===
+    
+    // Badges Humoristiques
+    'party_animal': { name: "Animal de Fête", description: "Faire la fête 3 soirs d'affilée.", icon: <PartyPopper size={24} />, tier: 'rare', xpBonus: 120, criteria: (stats) => stats.consecutivePartiesWeekend >= 3 },
+    'night_owl': { name: "Oiseau de Nuit", description: "Rester en soirée jusqu'à 6h du matin.", icon: <Moon size={24} />, tier: 'rare', xpBonus: 100, criteria: (stats, party) => party.endTime && new Date(party.endTime).getHours() >= 6 },
+    'lightweight': { name: "Poids Plume", description: "Vomir après moins de 5 verres.", icon: <Feather size={24} />, tier: 'common', xpBonus: 30, criteria: (stats, party) => party.vomi > 0 && party.drinks.reduce((sum, d) => sum + d.quantity, 0) < 5 },
+    'heavyweight': { name: "Poids Lourd", description: "Boire plus de 20 verres sans vomir.", icon: <Dumbbell size={24} />, tier: 'epic', xpBonus: 300, criteria: (stats, party) => party.drinks.reduce((sum, d) => sum + d.quantity, 0) > 20 && party.vomi === 0 },
+    'dancing_queen': { name: "Reine de la Piste", description: "Danser lors de 10 soirées.", icon: <Music size={24} />, tier: 'rare', xpBonus: 100, criteria: (stats) => stats.partiesWithDancing >= 10 },
+    
+    // Badges Sociaux
+    'wingman': { name: "L'Ailier Parfait", description: "Aider 5 amis à trouver quelqu'un.", icon: <Users size={24} />, tier: 'rare', xpBonus: 150, criteria: (stats) => stats.successfulWingman >= 5 },
+    'influencer': { name: "L'Influenceur", description: "Avoir 50 amis sur l'app.", icon: <Sparkles size={24} />, tier: 'epic', xpBonus: 250, criteria: (stats) => stats.totalFriends >= 50 },
+    'party_starter': { name: "Le Lanceur", description: "Organiser 10 soirées de groupe.", icon: <Users size={24} />, tier: 'rare', xpBonus: 150, criteria: (stats) => stats.organizedParties >= 10 },
+    'loyal_friend': { name: "Ami Fidèle", description: "Sortir avec le même groupe 15 fois.", icon: <Heart size={24} />, tier: 'rare', xpBonus: 120, criteria: (stats) => stats.sameGroupParties >= 15 },
+    
+    // Badges Saisonniers
+    'summer_vibes': { name: "Ambiance d'Été", description: "Participer à 10 festivals d'été.", icon: <Sun size={24} />, tier: 'rare', xpBonus: 150, criteria: (stats) => stats.summerFestivals >= 10 },
+    'winter_warrior': { name: "Guerrier d'Hiver", description: "Sortir 5 fois par temps de neige.", icon: <Snowflake size={24} />, tier: 'rare', xpBonus: 150, criteria: (stats) => stats.winterParties >= 5 },
+    'new_year_legend': { name: "Légende du Nouvel An", description: "Fêter 5 réveillons.", icon: <PartyPopper size={24} />, tier: 'epic', xpBonus: 200, criteria: (stats) => stats.newYearParties >= 5 },
+    
+    // Badges Spéciaux
+    'time_traveler': { name: "Voyageur Temporel", description: "Sortir dans 10 villes différentes.", icon: <MapPin size={24} />, tier: 'epic', xpBonus: 300, criteria: (stats) => stats.uniqueCities >= 10 },
+    'cocktail_master': { name: "Maître Cocktailleur", description: "Boire 50 cocktails différents.", icon: <Wine size={24} />, tier: 'epic', xpBonus: 250, criteria: (stats) => stats.uniqueCocktails >= 50 },
+    'beer_connoisseur': { name: "Connaisseur de Bière", description: "Goûter 30 marques de bières.", icon: <Beer size={24} />, tier: 'rare', xpBonus: 150, criteria: (stats) => stats.uniqueBeers >= 30 },
+    
     // === BADGES LÉGENDAIRES (Legendary) - Exploits rarissimes ===
     'blackout_king': { name: "Roi du Blackout", description: "Obtenir 'Trou Noir Galactique' au quiz.", icon: <HelpCircle size={24} />, tier: 'legendary', xpBonus: 500, criteria: (stats, party) => party.partyTitle === "Trou Noir Galactique" },
     'heartbreaker': { name: "Le Brise-cœur", description: "Prendre 20 recals au total.", icon: <HeartOff size={24} />, tier: 'legendary', xpBonus: 500, criteria: (stats) => stats.totalRecal >= 20 },
     'party_god': { name: "Dieu de la Fête", description: "Participer à 100 soirées au total.", icon: <Trophy size={24} />, tier: 'legendary', xpBonus: 1000, criteria: (stats) => stats.totalParties >= 100 },
     'drink_master': { name: "Maître des Boissons", description: "Boire 5000 verres au total.", icon: <Beer size={24} />, tier: 'legendary', xpBonus: 1000, criteria: (stats) => stats.totalDrinks >= 5000 },
     'perfect_balance': { name: "Équilibre Parfait", description: "50 soirées consécutives sans vomir ni bagarre.", icon: <ShieldCheck size={24} />, tier: 'legendary', xpBonus: 1000, criteria: (stats) => stats.consecutiveCleanParties >= 50 },
+    'the_legend': { name: "La Légende Vivante", description: "Atteindre le niveau 100.", icon: <Crown size={24} />, tier: 'legendary', xpBonus: 5000, criteria: (stats) => stats.level >= 100 },
 };
 
 export const challengeList = {

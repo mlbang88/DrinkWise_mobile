@@ -10,7 +10,7 @@ import LoadingIcon from '../components/LoadingIcon';
 import { DrinkWiseImages } from '../assets/DrinkWiseImages';
 
 const SouvenirsPage = () => {
-    const { db, user, appId, setMessageBox } = useContext(FirebaseContext);
+    const { db, user, appId, setMessageBox, userProfile } = useContext(FirebaseContext);
     const [parties, setParties] = useState([]);
     const [loading, setLoading] = useState(true);
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
@@ -42,12 +42,29 @@ const SouvenirsPage = () => {
         const normalizedBrand = normalizeString(drinkBrand);
         const normalizedType = normalizeString(drinkType);
 
+        console.log('🔍 Recherche image:', { 
+            drinkBrand, 
+            drinkType, 
+            normalizedBrand, 
+            normalizedType,
+            foundBrand: drinkImageLibrary[normalizedBrand],
+            foundType: drinkImageLibrary[normalizedType]
+        });
+
+        // Priorité 1 : Marque spécifique
         if (drinkBrand && drinkImageLibrary[normalizedBrand]) {
+            console.log('✅ Image trouvée pour marque:', normalizedBrand);
             return drinkImageLibrary[normalizedBrand];
         }
+        
+        // Priorité 2 : Type de boisson
         if (drinkImageLibrary[normalizedType]) {
+            console.log('✅ Image trouvée pour type:', normalizedType);
             return drinkImageLibrary[normalizedType];
         }
+        
+        // Fallback : Image par défaut
+        console.log('⚠️ Utilisation image par défaut');
         return drinkImageLibrary['default'];
     };
 
@@ -88,6 +105,12 @@ const SouvenirsPage = () => {
         }
 
         const stats = ExperienceService.calculateRealStats(filteredParties, userProfile);
+        
+        console.log('📊 Stats calculées:', {
+            mostConsumedDrink: stats.mostConsumedDrink,
+            drinkTypes: stats.drinkTypes
+        });
+        
         const imageUrl = getLocalImageForDrink(stats.mostConsumedDrink.type, stats.mostConsumedDrink.brand);
         const seasonName = { winter: 'Hiver', spring: 'Printemps', summer: 'Été', autumn: 'Automne', all: "l'Année" }[selectedSeason];
         const period = `${seasonName} ${selectedYear}`;

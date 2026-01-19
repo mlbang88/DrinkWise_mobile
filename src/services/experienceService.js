@@ -2,6 +2,7 @@
 import { gameplayConfig, calculateDrinkVolume, badgeList } from '../utils/data';
 import { collection, doc, updateDoc, setDoc, getDoc, getDocs } from 'firebase/firestore';
 import logger from '../utils/logger';
+import { enhancedNotifications } from '../utils/enhancedNotifications';
 
 export class ExperienceService {
     
@@ -180,6 +181,9 @@ export class ExperienceService {
     // === SYNCHRONISATION STATS ===
     static async syncUserStats(db, appId, userId, userProfile) {
         try {
+            // Sauvegarder le niveau actuel pour détecter les level ups
+            const previousLevel = userProfile?.level || 1;
+            
             // 1. Récupérer toutes les données brutes
             const partiesRef = collection(db, `artifacts/${appId}/users/${userId}/parties`);
             const partiesSnapshot = await getDocs(partiesRef);
@@ -188,8 +192,8 @@ export class ExperienceService {
             // 2. Calculer stats réelles
             const realStats = this.calculateRealStats(allParties, userProfile);
             
-            // 3. Synchroniser PARTOUT en une fois
-            await this.updateAllStatsSources(db, appId, userId, realStats);
+            // 3. Synchroniser PARTOUT en une fois (avec previous level pour notifications)
+            await this.updateAllStatsSources(db, appId, userId, realStats, previousLevel);
             
             return realStats;
         } catch (error) {
@@ -349,8 +353,18 @@ export class ExperienceService {
     }
 
     // === MISE À JOUR TOUTES SOURCES ===
-    static async updateAllStatsSources(db, appId, userId, stats) {
+    static async updateAllStatsSources(db, appId, userId, stats, previousLevel = null) {
         const updatePromises = [];
+        
+        // Check for level up and show notification
+        if (previousLevel && stats.level > previousLevel) {
+            enhancedNotifications.showLevelUp(stats.level, stats.levelName);
+            logger.info('🎉 Level Up!', { 
+                from: previousLevel, 
+                to: stats.level, 
+                levelName: stats.levelName 
+            });
+        }
         
         // Source 1: Profil principal
         const userProfileRef = doc(db, `artifacts/${appId}/users/${userId}/profile`, 'data');

@@ -3,6 +3,7 @@ import { ThemeProvider, useTheme } from './styles/ThemeContext.jsx';
 import ThemedText from './styles/ThemedText.jsx';
 import { FirebaseProvider, FirebaseContext } from './contexts/FirebaseContext.jsx';
 import { localImageData } from './utils/data';
+import { MessageCircle } from 'lucide-react';
 
 // Import critical components (always needed)
 import LoadingSpinner from './components/LoadingSpinner';
@@ -22,6 +23,8 @@ const FriendStatsPage = lazy(() => import('./pages/FriendStatsPage'));
 const FeedPage = lazy(() => import('./pages/FeedPage'));
 const MapPage = lazy(() => import('./pages/MapPage'));
 const BattleRoyale = lazy(() => import('./components/BattleRoyale'));
+const OnboardingFlow = lazy(() => import('./components/onboarding/OnboardingFlow'));
+const ChatPage = lazy(() => import('./pages/ChatPage'));
 
 // Import icons for the nav bar
 import { Home, BarChart, Users, Award, User as UserIcon, Trophy, Rss, Target } from 'lucide-react';
@@ -33,6 +36,10 @@ import { errorHandler } from './utils/errorHandler.js';
 
 // Import navigation improvements
 import PageTransition from './components/PageTransition';
+
+// Import new features
+import { useOnboarding } from './hooks/useOnboarding';
+import { enhancedNotifications } from './utils/enhancedNotifications';
 
 const mainBgStyle = {
     background: '#0f0f0f', // Dark gray
@@ -53,6 +60,21 @@ const AppContent = () => {
     // IMPORTANT: useTheme doit être appelé avant tout return conditionnel
     useTheme();
 
+    // Onboarding hook
+    const { 
+        shouldShowOnboarding, 
+        isLoading: onboardingLoading,
+        completeOnboarding, 
+        skipOnboarding 
+    } = useOnboarding();
+
+    // Initialize enhanced notifications once when user is logged in
+    useEffect(() => {
+        if (user) {
+            enhancedNotifications.initialize();
+        }
+    }, [user]);
+
     // Navigation avec transition fluide
     const navigateToPage = useCallback((pageId) => {
         if (pageId === currentPage || isTransitioning) return;
@@ -71,27 +93,12 @@ const AppContent = () => {
         return <LoadingSpinner />;
     }
 
-    // Navigation - Items principaux (max 5 pour mobile)
-    const mainNavItems = [
-        { id: 'home', icon: Home, label: 'Accueil' },
-        { id: 'feed', icon: Rss, label: 'Fil' },
-        { id: 'battle', icon: Trophy, label: 'Battle' },
-        { id: 'friends', icon: Users, label: 'Amis' },
-        { id: 'profile', icon: UserIcon, label: 'Profil' }
-    ];
-    
-    // Items secondaires accessibles via HomePage ou profil
-    const secondaryNavItems = [
-        { id: 'stats', icon: BarChart, label: 'Stats' },
-        { id: 'badges', icon: Award, label: 'Badges' },
-        { id: 'challenges', icon: Target, label: 'Défis' }
-    ];
-
     const renderPage = () => {
         const PageComponent = () => {
             switch (currentPage) {
                 case 'home': return <HomePage setCurrentPage={setCurrentPage} />;
                 case 'feed': return <FeedPage />;
+                case 'messages': return <ChatPage />;
                 case 'battle': return <BattleRoyale setCurrentPage={setCurrentPage} />;
                 case 'map': return <MapPage setCurrentPage={setCurrentPage} />;
                 case 'stats': return <StatsPage />;
@@ -119,9 +126,56 @@ const AppContent = () => {
     
     return (
         <>
+            {/* Onboarding Flow */}
+            {user && shouldShowOnboarding && !onboardingLoading && (
+                <Suspense fallback={null}>
+                    <OnboardingFlow 
+                        onComplete={completeOnboarding}
+                        onSkip={skipOnboarding}
+                    />
+                </Suspense>
+            )}
+
             {!user ? (
                 <AuthPage />
             ) : (
+                <>
+                    {/* Bouton Messages flottant */}
+                    {currentPage !== 'messages' && (
+                        <button
+                            onClick={() => navigateToPage('messages')}
+                            style={{
+                                position: 'fixed',
+                                top: '24px',
+                                right: '24px',
+                                zIndex: 9999,
+                                padding: '16px',
+                                borderRadius: '16px',
+                                background: 'linear-gradient(135deg, #06b6d4 0%, #9333ea 50%, #ec4899 100%)',
+                                color: 'white',
+                                border: '2px solid rgba(255, 255, 255, 0.2)',
+                                boxShadow: '0 0 30px rgba(168, 85, 247, 0.6)',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s ease',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.transform = 'scale(1.1)';
+                                e.currentTarget.style.boxShadow = '0 0 40px rgba(168, 85, 247, 0.9)';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.transform = 'scale(1)';
+                                e.currentTarget.style.boxShadow = '0 0 30px rgba(168, 85, 247, 0.6)';
+                            }}
+                            aria-label="Messages"
+                            title="Mes messages"
+                        >
+                            <MessageCircle size={28} strokeWidth={2.5} />
+                        </button>
+                    )}
+                    
                 <div 
                     className="mobile-container font-sans text-white relative" 
                     style={{ 
@@ -170,6 +224,7 @@ const AppContent = () => {
                         />
                     </nav>
                 </div>
+                </> 
             )}
             
             {/* Toast notifications */}

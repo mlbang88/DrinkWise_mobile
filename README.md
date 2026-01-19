@@ -1,14 +1,46 @@
-# DrinkWise Mobile
+# 🎉 DrinkWise Mobile
 
-Une application mobile de suivi de consommation de boissons avec intelligence artificielle, développée avec React, Vite et Capacitor.
+L'application sociale qui transforme vos soirées en aventures épiques ! Suivi de consommation, badges, défis, territoires et bien plus...
 
-## ✨ Fonctionnalités
+## ⚡ Nouveautés (2024)
 
-- 🤖 **Détection IA de boissons** : Analysez vos boissons via photo avec l'IA Gemini
-- 👥 **Système d'amis** : Ajoutez des amis et comparez vos statistiques
-- 🏆 **Badges et défis** : Débloquez des récompenses et relevez des défis
-- 📊 **Statistiques détaillées** : Suivez votre consommation et vos progrès
-- 📱 **Application mobile** : Compatible Android et iOS via Capacitor
+- 🏆 **35 Badges uniques** : Party Animal, Night Owl, Dancing Queen/King, The Legend...
+- 💬 **Messagerie privée** : Chat en temps réel avec vos amis
+- 📸 **Stories éphémères** : Partagez vos moments pendant 24h
+- 🔔 **Notifications enrichies** : Sons, vibrations et alertes contextuelles
+- 👋 **Onboarding interactif** : Introduction en 6 étapes animées
+- 🗺️ **Contrôle territorial** : Devenez le roi/la reine de vos bars préférés
+- ⚔️ **Battle Royale** : Affrontez vos amis en 1v1
+
+*Voir [FEATURES_IMPLEMENTATION_STATUS.md](FEATURES_IMPLEMENTATION_STATUS.md) pour la liste complète*
+
+## ✨ Fonctionnalités Principales
+
+### 🎮 Gamification
+- 🏆 **35 badges** à débloquer (Common, Rare, Epic, Legendary)
+- 📈 **100 niveaux** avec système XP complet
+- 🎯 **Défis quotidiens** et challenges spéciaux
+- ⚔️ **Battle Mode** : Affrontements 1v1 entre amis
+- 🗺️ **Territorial Control** : Conquérez des bars et établissements
+
+### 👥 Social
+- 💬 **Chat privé** en temps réel (Firestore)
+- 📸 **Stories 24h** (photos/vidéos)
+- 👫 **Système d'amis** avec demandes
+- 👨‍👩‍👧‍👦 **Groupes** et statistiques de groupe
+- 🎉 **Feed social** avec likes et commentaires
+
+### 📊 Tracking & Stats
+- 🤖 **Détection IA** de boissons (Gemini AI)
+- 📊 **Statistiques détaillées** personnelles et sociales
+- 🏅 **Classements** entre amis
+- 📈 **Historique** complet des soirées
+
+### 📱 Mobile
+- 📱 **Application native** Android et iOS (Capacitor)
+- 🔔 **Push notifications** riches
+- 📳 **Haptic feedback** pour une expérience immersive
+- 🎵 **Sons personnalisés** pour chaque action
 
 ## 🚀 Installation
 

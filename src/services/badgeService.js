@@ -2,6 +2,7 @@ import { collection, getDocs, updateDoc, doc, getDoc, setDoc } from 'firebase/fi
 import { badgeList } from '../utils/data';
 import { ExperienceService } from './experienceService';
 import { logger } from '../utils/logger';
+import { enhancedNotifications } from '../utils/enhancedNotifications';
 
 // ✅ Cache en mémoire pour throttle (meilleur que sessionStorage)
 const throttleCache = new Map();
@@ -227,6 +228,13 @@ export const badgeService = {
                     updatedBadges.push(badgeId);
                     newBadgesAwarded.push(badgeId); // Stocker l'ID au lieu du nom
                     logger.info('badgeService: Nouveau badge débloqué', { badgeName: badge.name });
+                    
+                    // Show enhanced notification for badge unlock
+                    enhancedNotifications.showAchievement({
+                        id: badgeId,
+                        name: badge.name,
+                        description: badge.description
+                    });
                 }
             }
 

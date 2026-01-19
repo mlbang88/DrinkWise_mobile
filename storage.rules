@@ -43,6 +43,29 @@ service firebase.storage {
       allow delete: if request.auth != null && request.auth.uid == userId;
     }
     
+    // Règles pour les stories (images et vidéos)
+    match /stories/{mediaType}/{filename} {
+      // Permettre la lecture à tous les utilisateurs authentifiés
+      allow read: if request.auth != null;
+      
+      // Permettre l'écriture seulement aux utilisateurs authentifiés
+      allow write: if request.auth != null
+                   // Validation de la taille - Images: max 10MB, Vidéos: max 50MB
+                   && ((request.resource.contentType.matches('image/(jpeg|jpg|png|webp|gif)') 
+                        && request.resource.size < 10 * 1024 * 1024)
+                       || (request.resource.contentType.matches('video/(mp4|mov|avi|webm)') 
+                           && request.resource.size < 50 * 1024 * 1024))
+                   // Validation du type de fichier
+                   && (request.resource.contentType.matches('image/(jpeg|jpg|png|webp|gif)')
+                       || request.resource.contentType.matches('video/(mp4|mov|avi|webm)'))
+                   // Vérifier que le nom de fichier contient l'UID de l'utilisateur
+                   && filename.matches('.*' + request.auth.uid + '.*');
+      
+      // Permettre la suppression aux utilisateurs authentifiés pour leurs propres fichiers
+      allow delete: if request.auth != null 
+                    && filename.matches('.*' + request.auth.uid + '.*');
+    }
+    
     // Règle générale pour tous les fichiers artifacts (plus permissive pour debug)
     match /artifacts/{appId}/users/{userId}/{allPaths=**} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
